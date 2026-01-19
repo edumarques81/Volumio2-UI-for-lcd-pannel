@@ -125,6 +125,60 @@ export const settingsCategories: SettingsCategory[] = [
 export const currentSettingsCategory = writable<string | null>(null);
 
 /**
+ * Display mode based on screen size
+ */
+export type DisplayMode = 'lcd' | 'desktop' | 'tablet' | 'mobile';
+
+// Display mode detection
+function detectDisplayMode(): DisplayMode {
+  if (typeof window === 'undefined') return 'desktop';
+
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+
+  // LCD panel: wide and short (e.g., 1920x440)
+  if (height <= 500) {
+    return 'lcd';
+  }
+
+  // Mobile: narrow screens
+  if (width < 768) {
+    return 'mobile';
+  }
+
+  // Tablet: medium screens
+  if (width < 1025) {
+    return 'tablet';
+  }
+
+  // Desktop: large screens
+  return 'desktop';
+}
+
+export const displayMode = writable<DisplayMode>(detectDisplayMode());
+export const isLcdMode = writable<boolean>(false);
+export const isTouchDevice = writable<boolean>(false);
+
+// Update display mode on resize
+if (typeof window !== 'undefined') {
+  // Initial detection
+  displayMode.set(detectDisplayMode());
+  isLcdMode.set(detectDisplayMode() === 'lcd');
+  isTouchDevice.set('ontouchstart' in window || navigator.maxTouchPoints > 0);
+
+  // Listen for resize
+  let resizeTimeout: ReturnType<typeof setTimeout>;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
+      const mode = detectDisplayMode();
+      displayMode.set(mode);
+      isLcdMode.set(mode === 'lcd');
+    }, 150);
+  });
+}
+
+/**
  * Settings actions
  */
 export const settingsActions = {

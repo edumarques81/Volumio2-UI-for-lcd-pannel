@@ -5,6 +5,7 @@
   import { initBrowseStore } from '$lib/stores/browse';
   import { initQueueStore } from '$lib/stores/queue';
   import { initSettingsStore, selectedBackground } from '$lib/stores/settings';
+  import { initFavoritesStore } from '$lib/stores/favorites';
   import { currentView, layoutMode } from '$lib/stores/navigation';
   import { getVolumioHost } from '$lib/config';
 
@@ -18,6 +19,10 @@
   // Components
   import BackHeader from '$lib/components/BackHeader.svelte';
   import MiniPlayer from '$lib/components/MiniPlayer.svelte';
+  import ContextMenu from '$lib/components/ContextMenu.svelte';
+  import PlaylistSelector from '$lib/components/PlaylistSelector.svelte';
+  import TrackInfoModal from '$lib/components/TrackInfoModal.svelte';
+  import Toast from '$lib/components/Toast.svelte';
 
   const volumioHost = getVolumioHost();
 
@@ -32,6 +37,7 @@
     initBrowseStore();
     initQueueStore();
     initSettingsStore();
+    initFavoritesStore();
 
     // Cleanup on unmount
     return () => {
@@ -106,6 +112,12 @@
       <button on:click={() => socketService.connect()}>Retry Connection</button>
     </div>
   {/if}
+
+  <!-- Global modals -->
+  <ContextMenu />
+  <PlaylistSelector />
+  <TrackInfoModal />
+  <Toast />
 </main>
 
 <style>

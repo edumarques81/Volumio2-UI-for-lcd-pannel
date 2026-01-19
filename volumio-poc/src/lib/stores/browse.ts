@@ -39,6 +39,9 @@ export interface BrowseResponse {
   };
 }
 
+// View mode type
+export type BrowseViewMode = 'list' | 'grid';
+
 // Current browse data
 export const browseData = writable<BrowseResponse | null>(null);
 
@@ -47,6 +50,19 @@ export const browseLoading = writable<boolean>(false);
 
 // Error state
 export const browseError = writable<string | null>(null);
+
+// View mode - persisted to localStorage
+const storedViewMode = typeof localStorage !== 'undefined'
+  ? localStorage.getItem('browseViewMode') as BrowseViewMode
+  : null;
+export const browseViewMode = writable<BrowseViewMode>(storedViewMode || 'list');
+
+// Persist view mode changes to localStorage
+browseViewMode.subscribe((mode) => {
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('browseViewMode', mode);
+  }
+});
 
 // Flattened items from all lists
 export const browseItems = derived(browseData, ($data) => {
@@ -64,6 +80,20 @@ export const browseLists = derived(browseData, ($data) => {
  * Browse actions
  */
 export const browseActions = {
+  /**
+   * Toggle between list and grid view
+   */
+  toggleViewMode() {
+    browseViewMode.update((mode) => (mode === 'list' ? 'grid' : 'list'));
+  },
+
+  /**
+   * Set view mode explicitly
+   */
+  setViewMode(mode: BrowseViewMode) {
+    browseViewMode.set(mode);
+  },
+
   /**
    * Browse to a URI
    */

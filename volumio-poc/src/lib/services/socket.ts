@@ -17,12 +17,17 @@ class SocketService {
     'search',
     'goTo',
     'GetTrackInfo',
+    // Playlist events
     'createPlaylist',
     'listPlaylist',
     'addToPlaylist',
+    'removeFromPlaylist',
+    'deletePlaylist',
     'playPlaylist',
     'enqueue',
+    // Favorites events
     'addToFavourites',
+    'removeFromFavourites',
     'playFavourites',
   ];
 
