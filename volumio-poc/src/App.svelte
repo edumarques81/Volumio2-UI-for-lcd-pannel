@@ -144,23 +144,6 @@
     background-color: #1a1a2e;
   }
 
-  .view-background-gradient {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 0;
-    background: linear-gradient(
-      135deg,
-      #1a1a2e 0%,
-      #16213e 25%,
-      #0f3460 50%,
-      #1a1a2e 75%,
-      #16213e 100%
-    );
-  }
-
   .view-background-overlay {
     position: absolute;
     top: 0;
