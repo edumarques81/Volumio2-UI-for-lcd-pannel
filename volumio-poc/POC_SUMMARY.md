@@ -181,6 +181,61 @@ When you interact:
 🔊 Volume: 50
 ```
 
+## 📐 Final UI Sizes (CarPlay-Style)
+
+The following sizes are optimized for the 1920x440 LCD panel:
+
+### App Tiles (AppLauncher)
+| Element | Size | Notes |
+|---------|------|-------|
+| Tile icon | 179×179px | Rounded corners: 40px |
+| App tile min-width | 224px | Including padding |
+| App tile padding | 23px 33px 29px | Top/sides/bottom |
+| App tile border-radius | 33px | Frosted glass effect |
+| Icon inside tile | 90px | SVG icon size |
+| Tile gap | 7px | Space between tiles |
+
+### Now Playing Tile
+| Element | Size | Notes |
+|---------|------|-------|
+| Tile width | 650-771px | Min/max responsive |
+| Tile padding | 23px 33px | All sides |
+| Tile border-radius | 33px | Matches app tiles |
+| Album art | 146×146px | Rounded corners |
+| Control buttons | 90×90px | Skip prev/next |
+| Play button | 98×98px | Larger for primary action |
+| Skip icons | 49px | SVG size |
+| Play/Pause icon | 57px | SVG size |
+
+### Vinyl Placeholder (when no album art)
+| Element | Size | Notes |
+|---------|------|-------|
+| Vinyl icon | 113×113px | Full vinyl record |
+| Vinyl grooves | 17px inset | From edges |
+| Vinyl label | 44×44px | Center colored area |
+| Vinyl center | 12×12px | Spindle hole |
+
+### Status Bar & Headers
+| Element | Size | Notes |
+|---------|------|-------|
+| Status bar height | 40px | Top of screen |
+| Back header height | 52px | 30% larger than status bar |
+| Frosted glass blur | 1.5px | With saturate(135%) |
+
+### Typography
+| Element | Size | Notes |
+|---------|------|-------|
+| Tile title | var(--font-size-base) | 18px |
+| Tile subtitle | var(--font-size-sm) | 16px |
+| Track title | var(--font-size-lg) | 20px |
+| Track artist | var(--font-size-base) | 18px |
+| ON AIR indicator | var(--font-size-sm) | With glow animation |
+
+### Background
+- Default: Yosemite (bg.jpg)
+- Fallback color: #1c1c1e
+- Applied to body element
+
 ## 🎯 Performance Characteristics
 
 Based on initial testing:
