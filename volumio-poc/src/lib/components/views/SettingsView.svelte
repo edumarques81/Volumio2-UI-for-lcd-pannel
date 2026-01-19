@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
-  import { layoutMode, navigationActions } from '$lib/stores/navigation';
+  import { onMount } from 'svelte';
+  import { layoutMode } from '$lib/stores/navigation';
   import {
     systemInfo,
     networkStatus,
@@ -11,16 +11,7 @@
     selectedBackground,
     type SettingsCategory
   } from '$lib/stores/settings';
-  import {
-    audioDevices,
-    audioDevicesLoading,
-    selectedAudioOutput,
-    audioDevicesByCategory,
-    audioDevicesActions
-  } from '$lib/stores/audioDevices';
   import Icon from '../Icon.svelte';
-
-  let audioDevicesCleanup: (() => void) | null = null;
 
   function handleCategoryClick(category: SettingsCategory) {
     settingsActions.openCategory(category.id);
@@ -61,25 +52,18 @@
   onMount(() => {
     settingsActions.getSystemInfo();
     settingsActions.getNetworkStatus();
-    audioDevicesCleanup = audioDevicesActions.init();
   });
-
-  onDestroy(() => {
-    audioDevicesCleanup?.();
-  });
-
-  function handleAudioOutputSelect(deviceId: string) {
-    audioDevicesActions.setOutput(deviceId);
-  }
 </script>
 
-<div class="settings-view" data-view="settings">
+<div class="settings-view">
   <!-- Header -->
   <header class="settings-header">
     <div class="header-left">
-      <button class="back-btn" on:click={$currentSettingsCategory ? handleBack : navigationActions.goHome} aria-label={$currentSettingsCategory ? 'Go back to categories' : 'Back to home'} data-testid={$currentSettingsCategory ? 'settings-back' : 'home-back'}>
-        <Icon name="chevron-left" size={32} />
-      </button>
+      {#if $currentSettingsCategory}
+        <button class="back-btn" on:click={handleBack} aria-label="Go back">
+          <Icon name="back" size={28} />
+        </button>
+      {/if}
       <h1 class="title">
         {$currentSettingsCategory
           ? settingsCategories.find(c => c.id === $currentSettingsCategory)?.title || 'Settings'
@@ -112,7 +96,7 @@
         <h2 class="section-title">Background</h2>
         <p class="section-hint">Choose a background image or use album art</p>
 
-        <div class="backgrounds-scroll" data-testid="background-selector">
+        <div class="backgrounds-scroll">
           <!-- Album Art Option -->
           <button
             class="bg-option"
@@ -173,154 +157,14 @@
       </div>
     {:else if $currentSettingsCategory === 'playback'}
       <!-- Playback Settings -->
-      <div class="settings-section" data-testid="audio-output-section">
+      <div class="settings-section">
         <h2 class="section-title">Audio Output</h2>
-        <p class="section-hint">Select your audio output device</p>
-
-        {#if $audioDevicesLoading}
-          <div class="placeholder">
-            <div class="spinner"></div>
-            <p>Loading audio devices...</p>
-          </div>
-        {:else}
-          <div class="audio-output-list" data-testid="audio-output-list">
-            <!-- USB Devices -->
-            {#if $audioDevicesByCategory.usb.length > 0}
-              <div class="output-category" data-testid="output-category-usb">
-                <h3 class="category-label">
-                  <Icon name="usb" size={18} />
-                  USB Audio
-                </h3>
-                {#each $audioDevicesByCategory.usb as device}
-                  <button
-                    class="audio-output-option"
-                    class:selected={$selectedAudioOutput === device.id}
-                    class:disabled={!device.connected}
-                    data-testid="audio-output-option"
-                    data-selected={$selectedAudioOutput === device.id}
-                    data-disabled={!device.connected}
-                    on:click={() => device.connected && handleAudioOutputSelect(device.id)}
-                    disabled={!device.connected}
-                  >
-                    <div class="output-info">
-                      <span class="output-name" data-testid="device-name">{device.name}</span>
-                      {#if !device.connected}
-                        <span class="output-status">Not connected</span>
-                      {/if}
-                    </div>
-                    {#if $selectedAudioOutput === device.id}
-                      <Icon name="check" size={20} />
-                    {/if}
-                  </button>
-                {/each}
-              </div>
-            {/if}
-
-            <!-- HDMI Devices -->
-            {#if $audioDevicesByCategory.hdmi.length > 0}
-              <div class="output-category" data-testid="output-category-hdmi">
-                <h3 class="category-label">
-                  <Icon name="monitor" size={18} />
-                  HDMI Audio
-                </h3>
-                {#each $audioDevicesByCategory.hdmi as device}
-                  <button
-                    class="audio-output-option"
-                    class:selected={$selectedAudioOutput === device.id}
-                    class:disabled={!device.connected}
-                    data-testid="audio-output-option"
-                    data-selected={$selectedAudioOutput === device.id}
-                    data-disabled={!device.connected}
-                    on:click={() => device.connected && handleAudioOutputSelect(device.id)}
-                    disabled={!device.connected}
-                  >
-                    <div class="output-info">
-                      <span class="output-name" data-testid="device-name">{device.name}</span>
-                      {#if !device.connected}
-                        <span class="output-status">Not connected</span>
-                      {/if}
-                    </div>
-                    {#if $selectedAudioOutput === device.id}
-                      <Icon name="check" size={20} />
-                    {/if}
-                  </button>
-                {/each}
-              </div>
-            {/if}
-
-            <!-- I2S/DAC Devices -->
-            {#if $audioDevicesByCategory.i2s.length > 0}
-              <div class="output-category" data-testid="output-category-i2s">
-                <h3 class="category-label">
-                  <Icon name="cpu" size={18} />
-                  I2S / DAC
-                </h3>
-                {#each $audioDevicesByCategory.i2s as device}
-                  <button
-                    class="audio-output-option"
-                    class:selected={$selectedAudioOutput === device.id}
-                    class:disabled={!device.connected}
-                    data-testid="audio-output-option"
-                    data-selected={$selectedAudioOutput === device.id}
-                    data-disabled={!device.connected}
-                    on:click={() => device.connected && handleAudioOutputSelect(device.id)}
-                    disabled={!device.connected}
-                  >
-                    <div class="output-info">
-                      <span class="output-name" data-testid="device-name">{device.name}</span>
-                      {#if !device.connected}
-                        <span class="output-status">Not connected</span>
-                      {/if}
-                    </div>
-                    {#if $selectedAudioOutput === device.id}
-                      <Icon name="check" size={20} />
-                    {/if}
-                  </button>
-                {/each}
-              </div>
-            {/if}
-
-            <!-- Other Devices -->
-            {#if $audioDevicesByCategory.other.length > 0}
-              <div class="output-category" data-testid="output-category-other">
-                <h3 class="category-label">
-                  <Icon name="speaker" size={18} />
-                  Other
-                </h3>
-                {#each $audioDevicesByCategory.other as device}
-                  <button
-                    class="audio-output-option"
-                    class:selected={$selectedAudioOutput === device.id}
-                    class:disabled={!device.connected}
-                    data-testid="audio-output-option"
-                    data-selected={$selectedAudioOutput === device.id}
-                    data-disabled={!device.connected}
-                    on:click={() => device.connected && handleAudioOutputSelect(device.id)}
-                    disabled={!device.connected}
-                  >
-                    <div class="output-info">
-                      <span class="output-name" data-testid="device-name">{device.name}</span>
-                      {#if !device.connected}
-                        <span class="output-status">Not connected</span>
-                      {/if}
-                    </div>
-                    {#if $selectedAudioOutput === device.id}
-                      <Icon name="check" size={20} />
-                    {/if}
-                  </button>
-                {/each}
-              </div>
-            {/if}
-
-            <!-- No devices -->
-            {#if $audioDevices.length === 0}
-              <div class="placeholder">
-                <Icon name="volume-x" size={48} />
-                <p>No audio devices found</p>
-              </div>
-            {/if}
-          </div>
-        {/if}
+        <p class="section-hint">Configure your audio output device</p>
+        <!-- Audio output settings would go here -->
+        <div class="placeholder">
+          <Icon name="volume-high" size={48} />
+          <p>Audio output configuration coming soon</p>
+        </div>
       </div>
     {:else if $currentSettingsCategory === 'network'}
       <!-- Network Settings -->
@@ -442,30 +286,21 @@
   }
 
   .back-btn {
-    width: 56px;
-    height: 56px;
+    width: 48px;
+    height: 48px;
     display: flex;
     align-items: center;
     justify-content: center;
     border: none;
     border-radius: var(--radius-full);
     background: rgba(255, 255, 255, 0.1);
-    color: #ffffff;
+    color: var(--color-text-primary);
     cursor: pointer;
     transition: all 0.2s;
-    flex-shrink: 0;
-  }
-
-  .back-btn :global(svg) {
-    stroke-width: 3;
   }
 
   .back-btn:hover {
-    background: rgba(255, 255, 255, 0.2);
-  }
-
-  .back-btn:active {
-    transform: scale(0.95);
+    background: rgba(255, 255, 255, 0.15);
   }
 
   .title {
@@ -492,7 +327,7 @@
     align-items: center;
     gap: var(--spacing-lg);
     padding: var(--spacing-lg);
-    background: rgba(255, 255, 255, 0.27);
+    background: rgba(255, 255, 255, 0.05);
     border: none;
     border-radius: var(--radius-lg);
     color: var(--color-text-primary);
@@ -503,7 +338,7 @@
   }
 
   .category-card:hover {
-    background: rgba(255, 255, 255, 0.54);
+    background: rgba(255, 255, 255, 0.1);
   }
 
   .category-card:active {
@@ -561,7 +396,7 @@
     align-items: center;
     justify-content: space-between;
     padding: var(--spacing-lg);
-    background: rgba(255, 255, 255, 0.27);
+    background: rgba(255, 255, 255, 0.05);
     border-radius: var(--radius-md);
     margin-bottom: var(--spacing-sm);
   }
@@ -624,7 +459,7 @@
     flex-direction: column;
     gap: 4px;
     padding: var(--spacing-md);
-    background: rgba(255, 255, 255, 0.27);
+    background: rgba(255, 255, 255, 0.05);
     border-radius: var(--radius-md);
   }
 
@@ -770,106 +605,5 @@
   .bg-option.selected .bg-label {
     color: var(--color-accent);
     font-weight: 500;
-  }
-
-  /* Audio output styles */
-  .audio-output-list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-lg);
-  }
-
-  .output-category {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-sm);
-  }
-
-  .category-label {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    font-size: var(--font-size-sm);
-    font-weight: 600;
-    color: var(--color-text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin: 0 0 var(--spacing-xs) 0;
-    padding: 0 var(--spacing-sm);
-  }
-
-  .audio-output-option {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: var(--spacing-md) var(--spacing-lg);
-    background: rgba(255, 255, 255, 0.27);
-    border: 2px solid transparent;
-    border-radius: var(--radius-md);
-    color: var(--color-text-primary);
-    cursor: pointer;
-    transition: all 0.2s;
-    min-height: var(--touch-target-min);
-    text-align: left;
-    width: 100%;
-  }
-
-  .audio-output-option:hover:not(.disabled) {
-    background: rgba(255, 255, 255, 0.54);
-    border-color: rgba(255, 255, 255, 0.54);
-  }
-
-  .audio-output-option:active:not(.disabled) {
-    transform: scale(0.98);
-  }
-
-  .audio-output-option.selected {
-    background: rgba(0, 122, 255, 0.15);
-    border-color: var(--color-accent);
-  }
-
-  .audio-output-option.selected:hover {
-    background: rgba(0, 122, 255, 0.2);
-  }
-
-  .audio-output-option.disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .output-info {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .output-name {
-    font-size: var(--font-size-base);
-    font-weight: 500;
-  }
-
-  .output-status {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-tertiary);
-  }
-
-  .audio-output-option.selected .output-name {
-    color: var(--color-accent);
-  }
-
-  /* Spinner */
-  .spinner {
-    width: 32px;
-    height: 32px;
-    border: 3px solid rgba(255, 255, 255, 0.1);
-    border-top-color: var(--color-accent);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
-
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
   }
 </style>

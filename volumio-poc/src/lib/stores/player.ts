@@ -1,33 +1,6 @@
 import { writable, derived, get } from 'svelte/store';
 import { socketService } from '$lib/services/socket';
-import { fixVolumioAssetUrl } from '$lib/config';
 import type { PlayerState } from '$lib/types';
-
-/**
- * Extended track info response from Volumio
- */
-export interface TrackInfo {
-  uri: string;
-  service: string;
-  name: string;
-  artist?: string;
-  album?: string;
-  albumart?: string;
-  duration?: number;
-  type?: string;
-  trackType?: string;
-  samplerate?: string;
-  bitdepth?: string;
-  bitrate?: string;
-  channels?: number;
-  year?: string;
-  genre?: string;
-  tracknumber?: number;
-  composer?: string;
-  filesize?: number;
-  path?: string;
-  [key: string]: any; // Allow additional metadata fields
-}
 
 // State stores
 export const playerState = writable<PlayerState | null>(null);
@@ -35,14 +8,8 @@ export const volume = writable<number>(80);
 export const mute = writable<boolean>(false);
 export const shuffle = writable<boolean>(false);
 export const repeat = writable<'off' | 'all' | 'one'>('off');
-export const seek = writable<number>(0); // In SECONDS (converted from Volumio's milliseconds)
-export const duration = writable<number>(0); // In SECONDS
-export const trackInfo = writable<TrackInfo | null>(null);
-export const trackInfoLoading = writable<boolean>(false);
-
-// Seek interpolation timer
-let seekIntervalId: ReturnType<typeof setInterval> | null = null;
-let lastSeekUpdate = 0;
+export const seek = writable<number>(0);
+export const duration = writable<number>(0);
 
 // Derived stores
 export const isPlaying = derived(playerState, $state => $state?.status === 'play');
@@ -51,7 +18,7 @@ export const currentTrack = derived(playerState, $state => ({
   title: $state?.title || 'No track playing',
   artist: $state?.artist || 'Unknown artist',
   album: $state?.album || '',
-  albumart: $state?.albumart || '/default-album.svg'
+  albumart: $state?.albumart || '/default-album.png'
 }));
 
 export const trackQuality = derived(playerState, $state => {
@@ -68,37 +35,9 @@ export const progress = derived([seek, duration], ([$seek, $duration]) => {
 
 // Actions
 export const playerActions = {
-  play: (index?: number) => {
-    const state = get(playerState);
-    const currentStatus = state?.status;
-    const currentPosition = state?.position ?? 0;
-
-    console.log(`▶ Play called - status: ${currentStatus}, position: ${currentPosition}, index arg: ${index}`);
-
-    // If index provided, play that specific track
-    if (index !== undefined) {
-      console.log(`▶ Playing track at index: ${index}`);
-      socketService.emit('play', { value: index });
-      return;
-    }
-
-    // If paused, resume without index
-    if (currentStatus === 'pause') {
-      console.log('▶ Resuming from pause');
-      socketService.emit('play');
-      return;
-    }
-
-    // For stop, undefined, or any other state - send with position
-    // This ensures we always have a valid track to play
-    console.log(`▶ Starting playback at position: ${currentPosition}`);
-    socketService.emit('play', { value: currentPosition });
-  },
-
-  // Request current state from backend
-  getState: () => {
-    console.log('📡 Requesting state from backend');
-    socketService.emit('getState');
+  play: () => {
+    console.log('▶ Play');
+    socketService.emit('play');
   },
 
   pause: () => {
@@ -157,17 +96,6 @@ export const playerActions = {
     console.log(`⏩ Seek to: ${position}s`);
     seek.set(position);
     socketService.emit('seek', position);
-  },
-
-  getTrackInfo: (uri?: string, service?: string) => {
-    console.log('ℹ️ Getting track info');
-    trackInfoLoading.set(true);
-    trackInfo.set(null);
-    socketService.emit('GetTrackInfo', { uri, service });
-  },
-
-  clearTrackInfo: () => {
-    trackInfo.set(null);
   }
 };
 
@@ -179,30 +107,6 @@ export function formatTime(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
-// Start client-side seek interpolation (updates every second while playing)
-function startSeekInterpolation() {
-  if (seekIntervalId) return; // Already running
-
-  seekIntervalId = setInterval(() => {
-    const state = get(playerState);
-    const currentSeek = get(seek);
-    const currentDuration = get(duration);
-
-    // Only interpolate if playing and not at end
-    if (state?.status === 'play' && currentSeek < currentDuration) {
-      seek.update(s => Math.min(s + 1, currentDuration));
-    }
-  }, 1000);
-}
-
-// Stop seek interpolation
-function stopSeekInterpolation() {
-  if (seekIntervalId) {
-    clearInterval(seekIntervalId);
-    seekIntervalId = null;
-  }
-}
-
 // Initialize listeners
 let initialized = false;
 
@@ -210,21 +114,11 @@ export function initPlayerStore() {
   if (initialized) return;
   initialized = true;
 
-  console.log('🎵 Initializing player store...');
+  console.log('Initializing player store...');
 
   // Listen for state updates from backend
-  const unsubscribe = socketService.on<PlayerState>('pushState', (state) => {
-    console.log('📊 pushState received:', {
-      status: state.status,
-      title: state.title,
-      seekMs: state.seek,
-      durationSec: state.duration
-    });
-
-    // Fix albumart URL to point to Volumio backend
-    if (state.albumart) {
-      state.albumart = fixVolumioAssetUrl(state.albumart);
-    }
+  socketService.on<PlayerState>('pushState', (state) => {
+    console.log('📊 State update:', state);
     playerState.set(state);
 
     // Update derived values
@@ -236,20 +130,8 @@ export function initPlayerStore() {
       repeat.set(state.repeat ? (state.repeatSingle ? 'one' : 'all') : 'off');
     }
 
-    // Convert seek from milliseconds to seconds
-    if (state.seek !== undefined) {
-      const seekSeconds = Math.floor(state.seek / 1000);
-      seek.set(seekSeconds);
-      lastSeekUpdate = Date.now();
-    }
+    if (state.seek !== undefined) seek.set(state.seek);
     if (state.duration !== undefined) duration.set(state.duration);
-
-    // Manage seek interpolation based on playback state
-    if (state.status === 'play') {
-      startSeekInterpolation();
-    } else {
-      stopSeekInterpolation();
-    }
   });
 
   // Listen for queue updates
@@ -261,19 +143,4 @@ export function initPlayerStore() {
   socketService.on('pushToastMessage', (message) => {
     console.log('💬 Toast:', message);
   });
-
-  // Listen for track info response
-  socketService.on<TrackInfo>('pushTrackInfo', (info) => {
-    console.log('ℹ️ Track info:', info);
-    trackInfo.set(info);
-    trackInfoLoading.set(false);
-  });
-
-  console.log('✅ Player store initialized, pushState handler registered');
-
-  // Request initial state after a short delay to ensure socket is connected
-  setTimeout(() => {
-    console.log('📡 Requesting initial state...');
-    socketService.emit('getState');
-  }, 500);
 }

@@ -1,38 +1,20 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { browseStack, currentBrowseLocation, navigationActions } from '$lib/stores/navigation';
-  import { browseItems, browseSources, browseLists, browseLoading, browseActions, browseViewMode, type BrowseItem } from '$lib/stores/browse';
-  import { uiActions } from '$lib/stores/ui';
+  import { browseItems, browseLists, browseLoading, browseActions, type BrowseItem } from '$lib/stores/browse';
   import Icon from '../Icon.svelte';
-  import BrowseList from '../BrowseList.svelte';
-  import BrowseGrid from '../BrowseGrid.svelte';
-  import SkeletonList from '../SkeletonList.svelte';
 
   let searchQuery = '';
 
-  // Check if we're at the root (empty URI means show sources)
-  $: isAtRoot = !$currentBrowseLocation?.uri;
-
-  // Get items to display - either sources (at root) or browse items (in folder)
-  $: displayItems = isAtRoot ? $browseSources : $browseItems;
-
-  // Browse to current location when stack changes (but not for empty URI - that uses sources)
-  $: if ($currentBrowseLocation && $currentBrowseLocation.uri) {
+  // Browse to current location when stack changes
+  $: if ($currentBrowseLocation) {
     browseActions.browse($currentBrowseLocation.uri);
   }
 
   function handleItemClick(item: BrowseItem) {
-    // Sources and folders should be navigated into
-    // Note: Sources from getBrowseSources don't have a 'type' but have a 'uri'
-    const isNavigable = !item.type ||
-                       item.type === 'folder' ||
-                       item.type === 'playlist' ||
-                       item.type === 'streaming-category' ||
-                       item.type === 'item-no-menu';
-
-    if (isNavigable) {
-      // Navigate into folder/playlist/source
-      navigationActions.browseTo(item.uri, item.title || item.name || 'Browse');
+    if (item.type === 'folder' || item.type === 'playlist' || item.type === 'streaming-category' || item.type === 'item-no-menu') {
+      // Navigate into folder/playlist
+      navigationActions.browseTo(item.uri, item.title);
     } else {
       // Play the item
       browseActions.play(item);
@@ -41,11 +23,7 @@
 
   function handleBack() {
     if ($browseStack.length > 1) {
-      // Navigate back within browse hierarchy
       navigationActions.browseBack();
-    } else {
-      // At root, go back to home screen
-      navigationActions.goHome();
     }
   }
 
@@ -55,21 +33,32 @@
     }
   }
 
-  function handleContextMenu(event: MouseEvent, item: BrowseItem) {
-    event.preventDefault();
-    event.stopPropagation();
-    uiActions.openContextMenu(item, 'browse', { x: event.clientX, y: event.clientY });
+  function getItemIcon(item: BrowseItem): string {
+    switch (item.type) {
+      case 'folder':
+        return 'folder';
+      case 'playlist':
+        return 'playlist';
+      case 'song':
+      case 'track':
+        return 'music-note';
+      case 'album':
+        return 'album';
+      case 'artist':
+        return 'artist';
+      case 'radio':
+      case 'webradio':
+        return 'radio';
+      default:
+        return 'music-note';
+    }
   }
 
-  function handleMoreClick(event: MouseEvent, item: BrowseItem) {
-    event.stopPropagation();
-    const button = event.currentTarget as HTMLElement;
-    const rect = button.getBoundingClientRect();
-    uiActions.openContextMenu(item, 'browse', { x: rect.right, y: rect.top });
-  }
-
-  function handleToggleViewMode() {
-    browseActions.toggleViewMode();
+  function formatDuration(seconds: number | undefined): string {
+    if (!seconds) return '';
+    const min = Math.floor(seconds / 60);
+    const sec = Math.floor(seconds % 60);
+    return `${min}:${sec.toString().padStart(2, '0')}`;
   }
 
   onMount(() => {
@@ -80,60 +69,67 @@
   });
 </script>
 
-<div class="browse-view" data-view="browse">
+<div class="browse-view">
   <!-- Header -->
   <header class="browse-header">
     <div class="header-left">
-      <button class="back-btn" data-testid="back-button" on:click={handleBack} aria-label="Go back">
-        <Icon name="chevron-left" size={32} />
-      </button>
+      {#if $browseStack.length > 1}
+        <button class="back-btn" on:click={handleBack} aria-label="Go back">
+          <Icon name="back" size={28} />
+        </button>
+      {/if}
       <h1 class="title">{$currentBrowseLocation?.title || 'Browse'}</h1>
     </div>
 
-    <div class="header-right">
-      <div class="search-box">
-        <Icon name="search" size={20} />
-        <input
-          type="text"
-          placeholder="Search..."
-          bind:value={searchQuery}
-          on:keydown={(e) => e.key === 'Enter' && handleSearch()}
-        />
-      </div>
-      <button
-        class="view-toggle-btn"
-        on:click={handleToggleViewMode}
-        aria-label={$browseViewMode === 'list' ? 'Switch to grid view' : 'Switch to list view'}
-      >
-        <Icon name={$browseViewMode === 'list' ? 'grid' : 'list'} size={24} />
-      </button>
+    <div class="search-box">
+      <Icon name="search" size={20} />
+      <input
+        type="text"
+        placeholder="Search..."
+        bind:value={searchQuery}
+        on:keydown={(e) => e.key === 'Enter' && handleSearch()}
+      />
     </div>
   </header>
 
   <!-- Content -->
   <div class="browse-content">
-    {#if $browseLoading && displayItems.length === 0}
-      <SkeletonList count={8} variant="browse" />
-    {:else if displayItems.length === 0}
+    {#if $browseLoading}
+      <div class="loading">
+        <div class="spinner"></div>
+        <p>Loading...</p>
+      </div>
+    {:else if $browseItems.length === 0}
       <div class="empty">
         <Icon name="folder-open" size={64} />
         <p>No items found</p>
       </div>
     {:else}
-      {#if $browseViewMode === 'list'}
-        <BrowseList
-          items={displayItems}
-          on:itemClick={(e) => handleItemClick(e.detail)}
-          on:itemContextMenu={(e) => handleContextMenu(e.detail.event, e.detail.item)}
-          on:moreClick={(e) => handleMoreClick(e.detail.event, e.detail.item)}
-        />
-      {:else}
-        <BrowseGrid
-          items={displayItems}
-          on:itemClick={(e) => handleItemClick(e.detail)}
-          on:itemContextMenu={(e) => handleContextMenu(e.detail.event, e.detail.item)}
-        />
-      {/if}
+      <div class="items-grid">
+        {#each $browseItems as item}
+          <button class="browse-item" on:click={() => handleItemClick(item)}>
+            <div class="item-art">
+              {#if item.albumart}
+                <img src={item.albumart} alt={item.title} />
+              {:else}
+                <div class="item-icon">
+                  <Icon name={getItemIcon(item)} size={32} />
+                </div>
+              {/if}
+            </div>
+            <div class="item-info">
+              <span class="item-title">{item.title}</span>
+              {#if item.artist}
+                <span class="item-artist">{item.artist}</span>
+              {/if}
+              {#if item.duration}
+                <span class="item-duration">{formatDuration(item.duration)}</span>
+              {/if}
+            </div>
+            <Icon name="chevron-right" size={24} />
+          </button>
+        {/each}
+      </div>
     {/if}
   </div>
 </div>
@@ -170,33 +166,22 @@
     gap: var(--spacing-md);
   }
 
-  .header-right {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-md);
-  }
-
   .back-btn {
-    width: 56px;
-    height: 56px;
+    width: 48px;
+    height: 48px;
     display: flex;
     align-items: center;
     justify-content: center;
     border: none;
     border-radius: var(--radius-full);
     background: rgba(255, 255, 255, 0.1);
-    color: #ffffff;
+    color: var(--color-text-primary);
     cursor: pointer;
     transition: all 0.2s;
-    flex-shrink: 0;
-  }
-
-  .back-btn :global(svg) {
-    stroke-width: 3;
   }
 
   .back-btn:hover {
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.15);
   }
 
   .back-btn:active {
@@ -234,35 +219,13 @@
     color: var(--color-text-tertiary);
   }
 
-  .view-toggle-btn {
-    width: 48px;
-    height: 48px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: none;
-    border-radius: var(--radius-full);
-    background: rgba(255, 255, 255, 0.1);
-    color: var(--color-text-primary);
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .view-toggle-btn:hover {
-    background: rgba(255, 255, 255, 0.15);
-  }
-
-  .view-toggle-btn:active {
-    transform: scale(0.95);
-  }
-
   .browse-content {
     flex: 1;
     overflow-y: auto;
     padding: var(--spacing-lg);
   }
 
-  .empty {
+  .loading, .empty {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -270,5 +233,100 @@
     height: 100%;
     gap: var(--spacing-md);
     color: var(--color-text-secondary);
+  }
+
+  .spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(255, 255, 255, 0.1);
+    border-top-color: var(--color-accent);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .items-grid {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+  }
+
+  .browse-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-lg);
+    padding: var(--spacing-md) var(--spacing-lg);
+    background: rgba(255, 255, 255, 0.05);
+    border: none;
+    border-radius: var(--radius-md);
+    color: var(--color-text-primary);
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+    width: 100%;
+  }
+
+  .browse-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .browse-item:active {
+    transform: scale(0.99);
+  }
+
+  .item-art {
+    width: 56px;
+    height: 56px;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    flex-shrink: 0;
+    background: var(--color-bg-secondary);
+  }
+
+  .item-art img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .item-icon {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-tertiary);
+  }
+
+  .item-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .item-title {
+    font-size: var(--font-size-lg);
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .item-artist {
+    font-size: var(--font-size-base);
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .item-duration {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-tertiary);
   }
 </style>

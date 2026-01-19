@@ -6,17 +6,18 @@
 </script>
 
 <header class="back-header">
-  <h1 class="title">{title}</h1>
   <button class="back-btn" on:click={navigationActions.goHome} aria-label="Back to home">
-    <Icon name="chevron-left" size={28} />
+    <Icon name="chevron-left" size={32} />
+    <span>Home</span>
   </button>
+  <h1 class="title">{title}</h1>
+  <div class="spacer"></div>
 </header>
 
 <style>
   .back-header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     padding: var(--spacing-sm) var(--spacing-xl);
     height: 52px;
     /* Frosted glass - 30% more blur/saturation than tiles */
@@ -33,23 +34,18 @@
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   }
 
-  .title {
-    font-size: var(--font-size-xl);
-    font-weight: 600;
-    color: var(--color-text-primary);
-    margin: 0;
-  }
-
   .back-btn {
     display: flex;
     align-items: center;
-    justify-content: center;
-    width: 44px;
-    height: 44px;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) var(--spacing-md);
+    min-height: var(--touch-target-min);
     border: none;
-    border-radius: var(--radius-full);
+    border-radius: var(--radius-md);
     background: transparent;
     color: var(--color-accent);
+    font-size: var(--font-size-lg);
+    font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;
   }
@@ -59,6 +55,19 @@
   }
 
   .back-btn:active {
-    transform: scale(0.95);
+    transform: scale(0.98);
+  }
+
+  .title {
+    flex: 1;
+    font-size: var(--font-size-xl);
+    font-weight: 600;
+    color: var(--color-text-primary);
+    text-align: center;
+    margin: 0;
+  }
+
+  .spacer {
+    width: 100px; /* Match back button width for centering */
   }
 </style>

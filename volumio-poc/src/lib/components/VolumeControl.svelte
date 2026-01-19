@@ -12,10 +12,9 @@
                   $volume > 0 ? 'volume-low' : 'volume-mute';
 </script>
 
-<div class="volume-control" data-testid="volume-control">
+<div class="volume-control">
   <button
     class="volume-btn"
-    data-testid="btn-mute"
     on:click={playerActions.toggleMute}
     aria-label={$mute ? 'Unmute' : 'Mute'}
   >
@@ -32,7 +31,6 @@
       on:input={handleVolumeChange}
       aria-label="Volume"
       style="--volume: {$volume}%"
-      data-testid="volume-slider"
     />
   </div>
 

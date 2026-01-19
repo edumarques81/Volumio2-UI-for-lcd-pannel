@@ -1,6 +1,5 @@
 import { writable, derived } from 'svelte/store';
 import { socketService } from '$lib/services/socket';
-import { fixVolumioAssetUrl } from '$lib/config';
 
 /**
  * Queue item from Volumio API
@@ -116,12 +115,7 @@ export function initQueueStore() {
   // Listen for queue updates
   socketService.on<QueueItem[]>('pushQueue', (data) => {
     console.log('[Queue] Received:', data?.length, 'items');
-    // Fix albumart URLs to point to Volumio backend
-    const fixedData = (data || []).map(item => ({
-      ...item,
-      albumart: fixVolumioAssetUrl(item.albumart)
-    }));
-    queue.set(fixedData);
+    queue.set(data || []);
     queueLoading.set(false);
   });
 

@@ -41,7 +41,7 @@
   $: showPlaceholder = !$currentTrack.albumart || imageError;
 </script>
 
-<div class="now-playing-tile" data-testid="tile-player" on:click={openPlayer} on:keypress={openPlayer} role="button" tabindex="0">
+<div class="now-playing-tile" on:click={openPlayer} on:keypress={openPlayer} role="button" tabindex="0">
   <div class="tile-content">
     <div class="album-art">
       {#if !showPlaceholder}

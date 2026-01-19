@@ -25,7 +25,6 @@
     <button
       class="nav-item"
       class:active={$currentView === item.id}
-      data-testid="nav-{item.id}"
       on:click={() => handleNavClick(item.id)}
       aria-label={item.label}
     >

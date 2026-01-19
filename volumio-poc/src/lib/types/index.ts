@@ -47,6 +47,3 @@ export interface BrowseItem {
   uri: string;
   icon?: string;
 }
-
-// Re-export playlist types
-export * from './playlist';

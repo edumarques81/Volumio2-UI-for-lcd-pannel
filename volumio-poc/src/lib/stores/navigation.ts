@@ -96,12 +96,10 @@ export const navigationActions = {
   },
 
   /**
-   * Reset browse to root - use empty URI to show all sources
-   * Empty URI triggers getBrowseSources which returns top-level items
-   * (Music Library, Favourites, Playlists, etc.)
+   * Reset browse to root
    */
   browseRoot() {
-    browseStack.set([{ uri: '', title: 'Browse' }]);
+    browseStack.set([{ uri: '', title: 'Music Library' }]);
   },
 
   /**

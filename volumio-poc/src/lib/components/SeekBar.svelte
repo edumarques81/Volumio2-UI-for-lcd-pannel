@@ -22,7 +22,7 @@
   }
 </script>
 
-<div class="seekbar" data-testid="seek-bar">
+<div class="seekbar">
   <span class="time">{formatTime(displaySeek)}</span>
 
   <div class="track">
@@ -39,7 +39,6 @@
       on:touchend={handleSeekEnd}
       style="--progress: {progress}%"
       aria-label="Seek"
-      data-testid="seek-slider"
     />
   </div>
 
