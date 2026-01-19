@@ -92,11 +92,10 @@
     border-radius: var(--radius-md);
     padding: var(--spacing-sm);
     transition: all 0.2s;
-    background: rgba(255, 255, 255, 0.144);
   }
 
   .grid-item:hover {
-    background: rgba(255, 255, 255, 0.36);
+    background: rgba(255, 255, 255, 0.05);
   }
 
   .grid-item:focus-visible {
@@ -208,45 +207,6 @@
 
     .grid-item-artist {
       font-size: var(--font-size-xs);
-    }
-  }
-
-  /* Tablet - 3-4 columns */
-  @media (min-width: 768px) and (max-width: 1024px) and (min-height: 501px) {
-    .browse-grid {
-      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-      gap: var(--spacing-md);
-    }
-
-    .play-overlay-btn {
-      width: 48px;
-      height: 48px;
-    }
-  }
-
-  /* Phone - 2 columns */
-  @media (max-width: 767px) and (min-height: 501px) {
-    .browse-grid {
-      grid-template-columns: repeat(2, 1fr);
-      gap: var(--spacing-sm);
-      padding: var(--spacing-sm);
-    }
-
-    .grid-item {
-      padding: var(--spacing-xs);
-    }
-
-    .grid-item-title {
-      font-size: var(--font-size-sm);
-    }
-
-    .grid-item-artist {
-      font-size: var(--font-size-xs);
-    }
-
-    .play-overlay-btn {
-      width: 44px;
-      height: 44px;
     }
   }
 </style>

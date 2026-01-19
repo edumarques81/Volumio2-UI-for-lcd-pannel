@@ -2,6 +2,32 @@ import { writable, derived, get } from 'svelte/store';
 import { socketService } from '$lib/services/socket';
 import type { PlayerState } from '$lib/types';
 
+/**
+ * Extended track info response from Volumio
+ */
+export interface TrackInfo {
+  uri: string;
+  service: string;
+  name: string;
+  artist?: string;
+  album?: string;
+  albumart?: string;
+  duration?: number;
+  type?: string;
+  trackType?: string;
+  samplerate?: string;
+  bitdepth?: string;
+  bitrate?: string;
+  channels?: number;
+  year?: string;
+  genre?: string;
+  tracknumber?: number;
+  composer?: string;
+  filesize?: number;
+  path?: string;
+  [key: string]: any; // Allow additional metadata fields
+}
+
 // State stores
 export const playerState = writable<PlayerState | null>(null);
 export const volume = writable<number>(80);
@@ -10,6 +36,8 @@ export const shuffle = writable<boolean>(false);
 export const repeat = writable<'off' | 'all' | 'one'>('off');
 export const seek = writable<number>(0);
 export const duration = writable<number>(0);
+export const trackInfo = writable<TrackInfo | null>(null);
+export const trackInfoLoading = writable<boolean>(false);
 
 // Derived stores
 export const isPlaying = derived(playerState, $state => $state?.status === 'play');
@@ -96,6 +124,17 @@ export const playerActions = {
     console.log(`⏩ Seek to: ${position}s`);
     seek.set(position);
     socketService.emit('seek', position);
+  },
+
+  getTrackInfo: (uri?: string, service?: string) => {
+    console.log('ℹ️ Getting track info');
+    trackInfoLoading.set(true);
+    trackInfo.set(null);
+    socketService.emit('GetTrackInfo', { uri, service });
+  },
+
+  clearTrackInfo: () => {
+    trackInfo.set(null);
   }
 };
 
@@ -142,5 +181,12 @@ export function initPlayerStore() {
   // Listen for toast messages
   socketService.on('pushToastMessage', (message) => {
     console.log('💬 Toast:', message);
+  });
+
+  // Listen for track info response
+  socketService.on<TrackInfo>('pushTrackInfo', (info) => {
+    console.log('ℹ️ Track info:', info);
+    trackInfo.set(info);
+    trackInfoLoading.set(false);
   });
 }

@@ -1,14 +1,38 @@
 <script lang="ts">
-  import { currentTrack } from '$lib/stores/player';
+  import { currentTrack, playerState } from '$lib/stores/player';
   import { selectedBackground } from '$lib/stores/settings';
+  import { isFavorite, favoritesActions } from '$lib/stores/favorites';
+  import { uiActions } from '$lib/stores/ui';
   import AlbumArt from '../AlbumArt.svelte';
   import TrackInfo from '../TrackInfo.svelte';
   import PlayerControls from '../PlayerControls.svelte';
   import VolumeControl from '../VolumeControl.svelte';
   import SeekBar from '../SeekBar.svelte';
+  import Icon from '../Icon.svelte';
 
   // Use selected background, album art, or fallback to default
   $: backgroundImage = $selectedBackground || $currentTrack.albumart || '/backgrounds/default.svg';
+
+  function handleToggleFavorite() {
+    favoritesActions.toggleCurrentFavorite($isFavorite);
+  }
+
+  function handleShowInfo() {
+    if (!$playerState) return;
+
+    // Create a ContextMenuItem from current player state
+    const item = {
+      service: $playerState.uri?.split('/')[0] || 'mpd',
+      type: 'song' as const,
+      title: $playerState.title || 'Unknown',
+      artist: $playerState.artist,
+      album: $playerState.album,
+      uri: $playerState.uri,
+      albumart: $playerState.albumart,
+    };
+
+    uiActions.openTrackInfoModal(item);
+  }
 </script>
 
 <div class="player-view">
@@ -26,7 +50,26 @@
 
     <!-- Track Info & Controls -->
     <div class="info-section">
-      <TrackInfo />
+      <div class="track-header">
+        <TrackInfo />
+        <div class="track-actions">
+          <button
+            class="action-btn"
+            class:active={$isFavorite}
+            on:click={handleToggleFavorite}
+            aria-label={$isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+          >
+            <Icon name={$isFavorite ? 'heart-filled' : 'heart'} size={24} />
+          </button>
+          <button
+            class="action-btn"
+            on:click={handleShowInfo}
+            aria-label="Track info"
+          >
+            <Icon name="info" size={24} />
+          </button>
+        </div>
+      </div>
       <PlayerControls />
       <SeekBar />
     </div>
@@ -120,5 +163,46 @@
     align-items: center;
     flex-shrink: 0;
     min-width: 320px;
+  }
+
+  .track-header {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-lg);
+  }
+
+  .track-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    flex-shrink: 0;
+    padding-top: var(--spacing-sm);
+  }
+
+  .action-btn {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: var(--radius-full);
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .action-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: var(--color-text-primary);
+  }
+
+  .action-btn.active {
+    color: var(--color-accent);
+  }
+
+  .action-btn.active:hover {
+    background: rgba(255, 59, 48, 0.2);
+    color: #ff3b30;
   }
 </style>

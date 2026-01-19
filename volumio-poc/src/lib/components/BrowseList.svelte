@@ -5,9 +5,6 @@
 
   export let items: BrowseItem[] = [];
 
-  // Track which items have failed to load album art
-  let failedImages: Set<string> = new Set();
-
   const dispatch = createEventDispatcher<{
     itemClick: BrowseItem;
     itemContextMenu: { event: MouseEvent; item: BrowseItem };
@@ -35,15 +32,6 @@
     }
   }
 
-  function handleImageError(uri: string) {
-    failedImages.add(uri);
-    failedImages = failedImages; // Trigger reactivity
-  }
-
-  function shouldShowImage(item: BrowseItem): boolean {
-    return !!item.albumart && !failedImages.has(item.uri);
-  }
-
   function formatDuration(seconds: number | undefined): string {
     if (!seconds) return '';
     const min = Math.floor(seconds / 60);
@@ -66,12 +54,11 @@
   }
 </script>
 
-<div class="browse-list" data-testid="browse-list">
+<div class="browse-list">
   {#each items as item}
     <!-- svelte-ignore a11y-no-static-element-interactions -->
     <div
-      class="list-item browse-item"
-      data-testid="browse-item"
+      class="list-item"
       on:click={() => handleClick(item)}
       on:contextmenu={(e) => handleContextMenu(e, item)}
       on:keydown={(e) => e.key === 'Enter' && handleClick(item)}
@@ -79,13 +66,8 @@
       tabindex="0"
     >
       <div class="list-item-art">
-        {#if shouldShowImage(item)}
-          <img
-            src={item.albumart}
-            alt={item.title}
-            loading="lazy"
-            on:error={() => handleImageError(item.uri)}
-          />
+        {#if item.albumart}
+          <img src={item.albumart} alt={item.title} loading="lazy" />
         {:else}
           <div class="list-item-icon">
             <Icon name={getItemIcon(item)} size={32} />
@@ -125,14 +107,14 @@
     align-items: center;
     gap: var(--spacing-lg);
     padding: var(--spacing-md) var(--spacing-lg);
-    background: rgba(255, 255, 255, 0.27);
+    background: rgba(255, 255, 255, 0.05);
     border-radius: var(--radius-md);
     cursor: pointer;
     transition: all 0.2s;
   }
 
   .list-item:hover {
-    background: rgba(255, 255, 255, 0.54);
+    background: rgba(255, 255, 255, 0.1);
   }
 
   .list-item:focus-visible {
