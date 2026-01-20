@@ -323,36 +323,43 @@
     padding: 23px 33px 29px;
     min-width: 224px;
     border: none;
-    /* Frosted glass with blur only (no transparency tint) */
-    background: rgba(45, 45, 50, 0.65);
-    backdrop-filter: blur(1px) saturate(105%);
-    -webkit-backdrop-filter: blur(1px) saturate(105%);
+    /* Frosted glass with blur - same as mini player */
+    background: rgba(45, 45, 50, 0.7);
+    backdrop-filter: blur(1.5px) saturate(135%);
+    -webkit-backdrop-filter: blur(1.5px) saturate(135%);
     border-radius: 33px;
     cursor: pointer;
     transition: all 0.15s ease-out;
     -webkit-tap-highlight-color: transparent;
-    /* Subtle 3D pop-out effect */
+    /* Subtle 3D lighting from top-left */
     box-shadow:
-      0 1px 4px rgba(0, 0, 0, 0.2),
-      0 2px 6px rgba(0, 0, 0, 0.1),
-      inset 0 1px 0 rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+      /* Soft drop shadow */
+      2px 3px 8px rgba(0, 0, 0, 0.2),
+      /* Subtle inner highlight - top/left */
+      inset 1px 1px 2px rgba(255, 255, 255, 0.08),
+      /* Subtle inner shadow - bottom/right */
+      inset -1px -1px 2px rgba(0, 0, 0, 0.1);
+    /* Very subtle directional border */
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-left: 1px solid rgba(255, 255, 255, 0.06);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    border-right: 1px solid rgba(0, 0, 0, 0.08);
   }
 
   .app-tile:hover {
-    background: rgba(55, 55, 60, 0.7);
+    background: rgba(55, 55, 60, 0.6);
     box-shadow:
-      0 2px 6px rgba(0, 0, 0, 0.25),
-      0 3px 8px rgba(0, 0, 0, 0.12),
-      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      3px 4px 12px rgba(0, 0, 0, 0.25),
+      inset 1px 1px 3px rgba(255, 255, 255, 0.1),
+      inset -1px -1px 2px rgba(0, 0, 0, 0.1);
   }
 
   .app-tile:active {
     transform: scale(0.97);
-    background: rgba(50, 50, 55, 0.75);
+    background: rgba(50, 50, 55, 0.65);
     box-shadow:
-      0 1px 2px rgba(0, 0, 0, 0.15),
-      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      1px 2px 4px rgba(0, 0, 0, 0.2),
+      inset 1px 1px 2px rgba(255, 255, 255, 0.06);
   }
 
   .tile-icon {
@@ -364,30 +371,55 @@
     border-radius: 40px;
     color: white;
     position: relative;
+    overflow: hidden;
+    /* Subtle directional lighting from top-left */
     box-shadow:
-      0 4px 12px rgba(0, 0, 0, 0.4),
-      inset 0 1px 1px rgba(255, 255, 255, 0.3);
+      /* Soft drop shadow */
+      2px 3px 8px rgba(0, 0, 0, 0.35),
+      /* Subtle inner highlight - top/left */
+      inset 1px 1px 4px rgba(255, 255, 255, 0.2),
+      /* Subtle inner shadow - bottom/right */
+      inset -1px -1px 4px rgba(0, 0, 0, 0.15);
+    /* Subtle directional border */
+    border-top: 1px solid rgba(255, 255, 255, 0.15);
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.15);
+    border-right: 1px solid rgba(0, 0, 0, 0.1);
     transition: transform 0.15s ease-out, box-shadow 0.15s ease-out;
   }
 
-  /* iOS-style inner highlight */
+  /* Subtle gradient highlight from top-left */
   .tile-icon::before {
     content: '';
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
-    height: 50%;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.15) 0%, transparent 100%);
-    border-radius: 24px 24px 0 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, transparent 40%, rgba(0, 0, 0, 0.08) 100%);
+    border-radius: 40px;
+    pointer-events: none;
+  }
+
+  /* Soft top shine */
+  .tile-icon::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 15%;
+    right: 15%;
+    height: 35%;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, transparent 100%);
+    border-radius: 40px 40px 100px 100px;
     pointer-events: none;
   }
 
   .app-tile:hover .tile-icon {
-    transform: scale(1.05);
+    transform: scale(1.03);
     box-shadow:
-      0 8px 20px rgba(0, 0, 0, 0.5),
-      inset 0 1px 1px rgba(255, 255, 255, 0.3);
+      3px 4px 12px rgba(0, 0, 0, 0.4),
+      inset 1px 1px 5px rgba(255, 255, 255, 0.25),
+      inset -1px -1px 4px rgba(0, 0, 0, 0.15);
   }
 
   .app-tile:active .tile-icon {
@@ -398,20 +430,20 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 2px;
+    gap: 4px;
     text-align: center;
   }
 
   .tile-title {
-    font-size: var(--font-size-base);
-    font-weight: 600;
+    font-size: 22px;
+    font-weight: 400;
     color: var(--color-text-primary);
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
     white-space: nowrap;
   }
 
   .tile-subtitle {
-    font-size: var(--font-size-sm);
+    font-size: 18px;
     color: var(--color-text-secondary);
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
     white-space: nowrap;
