@@ -15,7 +15,7 @@
     "forceConsistentCasingInFileNames": true,
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
-    "types": ["vite/client"],
+    "types": ["vite/client", "vitest/globals"],
     "baseUrl": ".",
     "paths": {
       "$lib": ["src/lib"],
