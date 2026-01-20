@@ -1,89 +1,164 @@
-import { writable, derived, get } from 'svelte/store';
-import { socketService } from '$lib/services/socket';
+import { writable, derived } from 'svelte/store';
+import { getVolumioHost } from '$lib/config';
 
 export type LcdState = 'on' | 'off' | 'unknown';
-
-export interface LCDStatus {
-  isOn: boolean;
-}
 
 // LCD state store
 export const lcdState = writable<LcdState>('unknown');
 export const lcdLoading = writable<boolean>(false);
 
-// Derived store for quick boolean access
-export const isLcdOn = derived(lcdState, ($state) => $state === 'on');
+// Get the LCD control service URL (same host, port 8081)
+function getLcdServiceUrl(): string {
+  const volumioHost = getVolumioHost();
+  // Extract host without port and protocol
+  const baseHost = volumioHost.replace(/:\d+$/, '').replace(/^https?:\/\//, '');
+  return `http://${baseHost}:8081`;
+}
+
+// Auth token (can be configured)
+const AUTH_TOKEN = 'volumio-lcd-control'; // Default token
 
 /**
- * LCD control actions (Socket.IO based)
+ * LCD control actions
  */
 export const lcdActions = {
   /**
-   * Request current LCD status from backend via Socket.IO
+   * Fetch current LCD status
    */
-  getStatus(): void {
-    socketService.emit('getLcdStatus');
+  async getStatus(): Promise<LcdState> {
+    try {
+      const url = `${getLcdServiceUrl()}/api/screen/status`;
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'X-Auth-Token': AUTH_TOKEN
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const state = data.status as LcdState;
+        lcdState.set(state);
+        return state;
+      }
+    } catch (error) {
+      console.warn('[LCD] Failed to get status:', error);
+    }
+
+    lcdState.set('unknown');
+    return 'unknown';
   },
 
   /**
-   * Turn LCD off (standby mode)
+   * Turn LCD off
    */
-  turnOff(): void {
-    console.log('📺 LCD standby');
+  async turnOff(): Promise<boolean> {
     lcdLoading.set(true);
-    lcdState.set('off'); // Optimistic update
-    socketService.emit('lcdStandby');
-    // Loading cleared when pushLcdStatus arrives
+    try {
+      const url = `${getLcdServiceUrl()}/api/screen/off`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'X-Auth-Token': AUTH_TOKEN,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          lcdState.set('off');
+          return true;
+        }
+      }
+    } catch (error) {
+      console.error('[LCD] Failed to turn off:', error);
+    } finally {
+      lcdLoading.set(false);
+    }
+    return false;
   },
 
   /**
-   * Turn LCD on (wake from standby)
+   * Turn LCD on
    */
-  turnOn(): void {
-    console.log('📺 LCD wake');
+  async turnOn(): Promise<boolean> {
     lcdLoading.set(true);
-    lcdState.set('on'); // Optimistic update
-    socketService.emit('lcdWake');
-    // Loading cleared when pushLcdStatus arrives
+    try {
+      const url = `${getLcdServiceUrl()}/api/screen/on`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'X-Auth-Token': AUTH_TOKEN,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          lcdState.set('on');
+          return true;
+        }
+      }
+    } catch (error) {
+      console.error('[LCD] Failed to turn on:', error);
+    } finally {
+      lcdLoading.set(false);
+    }
+    return false;
   },
 
   /**
    * Toggle LCD state
    */
-  toggle(): void {
-    const currentState = get(lcdState);
+  async toggle(): Promise<boolean> {
+    // First get current state if unknown
+    let currentState: LcdState;
+    const storeValue = await new Promise<LcdState>((resolve) => {
+      const unsub = lcdState.subscribe((v) => {
+        resolve(v);
+        setTimeout(() => unsub(), 0);
+      });
+    });
+
+    currentState = storeValue;
+
+    // If unknown, fetch status first
+    if (currentState === 'unknown') {
+      currentState = await this.getStatus();
+    }
+
+    // Toggle
     if (currentState === 'off') {
-      this.turnOn();
+      return this.turnOn();
     } else {
-      this.turnOff();
+      return this.turnOff();
     }
   }
 };
 
-let initialized = false;
-
 /**
- * Initialize LCD state monitoring via Socket.IO
- * Replaces the old HTTP polling implementation
+ * Initialize LCD state monitoring
  */
+let pollInterval: ReturnType<typeof setInterval> | null = null;
+
 export function initLcdStore() {
-  if (initialized) return;
-  initialized = true;
+  // Get initial status
+  lcdActions.getStatus();
 
-  console.log('📺 Initializing LCD store (Socket.IO)...');
-
-  // Listen for LCD status updates via Socket.IO
-  // Backend pushes initial state on connection, no need for manual request
-  socketService.on<LCDStatus>('pushLcdStatus', (status) => {
-    console.log('📺 LCD status update:', status);
-    lcdState.set(status.isOn ? 'on' : 'off');
-    lcdLoading.set(false);
-  });
-
-  console.log('✅ LCD store initialized (no polling)');
+  // Poll status every 10 seconds
+  if (pollInterval) {
+    clearInterval(pollInterval);
+  }
+  pollInterval = setInterval(() => {
+    lcdActions.getStatus();
+  }, 10000);
 }
 
 export function cleanupLcdStore() {
-  // No cleanup needed - Socket.IO handlers are managed by the socket service
-  initialized = false;
+  if (pollInterval) {
+    clearInterval(pollInterval);
+    pollInterval = null;
+  }
 }
