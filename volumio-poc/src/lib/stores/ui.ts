@@ -56,11 +56,14 @@ export const trackInfoModal = writable<TrackInfoModalState>({
   item: null,
 });
 
+// Status drawer state
+export const statusDrawerOpen = writable<boolean>(false);
+
 // Any modal is open
 export const anyModalOpen = derived(
-  [contextMenu, playlistSelector, trackInfoModal],
-  ([$contextMenu, $playlistSelector, $trackInfoModal]) =>
-    $contextMenu.isOpen || $playlistSelector.isOpen || $trackInfoModal.isOpen
+  [contextMenu, playlistSelector, trackInfoModal, statusDrawerOpen],
+  ([$contextMenu, $playlistSelector, $trackInfoModal, $statusDrawerOpen]) =>
+    $contextMenu.isOpen || $playlistSelector.isOpen || $trackInfoModal.isOpen || $statusDrawerOpen
 );
 
 /**
