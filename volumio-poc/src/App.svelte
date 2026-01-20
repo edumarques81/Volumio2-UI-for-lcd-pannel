@@ -6,7 +6,9 @@
   import { initQueueStore } from '$lib/stores/queue';
   import { initSettingsStore, selectedBackground } from '$lib/stores/settings';
   import { initFavoritesStore } from '$lib/stores/favorites';
+  import { initIssueStore, issueActions } from '$lib/stores/issues';
   import { currentView, layoutMode } from '$lib/stores/navigation';
+  import { socketService as socket } from '$lib/services/socket';
   import { getVolumioHost } from '$lib/config';
 
   // Views
@@ -22,6 +24,7 @@
   import ContextMenu from '$lib/components/ContextMenu.svelte';
   import PlaylistSelector from '$lib/components/PlaylistSelector.svelte';
   import TrackInfoModal from '$lib/components/TrackInfoModal.svelte';
+  import StatusDrawer from '$lib/components/StatusDrawer.svelte';
   import Toast from '$lib/components/Toast.svelte';
 
   const volumioHost = getVolumioHost();
@@ -38,6 +41,69 @@
     initQueueStore();
     initSettingsStore();
     initFavoritesStore();
+    initIssueStore();
+
+    // Expose test functions for debugging (can be called from browser console)
+    (window as any).testToast = {
+      error: (title = 'Test Error', message = 'This is a test error message') => {
+        socket.simulateEvent('pushToastMessage', { type: 'error', title, message });
+      },
+      warning: (title = 'Test Warning', message = 'This is a test warning message') => {
+        socket.simulateEvent('pushToastMessage', { type: 'warning', title, message });
+      },
+      success: (title = 'Test Success', message = 'This is a test success message') => {
+        socket.simulateEvent('pushToastMessage', { type: 'success', title, message });
+      },
+      info: (title = 'Test Info', message = 'This is a test info message') => {
+        socket.simulateEvent('pushToastMessage', { type: 'info', title, message });
+      }
+    };
+
+    (window as any).testIssue = {
+      mpdError: () => {
+        issueActions.upsertIssue({
+          id: 'mpd:test_error',
+          domain: 'mpd',
+          severity: 'error',
+          title: 'MPD Connection Failed',
+          detail: 'Could not connect to music player daemon',
+          ts: Date.now(),
+          persistent: false,
+          source: 'test',
+          actions: [{ label: 'Restart MPD', actionId: 'restart-mpd' }]
+        });
+      },
+      playbackWarning: () => {
+        issueActions.upsertIssue({
+          id: 'playback:test_warning',
+          domain: 'playback',
+          severity: 'warning',
+          title: 'Stream Buffering',
+          detail: 'Network stream is buffering slowly',
+          ts: Date.now(),
+          persistent: false,
+          source: 'test'
+        });
+      },
+      networkError: () => {
+        issueActions.upsertIssue({
+          id: 'network:test_error',
+          domain: 'network',
+          severity: 'error',
+          title: 'Network Unavailable',
+          detail: 'Cannot reach streaming service',
+          ts: Date.now(),
+          persistent: false,
+          source: 'test'
+        });
+      },
+      clear: () => {
+        issueActions.clearAll();
+      }
+    };
+
+    console.log('Test functions available: testToast.error(), testToast.warning(), testToast.success(), testToast.info()');
+    console.log('Test functions available: testIssue.mpdError(), testIssue.playbackWarning(), testIssue.networkError(), testIssue.clear()');
 
     // Cleanup on unmount
     return () => {
@@ -117,6 +183,7 @@
   <ContextMenu />
   <PlaylistSelector />
   <TrackInfoModal />
+  <StatusDrawer />
   <Toast />
 </main>
 

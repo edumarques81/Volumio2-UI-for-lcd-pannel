@@ -12,6 +12,7 @@ export const loadingState = writable<boolean>(false);
 class SocketService {
   private socket: any = null;
   private host: string;
+  private eventHandlers: Map<string, Set<Function>> = new Map();
   private loadingBarRequestEvents: string[] = [
     'browseLibrary',
     'search',
@@ -110,9 +111,16 @@ class SocketService {
 
     this.socket.on(eventName, handler);
 
+    // Track handler for simulation
+    if (!this.eventHandlers.has(eventName)) {
+      this.eventHandlers.set(eventName, new Set());
+    }
+    this.eventHandlers.get(eventName)!.add(handler);
+
     // Return unsubscribe function
     return () => {
       this.socket?.off(eventName, handler);
+      this.eventHandlers.get(eventName)?.delete(handler);
     };
   }
 
@@ -128,6 +136,19 @@ class SocketService {
 
   get isConnected(): boolean {
     return this.socket?.connected ?? false;
+  }
+
+  /**
+   * Simulate receiving an event (for testing purposes)
+   */
+  simulateEvent(eventName: string, data: any): void {
+    console.log(`[TEST] Simulating event: ${eventName}`, data);
+    const handlers = this.eventHandlers.get(eventName);
+    if (handlers && handlers.size > 0) {
+      handlers.forEach((handler) => handler(data));
+    } else {
+      console.warn(`[TEST] No handlers registered for event: ${eventName}`);
+    }
   }
 }
 
