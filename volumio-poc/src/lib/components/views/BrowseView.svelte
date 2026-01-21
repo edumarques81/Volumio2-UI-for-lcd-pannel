@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { browseStack, currentBrowseLocation, navigationActions } from '$lib/stores/navigation';
-  import { browseItems, browseLists, browseLoading, browseActions, browseViewMode, type BrowseItem } from '$lib/stores/browse';
+  import { browseItems, browseSources, browseLists, browseLoading, browseActions, browseViewMode, type BrowseItem } from '$lib/stores/browse';
   import { uiActions } from '$lib/stores/ui';
   import Icon from '../Icon.svelte';
   import BrowseList from '../BrowseList.svelte';
@@ -10,15 +10,29 @@
 
   let searchQuery = '';
 
-  // Browse to current location when stack changes
-  $: if ($currentBrowseLocation) {
+  // Check if we're at the root (empty URI means show sources)
+  $: isAtRoot = !$currentBrowseLocation?.uri;
+
+  // Get items to display - either sources (at root) or browse items (in folder)
+  $: displayItems = isAtRoot ? $browseSources : $browseItems;
+
+  // Browse to current location when stack changes (but not for empty URI - that uses sources)
+  $: if ($currentBrowseLocation && $currentBrowseLocation.uri) {
     browseActions.browse($currentBrowseLocation.uri);
   }
 
   function handleItemClick(item: BrowseItem) {
-    if (item.type === 'folder' || item.type === 'playlist' || item.type === 'streaming-category' || item.type === 'item-no-menu') {
-      // Navigate into folder/playlist
-      navigationActions.browseTo(item.uri, item.title);
+    // Sources and folders should be navigated into
+    // Note: Sources from getBrowseSources don't have a 'type' but have a 'uri'
+    const isNavigable = !item.type ||
+                       item.type === 'folder' ||
+                       item.type === 'playlist' ||
+                       item.type === 'streaming-category' ||
+                       item.type === 'item-no-menu';
+
+    if (isNavigable) {
+      // Navigate into folder/playlist/source
+      navigationActions.browseTo(item.uri, item.title || item.name || 'Browse');
     } else {
       // Play the item
       browseActions.play(item);
@@ -96,9 +110,9 @@
 
   <!-- Content -->
   <div class="browse-content">
-    {#if $browseLoading}
+    {#if $browseLoading && displayItems.length === 0}
       <SkeletonList count={8} variant="browse" />
-    {:else if $browseItems.length === 0}
+    {:else if displayItems.length === 0}
       <div class="empty">
         <Icon name="folder-open" size={64} />
         <p>No items found</p>
@@ -106,14 +120,14 @@
     {:else}
       {#if $browseViewMode === 'list'}
         <BrowseList
-          items={$browseItems}
+          items={displayItems}
           on:itemClick={(e) => handleItemClick(e.detail)}
           on:itemContextMenu={(e) => handleContextMenu(e.detail.event, e.detail.item)}
           on:moreClick={(e) => handleMoreClick(e.detail.event, e.detail.item)}
         />
       {:else}
         <BrowseGrid
-          items={$browseItems}
+          items={displayItems}
           on:itemClick={(e) => handleItemClick(e.detail)}
           on:itemContextMenu={(e) => handleContextMenu(e.detail.event, e.detail.item)}
         />

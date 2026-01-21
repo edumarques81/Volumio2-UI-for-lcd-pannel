@@ -54,8 +54,14 @@ export interface BrowseResponse {
 // View mode type
 export type BrowseViewMode = 'list' | 'grid';
 
+// Initialization flag
+let initialized = false;
+
 // Current browse data
 export const browseData = writable<BrowseResponse | null>(null);
+
+// Browse sources (top-level items like Music Library, Favourites, Playlists)
+export const browseSources = writable<BrowseItem[]>([]);
 
 // Loading state
 export const browseLoading = writable<boolean>(false);
@@ -235,12 +241,33 @@ export const browseActions = {
  * (which happens after socket is connected, avoiding race conditions)
  */
 export function initBrowseStore() {
+  if (initialized) {
+    console.log('[Browse] Store already initialized, skipping');
+    return;
+  }
+  initialized = true;
+  console.log('[Browse] Initializing store...');
+
   // Listen for browse results
   socketService.on<BrowseResponse>('pushBrowseLibrary', (data) => {
-    console.log('[Browse] Received data:', data?.navigation?.lists?.length, 'lists');
+    console.log('[Browse] Received pushBrowseLibrary:', data?.navigation?.lists?.length, 'lists');
     // Process response to fix album art URLs
     const processedData = processBrowseResponse(data);
     browseData.set(processedData);
     browseLoading.set(false);
   });
+
+  // Listen for browse sources (root level items)
+  socketService.on<BrowseItem[]>('pushBrowseSources', (sources) => {
+    console.log('[Browse] Received pushBrowseSources:', sources?.length, 'sources');
+    if (sources && Array.isArray(sources)) {
+      const normalizedSources = sources.map(source => normalizeBrowseItem(source));
+      browseSources.set(normalizedSources);
+    }
+    browseLoading.set(false);
+  });
+
+  // Request browse sources on init (these are the top-level items like Music Library, Favourites, etc.)
+  console.log('[Browse] Requesting initial browse sources...');
+  socketService.emit('getBrowseSources');
 }
