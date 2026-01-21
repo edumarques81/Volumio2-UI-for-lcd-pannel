@@ -7,7 +7,7 @@
   import { initSettingsStore, selectedBackground } from '$lib/stores/settings';
   import { initFavoritesStore } from '$lib/stores/favorites';
   import { initIssueStore, issueActions } from '$lib/stores/issues';
-  import { currentView, layoutMode } from '$lib/stores/navigation';
+  import { currentView, layoutMode, navigationActions } from '$lib/stores/navigation';
   import { socketService as socket } from '$lib/services/socket';
   import { getVolumioHost } from '$lib/config';
 
@@ -102,8 +102,14 @@
       }
     };
 
-    console.log('Test functions available: testToast.error(), testToast.warning(), testToast.success(), testToast.info()');
-    console.log('Test functions available: testIssue.mpdError(), testIssue.playbackWarning(), testIssue.networkError(), testIssue.clear()');
+    // Expose navigation actions for E2E testing
+    (window as any).__navigation = {
+      goToQueue: () => navigationActions.goToQueue(),
+      goToPlayer: () => navigationActions.goToPlayer(),
+      goToBrowse: () => navigationActions.goToBrowse(),
+      goToSettings: () => navigationActions.goToSettings(),
+      goHome: () => navigationActions.goHome()
+    };
 
     // Cleanup on unmount
     return () => {

@@ -54,11 +54,12 @@
   }
 </script>
 
-<div class="browse-list">
+<div class="browse-list" data-testid="browse-list">
   {#each items as item}
     <!-- svelte-ignore a11y-no-static-element-interactions -->
     <div
-      class="list-item"
+      class="list-item browse-item"
+      data-testid="browse-item"
       on:click={() => handleClick(item)}
       on:contextmenu={(e) => handleContextMenu(e, item)}
       on:keydown={(e) => e.key === 'Enter' && handleClick(item)}

@@ -55,12 +55,12 @@
   });
 </script>
 
-<div class="settings-view">
+<div class="settings-view" data-view="settings">
   <!-- Header -->
   <header class="settings-header">
     <div class="header-left">
       {#if $currentSettingsCategory}
-        <button class="back-btn" on:click={handleBack} aria-label="Go back">
+        <button class="back-btn" data-testid="settings-back" on:click={handleBack} aria-label="Go back">
           <Icon name="back" size={28} />
         </button>
       {/if}
@@ -96,7 +96,7 @@
         <h2 class="section-title">Background</h2>
         <p class="section-hint">Choose a background image or use album art</p>
 
-        <div class="backgrounds-scroll">
+        <div class="backgrounds-scroll" data-testid="background-selector">
           <!-- Album Art Option -->
           <button
             class="bg-option"

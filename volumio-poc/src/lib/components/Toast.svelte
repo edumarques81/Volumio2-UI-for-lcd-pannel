@@ -193,9 +193,9 @@
   }
 </script>
 
-<div class="toast-container" role="status" aria-live="polite">
+<div class="toast-container" data-testid="toast-container" role="status" aria-live="polite">
   {#each $toasts as toast (toast.id)}
-    <div class="toast toast--{toast.type}" role="alert">
+    <div class="toast toast--{toast.type}" data-testid="toast" role="alert">
       <div class="toast-icon">
         <Icon name={getIcon(toast.type)} size={18} />
       </div>

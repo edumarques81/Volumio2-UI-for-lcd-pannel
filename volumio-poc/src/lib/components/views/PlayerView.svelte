@@ -35,7 +35,7 @@
   }
 </script>
 
-<div class="player-view">
+<div class="player-view" data-view="player">
   <!-- Background with blur -->
   <div class="background">
     <div class="background-image" style="background-image: url('{backgroundImage}')"></div>

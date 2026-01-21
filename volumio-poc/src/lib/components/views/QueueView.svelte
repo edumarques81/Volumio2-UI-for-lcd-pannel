@@ -124,7 +124,7 @@
   });
 </script>
 
-<div class="queue-view">
+<div class="queue-view" data-view="queue">
   <!-- Header -->
   <header class="queue-header">
     <div class="header-left">
@@ -135,16 +135,16 @@
     </div>
 
     <div class="header-actions">
-      <button class="action-btn" on:click={() => queueActions.getQueue()} aria-label="Refresh">
+      <button class="action-btn" data-testid="refresh-queue" on:click={() => queueActions.getQueue()} aria-label="Refresh">
         <Icon name="refresh" size={24} />
       </button>
       {#if $queueLength > 0}
-        <button class="action-btn" on:click={handleSaveToPlaylist} aria-label="Save to playlist">
+        <button class="action-btn" data-testid="save-playlist" on:click={handleSaveToPlaylist} aria-label="Save to playlist">
           <Icon name="playlist" size={24} />
           <span>Save</span>
         </button>
       {/if}
-      <button class="action-btn danger" on:click={handleClearQueue} aria-label="Clear queue">
+      <button class="action-btn danger" data-testid="clear-queue" on:click={handleClearQueue} aria-label="Clear queue">
         <Icon name="delete" size={24} />
         <span>Clear</span>
       </button>

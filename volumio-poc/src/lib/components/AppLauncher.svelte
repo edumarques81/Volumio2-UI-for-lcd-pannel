@@ -275,7 +275,7 @@
 
     <!-- App Tiles -->
     {#each apps as app}
-      <button class="app-tile" on:click={() => handleTileClick(app)}>
+      <button class="app-tile" data-testid="tile-{app.id}" on:click={() => handleTileClick(app)}>
         <div class="tile-icon" style="background: {app.gradient}">
           <Icon name={app.icon} size={90} gradient={app.iconGradient} />
         </div>

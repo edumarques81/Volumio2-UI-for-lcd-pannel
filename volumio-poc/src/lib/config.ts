@@ -44,6 +44,42 @@ export function getVolumioHost(): string {
 }
 
 /**
+ * Check if we're running on the same origin as Volumio backend
+ * Returns true when we're the main UI (port 3000 or default port)
+ */
+export function isVolumioOrigin(): boolean {
+  const port = window.location.port;
+  // On port 3000 (or no port = default), we ARE Volumio's main UI
+  return port === '3000' || port === '';
+}
+
+/**
+ * Fix asset URL (albumart, etc) to point to Volumio backend
+ *
+ * When running standalone (port 8080), prefixes relative URLs with Volumio host.
+ * When running as main UI (port 3000), returns URL unchanged (relative URLs work).
+ *
+ * This makes the transition seamless when we become the main Volumio frontend.
+ */
+export function fixVolumioAssetUrl(url: string | undefined): string | undefined {
+  if (!url) return url;
+
+  // If it's already an absolute URL, return as-is
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+
+  // If we're on the same origin as Volumio, relative URLs work fine
+  if (isVolumioOrigin()) {
+    return url;
+  }
+
+  // Running standalone - prefix with Volumio host
+  const volumioHost = getVolumioHost();
+  return `${volumioHost}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
+/**
  * Configuration object for easy access
  */
 export const config = {
