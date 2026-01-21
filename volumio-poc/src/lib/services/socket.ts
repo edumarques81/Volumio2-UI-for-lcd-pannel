@@ -1,8 +1,6 @@
 import { writable } from 'svelte/store';
 import { getVolumioHost } from '$lib/config';
-
-// Use global io from CDN (loaded in index.html)
-declare const io: any;
+import io from 'socket.io-client';
 
 export type ConnectionState = 'connected' | 'disconnected' | 'connecting';
 
@@ -40,9 +38,12 @@ class SocketService {
     console.log(`Connecting to ${this.host}...`);
     connectionState.set('connecting');
 
-    // Socket.io v2 connection - simple options like the working test
+    // Socket.io v4 connection
     this.socket = io(this.host, {
-      transports: ['polling', 'websocket']
+      transports: ['polling', 'websocket'],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000
     });
 
     console.log('Socket instance created, waiting for events...');

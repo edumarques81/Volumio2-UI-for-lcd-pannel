@@ -233,3 +233,31 @@ The `dist` branch contains only compiled builds for integration with Volumio2 sy
 ### Babel and ES6
 
 The codebase uses Babel 5 for ES6 transpilation. Import/export syntax is supported, but many files still use AngularJS 1.x patterns (immediately-invoked function expressions, manual dependency injection).
+
+## Volumio POC (Svelte)
+
+The `volumio-poc/` directory contains a Svelte-based POC for a CarPlay-style LCD interface (1920x440).
+
+### POC Deployment to Raspberry Pi
+
+**IMPORTANT**: The httpd server on the Pi serves files from `/home/volumio/svelte-poc`, NOT `/home/volumio/poc`.
+
+```bash
+# Build the POC
+cd volumio-poc
+npm run build
+
+# Deploy to Pi (use sshpass for automation)
+sshpass -p "volumio" scp -r dist/* volumio@192.168.86.34:/home/volumio/svelte-poc/
+
+# Clear browser cache and restart kiosk
+sshpass -p "volumio" ssh volumio@192.168.86.34 "rm -rf /data/volumiokiosk/Default/Cache/* /data/volumiokiosk/Default/Code\ Cache/* 2>/dev/null && echo volumio | sudo -S systemctl restart volumio-kiosk"
+```
+
+### Pi Network Information
+- Hostname: `volumioeduardohifi.lan` or `volumio@192.168.86.34`
+- SSH password: `volumio`
+- POC web server: `http://localhost:8080` (busybox httpd serving from `/home/volumio/svelte-poc`)
+- Volumio backend: `http://localhost:3000`
+- Stellar backend (Go): `http://localhost:3002`
+- Kiosk service: `volumio-kiosk.service`
