@@ -35,10 +35,14 @@ export const volume = writable<number>(80);
 export const mute = writable<boolean>(false);
 export const shuffle = writable<boolean>(false);
 export const repeat = writable<'off' | 'all' | 'one'>('off');
-export const seek = writable<number>(0);
-export const duration = writable<number>(0);
+export const seek = writable<number>(0); // In SECONDS (converted from Volumio's milliseconds)
+export const duration = writable<number>(0); // In SECONDS
 export const trackInfo = writable<TrackInfo | null>(null);
 export const trackInfoLoading = writable<boolean>(false);
+
+// Seek interpolation timer
+let seekIntervalId: ReturnType<typeof setInterval> | null = null;
+let lastSeekUpdate = 0;
 
 // Derived stores
 export const isPlaying = derived(playerState, $state => $state?.status === 'play');
@@ -66,25 +70,35 @@ export const progress = derived([seek, duration], ([$seek, $duration]) => {
 export const playerActions = {
   play: (index?: number) => {
     const state = get(playerState);
+    const currentStatus = state?.status;
+    const currentPosition = state?.position ?? 0;
+
+    console.log(`▶ Play called - status: ${currentStatus}, position: ${currentPosition}, index arg: ${index}`);
 
     // If index provided, play that specific track
     if (index !== undefined) {
-      console.log(`▶ Play track at index: ${index}`);
+      console.log(`▶ Playing track at index: ${index}`);
       socketService.emit('play', { value: index });
       return;
     }
 
-    // If stopped, we need to pass an index (use current position or 0)
-    if (state?.status === 'stop') {
-      const position = state?.position ?? 0;
-      console.log(`▶ Play from stopped state at position: ${position}`);
-      socketService.emit('play', { value: position });
+    // If paused, resume without index
+    if (currentStatus === 'pause') {
+      console.log('▶ Resuming from pause');
+      socketService.emit('play');
       return;
     }
 
-    // Otherwise just resume (paused state)
-    console.log('▶ Resume playback');
-    socketService.emit('play');
+    // For stop, undefined, or any other state - send with position
+    // This ensures we always have a valid track to play
+    console.log(`▶ Starting playback at position: ${currentPosition}`);
+    socketService.emit('play', { value: currentPosition });
+  },
+
+  // Request current state from backend
+  getState: () => {
+    console.log('📡 Requesting state from backend');
+    socketService.emit('getState');
   },
 
   pause: () => {
@@ -165,6 +179,30 @@ export function formatTime(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
+// Start client-side seek interpolation (updates every second while playing)
+function startSeekInterpolation() {
+  if (seekIntervalId) return; // Already running
+
+  seekIntervalId = setInterval(() => {
+    const state = get(playerState);
+    const currentSeek = get(seek);
+    const currentDuration = get(duration);
+
+    // Only interpolate if playing and not at end
+    if (state?.status === 'play' && currentSeek < currentDuration) {
+      seek.update(s => Math.min(s + 1, currentDuration));
+    }
+  }, 1000);
+}
+
+// Stop seek interpolation
+function stopSeekInterpolation() {
+  if (seekIntervalId) {
+    clearInterval(seekIntervalId);
+    seekIntervalId = null;
+  }
+}
+
 // Initialize listeners
 let initialized = false;
 
@@ -172,11 +210,17 @@ export function initPlayerStore() {
   if (initialized) return;
   initialized = true;
 
-  console.log('Initializing player store...');
+  console.log('🎵 Initializing player store...');
 
   // Listen for state updates from backend
-  socketService.on<PlayerState>('pushState', (state) => {
-    console.log('📊 State update:', state);
+  const unsubscribe = socketService.on<PlayerState>('pushState', (state) => {
+    console.log('📊 pushState received:', {
+      status: state.status,
+      title: state.title,
+      seekMs: state.seek,
+      durationSec: state.duration
+    });
+
     // Fix albumart URL to point to Volumio backend
     if (state.albumart) {
       state.albumart = fixVolumioAssetUrl(state.albumart);
@@ -192,8 +236,20 @@ export function initPlayerStore() {
       repeat.set(state.repeat ? (state.repeatSingle ? 'one' : 'all') : 'off');
     }
 
-    if (state.seek !== undefined) seek.set(state.seek);
+    // Convert seek from milliseconds to seconds
+    if (state.seek !== undefined) {
+      const seekSeconds = Math.floor(state.seek / 1000);
+      seek.set(seekSeconds);
+      lastSeekUpdate = Date.now();
+    }
     if (state.duration !== undefined) duration.set(state.duration);
+
+    // Manage seek interpolation based on playback state
+    if (state.status === 'play') {
+      startSeekInterpolation();
+    } else {
+      stopSeekInterpolation();
+    }
   });
 
   // Listen for queue updates
@@ -212,4 +268,12 @@ export function initPlayerStore() {
     trackInfo.set(info);
     trackInfoLoading.set(false);
   });
+
+  console.log('✅ Player store initialized, pushState handler registered');
+
+  // Request initial state after a short delay to ensure socket is connected
+  setTimeout(() => {
+    console.log('📡 Requesting initial state...');
+    socketService.emit('getState');
+  }, 500);
 }
