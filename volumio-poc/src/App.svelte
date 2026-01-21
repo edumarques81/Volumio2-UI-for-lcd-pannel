@@ -7,6 +7,7 @@
   import { initSettingsStore, selectedBackground } from '$lib/stores/settings';
   import { initFavoritesStore } from '$lib/stores/favorites';
   import { initIssueStore, issueActions } from '$lib/stores/issues';
+  import { audioDevicesActions } from '$lib/stores/audioDevices';
   import { currentView, layoutMode, navigationActions } from '$lib/stores/navigation';
   import { socketService as socket } from '$lib/services/socket';
   import { getVolumioHost } from '$lib/config';
@@ -109,6 +110,32 @@
       goToBrowse: () => navigationActions.goToBrowse(),
       goToSettings: () => navigationActions.goToSettings(),
       goHome: () => navigationActions.goHome()
+    };
+
+    // Expose audio devices test helper for E2E testing
+    (window as any).__testAudioDevices = {
+      loadMockDevices: () => {
+        audioDevicesActions.processPlaybackOptions({
+          options: [
+            {
+              id: 'output',
+              name: 'Audio Output',
+              attributes: [
+                {
+                  name: 'output_device',
+                  type: 'select',
+                  value: 'U20SU6',
+                  options: [
+                    { value: 'vc4hdmi0', name: 'HDMI 0 Out' },
+                    { value: 'vc4hdmi1', name: 'HDMI 1 Out' },
+                    { value: 'U20SU6', name: 'USB Audio 2.0(SU-6)' }
+                  ]
+                }
+              ]
+            }
+          ]
+        });
+      }
     };
 
     // Cleanup on unmount
