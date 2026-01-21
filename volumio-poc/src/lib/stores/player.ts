@@ -64,8 +64,26 @@ export const progress = derived([seek, duration], ([$seek, $duration]) => {
 
 // Actions
 export const playerActions = {
-  play: () => {
-    console.log('▶ Play');
+  play: (index?: number) => {
+    const state = get(playerState);
+
+    // If index provided, play that specific track
+    if (index !== undefined) {
+      console.log(`▶ Play track at index: ${index}`);
+      socketService.emit('play', { value: index });
+      return;
+    }
+
+    // If stopped, we need to pass an index (use current position or 0)
+    if (state?.status === 'stop') {
+      const position = state?.position ?? 0;
+      console.log(`▶ Play from stopped state at position: ${position}`);
+      socketService.emit('play', { value: position });
+      return;
+    }
+
+    // Otherwise just resume (paused state)
+    console.log('▶ Resume playback');
     socketService.emit('play');
   },
 
