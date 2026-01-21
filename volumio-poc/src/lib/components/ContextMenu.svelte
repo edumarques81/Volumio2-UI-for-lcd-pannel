@@ -81,8 +81,8 @@
 {#if isOpen && item}
   <!-- svelte-ignore a11y-click-events-have-key-events -->
   <!-- svelte-ignore a11y-no-static-element-interactions -->
-  <div class="context-menu-backdrop" on:click={handleBackdropClick}>
-    <div class="context-menu">
+  <div class="context-menu-backdrop" data-testid="context-menu-backdrop" on:click={handleBackdropClick}>
+    <div class="context-menu" data-testid="context-menu">
       <!-- Header with item info -->
       <div class="context-menu-header">
         {#if item.albumart}
@@ -106,38 +106,38 @@
       <!-- Menu options -->
       <div class="context-menu-options">
         {#if isPlayable}
-          <button class="context-menu-option" on:click={handlePlayNow}>
+          <button class="context-menu-option" data-testid="context-menu-play" on:click={handlePlayNow}>
             <Icon name="play" size={20} />
             <span>Play now</span>
           </button>
         {/if}
 
         {#if canAddToQueue}
-          <button class="context-menu-option" on:click={handleAddToQueue}>
+          <button class="context-menu-option" data-testid="context-menu-add-queue" on:click={handleAddToQueue}>
             <Icon name="list-plus" size={20} />
             <span>Add to queue</span>
           </button>
         {/if}
 
         {#if canAddToPlaylist}
-          <button class="context-menu-option" on:click={handleAddToPlaylist}>
+          <button class="context-menu-option" data-testid="context-menu-add-playlist" on:click={handleAddToPlaylist}>
             <Icon name="playlist" size={20} />
             <span>Add to playlist</span>
           </button>
 
-          <button class="context-menu-option" on:click={handleAddToFavorites}>
+          <button class="context-menu-option" data-testid="context-menu-add-favorites" on:click={handleAddToFavorites}>
             <Icon name="heart" size={20} />
             <span>Add to favorites</span>
           </button>
         {/if}
 
-        <button class="context-menu-option" on:click={handleViewInfo}>
+        <button class="context-menu-option" data-testid="context-menu-view-info" on:click={handleViewInfo}>
           <Icon name="info" size={20} />
           <span>View info</span>
         </button>
 
         {#if itemType === 'queue'}
-          <button class="context-menu-option context-menu-option--danger" on:click={handleRemoveFromQueue}>
+          <button class="context-menu-option context-menu-option--danger" data-testid="context-menu-remove" on:click={handleRemoveFromQueue}>
             <Icon name="trash" size={20} />
             <span>Remove from queue</span>
           </button>

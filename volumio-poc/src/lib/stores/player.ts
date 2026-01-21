@@ -1,5 +1,6 @@
 import { writable, derived, get } from 'svelte/store';
 import { socketService } from '$lib/services/socket';
+import { fixVolumioAssetUrl } from '$lib/config';
 import type { PlayerState } from '$lib/types';
 
 /**
@@ -46,7 +47,7 @@ export const currentTrack = derived(playerState, $state => ({
   title: $state?.title || 'No track playing',
   artist: $state?.artist || 'Unknown artist',
   album: $state?.album || '',
-  albumart: $state?.albumart || '/default-album.png'
+  albumart: $state?.albumart || '/default-album.svg'
 }));
 
 export const trackQuality = derived(playerState, $state => {
@@ -158,6 +159,10 @@ export function initPlayerStore() {
   // Listen for state updates from backend
   socketService.on<PlayerState>('pushState', (state) => {
     console.log('📊 State update:', state);
+    // Fix albumart URL to point to Volumio backend
+    if (state.albumart) {
+      state.albumart = fixVolumioAssetUrl(state.albumart);
+    }
     playerState.set(state);
 
     // Update derived values

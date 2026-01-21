@@ -62,12 +62,12 @@
   });
 </script>
 
-<div class="browse-view">
+<div class="browse-view" data-view="browse">
   <!-- Header -->
   <header class="browse-header">
     <div class="header-left">
       {#if $browseStack.length > 1}
-        <button class="back-btn" on:click={handleBack} aria-label="Go back">
+        <button class="back-btn" data-testid="back-button" on:click={handleBack} aria-label="Go back">
           <Icon name="back" size={28} />
         </button>
       {/if}

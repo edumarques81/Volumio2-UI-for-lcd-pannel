@@ -18,11 +18,12 @@
   }
 </script>
 
-<div class="player-controls">
+<div class="player-controls" data-testid="player-controls">
   <!-- Shuffle -->
   <button
     class="control-btn secondary"
     class:active={$shuffle}
+    data-testid="btn-shuffle"
     on:click={playerActions.toggleShuffle}
     aria-label="Shuffle"
   >
@@ -32,6 +33,7 @@
   <!-- Previous -->
   <button
     class="control-btn secondary"
+    data-testid="btn-prev"
     on:click={playerActions.prev}
     aria-label="Previous track"
   >
@@ -41,6 +43,7 @@
   <!-- Play/Pause (Large center button) -->
   <button
     class="control-btn primary"
+    data-testid="btn-play-pause"
     on:click={handlePlayPause}
     aria-label={$isPlaying ? 'Pause' : 'Play'}
   >
@@ -50,6 +53,7 @@
   <!-- Next -->
   <button
     class="control-btn secondary"
+    data-testid="btn-next"
     on:click={playerActions.next}
     aria-label="Next track"
   >
@@ -60,6 +64,7 @@
   <button
     class="control-btn secondary"
     class:active={$repeat !== 'off'}
+    data-testid="btn-repeat"
     on:click={cycleRepeat}
     aria-label="Repeat: {$repeat}"
   >

@@ -91,7 +91,7 @@
     aria-label="Close drawer"
   >
     <!-- Drawer panel -->
-    <div class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+    <div class="drawer-panel status-drawer" data-testid="status-drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
       <!-- Header -->
       <div class="drawer-header">
         <div class="header-status">

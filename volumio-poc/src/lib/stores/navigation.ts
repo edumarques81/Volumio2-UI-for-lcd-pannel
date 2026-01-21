@@ -96,10 +96,11 @@ export const navigationActions = {
   },
 
   /**
-   * Reset browse to root
+   * Reset browse to root - use 'music-library' as the default starting point
+   * Note: Empty URI returns empty data via websocket in Volumio
    */
   browseRoot() {
-    browseStack.set([{ uri: '', title: 'Music Library' }]);
+    browseStack.set([{ uri: 'music-library', title: 'Music Library' }]);
   },
 
   /**

@@ -1,13 +1,15 @@
 import { writable, derived } from 'svelte/store';
 import { socketService } from '$lib/services/socket';
+import { fixVolumioAssetUrl } from '$lib/config';
 
 /**
  * Browse item from Volumio API
  */
 export interface BrowseItem {
-  service: string;
-  type: string;
-  title: string;
+  service?: string;
+  type?: string;
+  title?: string;
+  name?: string;  // Root sources use 'name' instead of 'title'
   artist?: string;
   album?: string;
   uri: string;
@@ -15,16 +17,26 @@ export interface BrowseItem {
   icon?: string;
   tracknumber?: number;
   duration?: number;
+  plugin_type?: string;
+  plugin_name?: string;
 }
 
 /**
  * Browse list response from Volumio
+ * Note: Volumio has two response structures:
+ * 1. Root/sources: lists array contains source objects directly (no items array)
+ * 2. Folders: lists array contains objects with items array
  */
 export interface BrowseList {
-  title: string;
+  title?: string;
+  name?: string;  // Root sources use 'name' instead of 'title'
   icon?: string;
-  availableListViews: string[];
-  items: BrowseItem[];
+  albumart?: string;
+  uri?: string;
+  availableListViews?: string[];
+  items?: BrowseItem[];
+  plugin_type?: string;
+  plugin_name?: string;
 }
 
 /**
@@ -64,10 +76,70 @@ browseViewMode.subscribe((mode) => {
   }
 });
 
-// Flattened items from all lists
+
+/**
+ * Check if a list element is a source (root browse) vs a container with items
+ * Root sources have 'uri' directly on the list element, no 'items' array
+ */
+function isSourceElement(list: BrowseList): boolean {
+  return !!list.uri && !list.items;
+}
+
+/**
+ * Normalize browse item - handle 'name' vs 'title' and other variations
+ */
+function normalizeBrowseItem(item: BrowseItem | BrowseList): BrowseItem {
+  return {
+    ...item,
+    title: item.title || (item as BrowseList).name || '',
+    type: item.type || 'folder',
+    service: item.service || item.plugin_name || '',
+    albumart: fixVolumioAssetUrl(item.albumart)
+  } as BrowseItem;
+}
+
+/**
+ * Process browse response to fix album art URLs and normalize structure
+ * Handles both root browse (sources are list elements) and folder browse (items inside lists)
+ */
+function processBrowseResponse(data: BrowseResponse): BrowseResponse {
+  if (!data?.navigation?.lists) return data;
+
+  return {
+    ...data,
+    navigation: {
+      ...data.navigation,
+      lists: data.navigation.lists.map(list => ({
+        ...list,
+        albumart: fixVolumioAssetUrl(list.albumart),
+        items: list.items ? list.items.map(normalizeBrowseItem) : undefined
+      }))
+    }
+  };
+}
+
+/**
+ * Flattened items from all lists
+ * Handles both response structures:
+ * - Root browse: lists ARE the items (sources)
+ * - Folder browse: lists contain items arrays
+ */
 export const browseItems = derived(browseData, ($data) => {
   if (!$data?.navigation?.lists) return [];
-  return $data.navigation.lists.flatMap(list => list.items);
+
+  const lists = $data.navigation.lists;
+
+  // Check if this is a root browse (sources) or folder browse (items)
+  // Root browse: first list element has 'uri' but no 'items'
+  const isRootBrowse = lists.length > 0 && isSourceElement(lists[0]);
+
+  if (isRootBrowse) {
+    // Root browse: convert list elements to items
+    return lists.map(normalizeBrowseItem);
+  } else {
+    // Folder browse: flatten items from all lists
+    return lists.flatMap(list => list.items || []);
+  }
 });
 
 // Lists with their titles
@@ -159,21 +231,16 @@ export const browseActions = {
 
 /**
  * Initialize browse store - set up socket listeners
+ * Note: Does NOT fetch initial data - let components trigger browse when they mount
+ * (which happens after socket is connected, avoiding race conditions)
  */
 export function initBrowseStore() {
   // Listen for browse results
   socketService.on<BrowseResponse>('pushBrowseLibrary', (data) => {
-    console.log('[Browse] Received data:', data);
-    browseData.set(data);
+    console.log('[Browse] Received data:', data?.navigation?.lists?.length, 'lists');
+    // Process response to fix album art URLs
+    const processedData = processBrowseResponse(data);
+    browseData.set(processedData);
     browseLoading.set(false);
   });
-
-  // Listen for search results (same format as browse)
-  socketService.on<BrowseResponse>('pushBrowseLibrary', (data) => {
-    browseData.set(data);
-    browseLoading.set(false);
-  });
-
-  // Fetch root on init
-  browseActions.browse('');
 }

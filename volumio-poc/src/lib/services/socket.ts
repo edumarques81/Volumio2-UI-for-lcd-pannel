@@ -51,6 +51,13 @@ class SocketService {
       console.log(`✓ Socket connected to ${this.host}`);
       connectionState.set('connected');
 
+      // Register any handlers that were added before socket was connected
+      for (const [eventName, handlers] of this.eventHandlers.entries()) {
+        for (const handler of handlers) {
+          this.socket.on(eventName, handler);
+        }
+      }
+
       // Request initial state
       this.emit('getState');
     });
@@ -98,24 +105,25 @@ class SocketService {
   }
 
   on<T = any>(eventName: string, callback: (data: T) => void): () => void {
-    if (!this.socket) {
-      console.warn('Socket not initialized');
-      return () => {};
-    }
-
     const handler = (data: T) => {
       console.log(`← ${eventName}:`, data);
       loadingState.set(false);
       callback(data);
     };
 
-    this.socket.on(eventName, handler);
-
-    // Track handler for simulation
+    // Track handler for simulation (do this even if socket not connected)
     if (!this.eventHandlers.has(eventName)) {
       this.eventHandlers.set(eventName, new Set());
     }
     this.eventHandlers.get(eventName)!.add(handler);
+
+    // Register with socket if connected
+    if (this.socket) {
+      this.socket.on(eventName, handler);
+    } else {
+      // Socket not ready - will be registered when connect() is called
+      console.log(`Socket not initialized, handler for ${eventName} will be registered on connect`);
+    }
 
     // Return unsubscribe function
     return () => {
