@@ -10,20 +10,17 @@
   import { audioDevicesActions } from '$lib/stores/audioDevices';
   import { initNetworkStore, cleanupNetworkStore } from '$lib/stores/network';
   import { initLcdStore, cleanupLcdStore } from '$lib/stores/lcd';
+  import { initAudioStore, cleanupAudioStore } from '$lib/stores/audio';
+  import { initDeviceStore, cleanupDeviceStore, deviceType, isLcdPanel, isMobile } from '$lib/stores/device';
   import { currentView, layoutMode, navigationActions } from '$lib/stores/navigation';
   import { socketService as socket } from '$lib/services/socket';
   import { getVolumioHost } from '$lib/config';
 
-  // Views
-  import HomeScreen from '$lib/components/views/HomeScreen.svelte';
-  import PlayerView from '$lib/components/views/PlayerView.svelte';
-  import BrowseView from '$lib/components/views/BrowseView.svelte';
-  import QueueView from '$lib/components/views/QueueView.svelte';
-  import SettingsView from '$lib/components/views/SettingsView.svelte';
+  // Layouts
+  import LCDLayout from '$lib/components/layouts/LCDLayout.svelte';
+  import MobileLayout from '$lib/components/layouts/MobileLayout.svelte';
 
-  // Components
-  import BackHeader from '$lib/components/BackHeader.svelte';
-  import MiniPlayer from '$lib/components/MiniPlayer.svelte';
+  // Components (global modals)
   import ContextMenu from '$lib/components/ContextMenu.svelte';
   import PlaylistSelector from '$lib/components/PlaylistSelector.svelte';
   import TrackInfoModal from '$lib/components/TrackInfoModal.svelte';
@@ -34,6 +31,9 @@
 
   onMount(() => {
     console.log('App mounted, initializing...');
+
+    // Initialize device detection first (doesn't depend on socket)
+    initDeviceStore();
 
     // Connect to Volumio backend
     socketService.connect();
@@ -47,6 +47,7 @@
     initIssueStore();
     initNetworkStore();
     initLcdStore();
+    initAudioStore();
 
     // Expose test functions for debugging (can be called from browser console)
     (window as any).testToast = {
@@ -159,64 +160,24 @@
     return () => {
       cleanupNetworkStore();
       cleanupLcdStore();
+      cleanupAudioStore();
+      cleanupDeviceStore();
       socketService.disconnect();
     };
   });
 
-  // Show mini player when not on home or player view
-  $: showMiniPlayer = $currentView !== 'home' && $currentView !== 'player';
-
-  // All views now have their own integrated headers, so BackHeader is not needed
-  // (player is full screen, browse/queue/settings have their own headers with home navigation)
-  $: showBackHeader = false;
-
-  // Get current view title
-  $: viewTitle = {
-    'player': 'Now Playing',
-    'browse': 'Browse',
-    'queue': 'Queue',
-    'settings': 'Settings'
-  }[$currentView] || '';
-
-  // Background for non-home views - fallback to local bg.jpg
-  $: viewBackground = $selectedBackground || '/bg.jpg';
+  // Device class for root element
+  $: deviceClass = `device-${$deviceType}`;
 </script>
 
-<main>
+<main class={deviceClass}>
   {#if $connectionState === 'connected'}
     <div class="app-container">
-      {#if $currentView === 'home'}
-        <!-- Home Screen (full screen with own layout) -->
-        <HomeScreen />
+      <!-- Choose layout based on device type -->
+      {#if $isLcdPanel}
+        <LCDLayout />
       {:else}
-        <!-- Background for non-home views -->
-        <div class="view-background" style="background-image: url({viewBackground})"></div>
-        <div class="view-background-overlay"></div>
-
-        <!-- Other Views with back header -->
-        {#if showBackHeader}
-          <BackHeader title={viewTitle} />
-        {/if}
-
-        <!-- Main Content Area -->
-        <div class="content-section">
-          {#if $currentView === 'player'}
-            <PlayerView />
-          {:else if $currentView === 'browse'}
-            <BrowseView />
-          {:else if $currentView === 'queue'}
-            <QueueView />
-          {:else if $currentView === 'settings'}
-            <SettingsView />
-          {/if}
-        </div>
-
-        <!-- Mini Player (when not on home or player view) -->
-        {#if showMiniPlayer}
-          <div class="mini-player-section">
-            <MiniPlayer />
-          </div>
-        {/if}
+        <MobileLayout />
       {/if}
     </div>
   {:else if $connectionState === 'connecting'}
@@ -247,7 +208,7 @@
     display: flex;
     align-items: stretch;
     justify-content: stretch;
-    background: transparent;
+    background: var(--color-background);
     margin: 0;
     padding: 0;
     position: fixed;
@@ -261,47 +222,6 @@
     flex-direction: column;
     width: 100%;
     height: 100%;
-    position: relative;
-  }
-
-  .view-background {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-size: cover;
-    background-position: center;
-    z-index: 0;
-    background-color: #1a1a2e;
-  }
-
-  .view-background-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(180deg,
-      rgba(0, 0, 0, 0.15) 0%,
-      rgba(0, 0, 0, 0.05) 40%,
-      rgba(0, 0, 0, 0.05) 60%,
-      rgba(0, 0, 0, 0.25) 100%
-    );
-    z-index: 1;
-  }
-
-  .content-section {
-    flex: 1;
-    min-height: 0;
-    overflow: hidden;
-    position: relative;
-    z-index: 2;
-  }
-
-  .mini-player-section {
-    flex-shrink: 0;
-    z-index: 100;
     position: relative;
   }
 
@@ -362,5 +282,23 @@
 
   @keyframes spin {
     to { transform: rotate(360deg); }
+  }
+
+  /* Responsive adjustments for mobile/tablet */
+  main.device-phone,
+  main.device-tablet {
+    background: var(--color-background);
+  }
+
+  main.device-phone .status p,
+  main.device-tablet .status p {
+    font-size: var(--font-size-xl);
+  }
+
+  main.device-phone .status button,
+  main.device-tablet .status button {
+    padding: 16px 32px;
+    font-size: var(--font-size-lg);
+    min-height: 56px;
   }
 </style>

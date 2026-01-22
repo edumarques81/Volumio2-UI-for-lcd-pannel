@@ -4,7 +4,7 @@ import { writable, get } from 'svelte/store';
 
 // Use vi.hoisted to ensure stores are available before mocks are hoisted
 const { stores, mockLcdToggle } = vi.hoisted(() => {
-  const { writable } = require('svelte/store');
+  const { writable, derived } = require('svelte/store');
   return {
     stores: {
       connectionState: writable('connected'),
@@ -19,7 +19,21 @@ const { stores, mockLcdToggle } = vi.hoisted(() => {
       playbackIssues: writable([]),
       statusDrawerOpen: writable(false),
       lcdState: writable('on'),
-      lcdLoading: writable(false)
+      lcdLoading: writable(false),
+      // Network stores
+      networkStatus: writable({
+        type: 'ethernet',
+        ssid: '',
+        signal: 100,
+        ip: '192.168.1.100',
+        strength: 4
+      }),
+      networkIcon: writable('wifi'),
+      isConnected: writable(true),
+      // Audio stores
+      isDeviceLocked: writable(false),
+      formatBadge: writable(null),
+      isBitPerfect: writable(false)
     },
     mockLcdToggle: vi.fn(() => Promise.resolve(true))
   };
@@ -27,7 +41,12 @@ const { stores, mockLcdToggle } = vi.hoisted(() => {
 
 // Mock dependencies
 vi.mock('$lib/services/socket', () => ({
-  connectionState: stores.connectionState
+  connectionState: stores.connectionState,
+  socketService: {
+    emit: vi.fn(),
+    on: vi.fn(() => () => {}),
+    off: vi.fn()
+  }
 }));
 
 vi.mock('$lib/stores/player', () => ({
@@ -55,6 +74,22 @@ vi.mock('$lib/stores/lcd', () => ({
   cleanupLcdStore: vi.fn()
 }));
 
+vi.mock('$lib/stores/network', () => ({
+  networkStatus: stores.networkStatus,
+  networkIcon: stores.networkIcon,
+  isConnected: stores.isConnected,
+  initNetworkStore: vi.fn(),
+  cleanupNetworkStore: vi.fn()
+}));
+
+vi.mock('$lib/stores/audio', () => ({
+  isDeviceLocked: stores.isDeviceLocked,
+  formatBadge: stores.formatBadge,
+  isBitPerfect: stores.isBitPerfect,
+  initAudioStore: vi.fn(),
+  cleanupAudioStore: vi.fn()
+}));
+
 import StatusBar from '../StatusBar.svelte';
 
 describe('StatusBar component', () => {
@@ -70,6 +105,20 @@ describe('StatusBar component', () => {
     stores.statusDrawerOpen.set(false);
     stores.lcdState.set('on');
     stores.lcdLoading.set(false);
+    // Reset network stores
+    stores.networkStatus.set({
+      type: 'ethernet',
+      ssid: '',
+      signal: 100,
+      ip: '192.168.1.100',
+      strength: 4
+    });
+    stores.networkIcon.set('wifi');
+    stores.isConnected.set(true);
+    // Reset audio stores
+    stores.isDeviceLocked.set(false);
+    stores.formatBadge.set(null);
+    stores.isBitPerfect.set(false);
     vi.useFakeTimers();
   });
 
@@ -100,6 +149,7 @@ describe('StatusBar component', () => {
   describe('ON AIR badge', () => {
     it('should show ON AIR when track is playing', () => {
       stores.currentTrack.set({ title: 'Playing Song', artist: 'Artist', album: 'Album' });
+      stores.isPlaying.set(true);
       render(StatusBar);
 
       expect(screen.getByText('ON AIR')).toBeInTheDocument();
@@ -223,19 +273,19 @@ describe('StatusBar component', () => {
 
   describe('connection indicator', () => {
     it('should show connected state', () => {
-      stores.connectionState.set('connected');
+      stores.isConnected.set(true);
       render(StatusBar);
 
       const indicator = document.querySelector('.indicator');
       expect(indicator).toHaveClass('connected');
     });
 
-    it('should not show connected class when disconnected', () => {
-      stores.connectionState.set('disconnected');
+    it('should not render indicator when disconnected', () => {
+      stores.isConnected.set(false);
       render(StatusBar);
 
       const indicator = document.querySelector('.indicator');
-      expect(indicator).not.toHaveClass('connected');
+      expect(indicator).not.toBeInTheDocument();
     });
   });
 

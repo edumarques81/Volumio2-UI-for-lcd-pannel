@@ -321,3 +321,139 @@ sshpass -p 'volumio' ssh -o StrictHostKeyChecking=no volumio@192.168.86.34 "tail
 - **GitHub**: https://github.com/edumarques81/stellar-volumio-audioplayer-backend
 - **Library**: `zishang520/socket.io` v3 (proper Socket.IO v4 support)
 - **Features**: MPD client, player controls, queue management, music library browsing
+
+## Development Workflow Requirements
+
+### Test-Driven Development (TDD)
+
+**Claude MUST follow TDD practices when writing code:**
+
+1. **Write tests first** - Before implementing any feature or fix, write failing tests that define the expected behavior
+2. **Run tests to confirm they fail** - Verify the tests fail for the right reason
+3. **Implement the minimal code** - Write just enough code to make the tests pass
+4. **Refactor** - Clean up the code while keeping tests green
+5. **Run all tests** - Ensure no regressions were introduced
+
+### Testing Requirements
+
+**Every code change MUST include appropriate tests:**
+
+#### Frontend (Svelte POC)
+- Unit tests for stores, utilities, and components
+- Tests located in `__tests__/` directories adjacent to source files
+- Use Vitest with `@testing-library/svelte`
+- Run tests: `cd volumio-poc && npm test`
+
+#### Backend (Stellar - Go)
+- Unit tests for all packages
+- Tests located in `*_test.go` files
+- Run tests: `cd stellar-volumio-audioplayer-backend && go test ./...`
+
+### Raspberry Pi Testing Environment
+
+**Before starting any development work, Claude MUST establish an SSH session to the Pi for testing:**
+
+```bash
+# Open a persistent SSH session at the start of work
+sshpass -p 'volumio' ssh -o StrictHostKeyChecking=no volumio@192.168.86.34
+
+# Or run commands to verify connectivity
+sshpass -p 'volumio' ssh -o StrictHostKeyChecking=no volumio@192.168.86.34 "echo 'Pi connection OK' && uptime"
+```
+
+**Testing workflow on Pi:**
+
+1. **Deploy changes** - Use the deployment commands in the sections above
+2. **Check logs** - Monitor for errors:
+   ```bash
+   # Stellar backend logs
+   sshpass -p 'volumio' ssh -o StrictHostKeyChecking=no volumio@192.168.86.34 "tail -f /home/volumio/stellar.log"
+
+   # System logs
+   sshpass -p 'volumio' ssh -o StrictHostKeyChecking=no volumio@192.168.86.34 "journalctl -f"
+
+   # Kiosk/browser logs
+   sshpass -p 'volumio' ssh -o StrictHostKeyChecking=no volumio@192.168.86.34 "journalctl -u volumio-kiosk -f"
+   ```
+3. **Verify functionality** - Test the feature/fix works as expected on actual hardware
+4. **Check for regressions** - Ensure existing functionality still works
+
+### Conventional Commits
+
+**All commits MUST follow the [Conventional Commits](https://www.conventionalcommits.org/) specification:**
+
+#### Commit Message Format
+
+```
+<type>(<scope>): <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+#### Types
+
+| Type | Description |
+|------|-------------|
+| `feat` | A new feature |
+| `fix` | A bug fix |
+| `docs` | Documentation only changes |
+| `style` | Changes that don't affect code meaning (formatting, whitespace) |
+| `refactor` | Code change that neither fixes a bug nor adds a feature |
+| `perf` | Performance improvement |
+| `test` | Adding or correcting tests |
+| `chore` | Changes to build process or auxiliary tools |
+| `ci` | Changes to CI configuration |
+
+#### Scope Examples
+
+- `feat(audio)`: Audio-related feature
+- `fix(ui)`: UI bug fix
+- `test(player)`: Player-related tests
+- `refactor(socket)`: Socket service refactoring
+
+#### Examples
+
+```bash
+# Feature
+git commit -m "feat(audio): add bit-perfect audio status indicator"
+
+# Bug fix
+git commit -m "fix(device): correct phone detection for tall screens"
+
+# Tests
+git commit -m "test(audio): add unit tests for audio controller"
+
+# Refactoring
+git commit -m "refactor(network): replace REST polling with Socket.IO push"
+
+# Breaking change (add ! after type)
+git commit -m "feat(api)!: change audio status event payload structure"
+```
+
+#### Multi-line Commit with Body
+
+```bash
+git commit -m "$(cat <<'EOF'
+feat(lcd): add LCD power control via Socket.IO
+
+- Add lcdStandby and lcdWake event handlers
+- Broadcast pushLcdStatus on state changes
+- Remove HTTP polling dependency
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+EOF
+)"
+```
+
+### Development Checklist
+
+Before considering any task complete, Claude MUST verify:
+
+- [ ] Tests written (TDD - tests first)
+- [ ] All local tests pass (frontend and backend)
+- [ ] Code deployed to Raspberry Pi
+- [ ] Functionality verified on Pi hardware
+- [ ] Logs checked for errors
+- [ ] Commit message follows Conventional Commits format
