@@ -18,6 +18,13 @@
     audioDevicesByCategory,
     audioDevicesActions
   } from '$lib/stores/audioDevices';
+  import {
+    frontendVersion,
+    backendVersion,
+    backendVersionLoading,
+    initVersionStore,
+    cleanupVersionStore
+  } from '$lib/stores/version';
   import Icon from '../Icon.svelte';
 
   let audioDevicesCleanup: (() => void) | null = null;
@@ -62,10 +69,12 @@
     settingsActions.getSystemInfo();
     settingsActions.getNetworkStatus();
     audioDevicesCleanup = audioDevicesActions.init();
+    initVersionStore();
   });
 
   onDestroy(() => {
     audioDevicesCleanup?.();
+    cleanupVersionStore();
   });
 
   function handleAudioOutputSelect(deviceId: string) {
@@ -390,6 +399,38 @@
             <p>Loading system info...</p>
           </div>
         {/if}
+      </div>
+
+      <div class="settings-section" data-testid="version-section">
+        <h2 class="section-title">Version Info</h2>
+        <div class="info-grid">
+          <div class="info-item">
+            <span class="info-label">Frontend</span>
+            <span class="info-value">{$frontendVersion.name} v{$frontendVersion.version}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Backend</span>
+            {#if $backendVersionLoading}
+              <span class="info-value loading">Loading...</span>
+            {:else if $backendVersion}
+              <span class="info-value">{$backendVersion.name} v{$backendVersion.version}</span>
+            {:else}
+              <span class="info-value error">Not connected</span>
+            {/if}
+          </div>
+          {#if $backendVersion?.gitCommit}
+            <div class="info-item">
+              <span class="info-label">Backend Commit</span>
+              <span class="info-value mono">{$backendVersion.gitCommit.slice(0, 7)}</span>
+            </div>
+          {/if}
+          {#if $backendVersion?.buildTime}
+            <div class="info-item">
+              <span class="info-label">Backend Build</span>
+              <span class="info-value">{$backendVersion.buildTime}</span>
+            </div>
+          {/if}
+        </div>
       </div>
 
       <div class="settings-section">
@@ -871,5 +912,21 @@
     to {
       transform: rotate(360deg);
     }
+  }
+
+  /* Version info styles */
+  .info-value.loading {
+    color: var(--color-text-tertiary);
+    font-style: italic;
+  }
+
+  .info-value.error {
+    color: #ff453a;
+  }
+
+  .info-value.mono {
+    font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, monospace;
+    font-size: var(--font-size-sm);
+    letter-spacing: 0.02em;
   }
 </style>
