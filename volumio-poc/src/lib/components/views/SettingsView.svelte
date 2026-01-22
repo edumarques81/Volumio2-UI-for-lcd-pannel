@@ -28,7 +28,11 @@
   import {
     bitPerfectConfig,
     isBitPerfectConfigOk,
-    audioActions
+    audioActions,
+    initAudioStore,
+    cleanupAudioStore,
+    dsdMode,
+    dsdModeLoading
   } from '$lib/stores/audio';
   import Icon from '../Icon.svelte';
 
@@ -77,11 +81,13 @@
     settingsActions.getNetworkStatus();
     audioDevicesCleanup = audioDevicesActions.init();
     initVersionStore();
+    initAudioStore();
   });
 
   onDestroy(() => {
     audioDevicesCleanup?.();
     cleanupVersionStore();
+    cleanupAudioStore();
   });
 
   function handleAudioOutputSelect(deviceId: string) {
@@ -439,6 +445,49 @@
               <Icon name="refresh" size={20} />
               <span>Check Configuration</span>
             </button>
+          </div>
+        {/if}
+      </div>
+
+      <!-- DSD Playback Mode Section -->
+      <div class="settings-section" data-testid="dsd-mode-section">
+        <h2 class="section-title">DSD Playback Mode</h2>
+        <p class="section-hint">Choose how DSD files are sent to your DAC</p>
+
+        <div class="dsd-mode-options">
+          <button
+            class="dsd-mode-option"
+            class:selected={$dsdMode === 'native'}
+            class:loading={$dsdModeLoading}
+            disabled={$dsdModeLoading}
+            on:click={() => audioActions.setDsdMode('native')}
+          >
+            <div class="option-radio" class:checked={$dsdMode === 'native'}></div>
+            <div class="option-content">
+              <span class="option-title">Native DSD</span>
+              <span class="option-desc">Pure bit-perfect DSD stream. Requires DAC with native DSD support.</span>
+            </div>
+          </button>
+
+          <button
+            class="dsd-mode-option"
+            class:selected={$dsdMode === 'dop'}
+            class:loading={$dsdModeLoading}
+            disabled={$dsdModeLoading}
+            on:click={() => audioActions.setDsdMode('dop')}
+          >
+            <div class="option-radio" class:checked={$dsdMode === 'dop'}></div>
+            <div class="option-content">
+              <span class="option-title">DSD over PCM (DoP)</span>
+              <span class="option-desc">DSD wrapped in PCM frames. Compatible with more DACs but not true bit-perfect.</span>
+            </div>
+          </button>
+        </div>
+
+        {#if $dsdModeLoading}
+          <div class="mode-loading">
+            <div class="spinner small"></div>
+            <span>Applying changes...</span>
           </div>
         {/if}
       </div>
@@ -1185,5 +1234,118 @@
     font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, monospace;
     font-size: var(--font-size-sm);
     color: var(--color-text-secondary);
+  }
+
+  /* DSD Mode Toggle Styles */
+  .dsd-mode-options {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+
+  .dsd-mode-option {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+    padding: var(--spacing-lg);
+    background: rgba(255, 255, 255, 0.27);
+    border: 2px solid transparent;
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+    width: 100%;
+  }
+
+  .dsd-mode-option:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.35);
+  }
+
+  .dsd-mode-option:active:not(:disabled) {
+    transform: scale(0.99);
+  }
+
+  .dsd-mode-option.selected {
+    background: rgba(0, 122, 255, 0.15);
+    border-color: var(--color-accent);
+  }
+
+  .dsd-mode-option.selected:hover:not(:disabled) {
+    background: rgba(0, 122, 255, 0.2);
+  }
+
+  .dsd-mode-option:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .dsd-mode-option.loading {
+    pointer-events: none;
+  }
+
+  .option-radio {
+    width: 22px;
+    height: 22px;
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 2px;
+    position: relative;
+    transition: all 0.2s;
+  }
+
+  .option-radio.checked {
+    border-color: var(--color-accent);
+    background: var(--color-accent);
+  }
+
+  .option-radio.checked::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 8px;
+    height: 8px;
+    background: white;
+    border-radius: 50%;
+  }
+
+  .option-content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+  }
+
+  .option-title {
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    color: var(--color-text-primary);
+  }
+
+  .option-desc {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    line-height: 1.4;
+  }
+
+  .dsd-mode-option.selected .option-title {
+    color: var(--color-accent);
+  }
+
+  .mode-loading {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+  }
+
+  .spinner.small {
+    width: 18px;
+    height: 18px;
+    border-width: 2px;
   }
 </style>
