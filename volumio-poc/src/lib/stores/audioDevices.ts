@@ -140,6 +140,14 @@ export const audioDevicesActions = {
   fetchDevices(): void {
     audioDevicesLoading.set(true);
     socketService.emit('getPlaybackOptions');
+
+    // Timeout after 5 seconds if no response
+    setTimeout(() => {
+      if (get(audioDevicesLoading)) {
+        console.warn('[AudioDevices] Timeout waiting for playback options');
+        audioDevicesLoading.set(false);
+      }
+    }, 5000);
   },
 
   /**
