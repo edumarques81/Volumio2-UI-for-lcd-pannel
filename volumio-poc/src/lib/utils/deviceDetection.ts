@@ -10,11 +10,43 @@
 export type DeviceType = 'lcd-panel' | 'tablet' | 'phone';
 
 /**
+ * Check for forced layout mode via URL parameter.
+ * Use ?layout=lcd to force LCD panel mode (useful for kiosk).
+ * Use ?layout=mobile to force mobile mode (useful for testing).
+ */
+function getForcedLayoutMode(): DeviceType | null {
+  if (typeof window === 'undefined') return null;
+
+  const params = new URLSearchParams(window.location.search);
+  const layout = params.get('layout');
+
+  if (layout === 'lcd' || layout === 'lcd-panel') {
+    return 'lcd-panel';
+  }
+  if (layout === 'tablet') {
+    return 'tablet';
+  }
+  if (layout === 'phone' || layout === 'mobile') {
+    return 'phone';
+  }
+
+  return null;
+}
+
+/**
  * Detect the current device type based on screen dimensions.
+ * Can be overridden with URL parameter: ?layout=lcd|tablet|phone
  */
 export function detectDeviceType(): DeviceType {
   if (typeof window === 'undefined') {
     return 'lcd-panel'; // Default for SSR
+  }
+
+  // Check for forced layout mode first
+  const forcedMode = getForcedLayoutMode();
+  if (forcedMode) {
+    console.log(`📱 Layout forced via URL: ${forcedMode}`);
+    return forcedMode;
   }
 
   const width = window.innerWidth;
@@ -22,7 +54,7 @@ export function detectDeviceType(): DeviceType {
   const isLandscape = width > height;
   const aspectRatio = width / height;
 
-  // LCD Panel: Wide landscape display (aspect ratio > 3.5, typical CarPlay is ~4.36)
+  // LCD Panel: Wide landscape display (aspect ratio >= 2.5, typical CarPlay is ~4.36)
   // Or specifically 1920x440 or similar very wide displays
   if (width >= 1200 && height <= 600 && isLandscape && aspectRatio >= 2.5) {
     return 'lcd-panel';

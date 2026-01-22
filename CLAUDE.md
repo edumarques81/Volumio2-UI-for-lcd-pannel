@@ -236,18 +236,32 @@ The codebase uses Babel 5 for ES6 transpilation. Import/export syntax is support
 
 ## Raspberry Pi Development Setup
 
+### IMPORTANT: localhost vs Raspberry Pi
+
+**NEVER confuse these two environments:**
+
+| Environment | Address | Description |
+|-------------|---------|-------------|
+| **Local (macOS)** | `localhost` | Developer's macOS machine where code is edited and built |
+| **Raspberry Pi** | `192.168.86.34` | Target device running Volumio with LCD panel |
+
+- `localhost` = macOS development machine
+- `192.168.86.34` = Raspberry Pi (Volumio)
+- When deploying, files are built on **localhost** and copied to **Pi**
+- The Pi's kiosk browser loads from `http://localhost:8080` (which is localhost **on the Pi itself**)
+
 ### SSH Access (IMPORTANT)
 
 **All SSH and SCP operations MUST use `sshpass` for automation.** The AI assistant should always use sshpass when connecting to the Pi.
 
 ```bash
-# SSH connection pattern
+# SSH connection pattern (from macOS to Pi)
 sshpass -p 'volumio' ssh -o StrictHostKeyChecking=no volumio@192.168.86.34 "command here"
 
-# SCP file transfer pattern
+# SCP file transfer pattern (from macOS to Pi)
 sshpass -p 'volumio' scp -o StrictHostKeyChecking=no local_file volumio@192.168.86.34:/remote/path/
 
-# SCP directory transfer pattern
+# SCP directory transfer pattern (from macOS to Pi)
 sshpass -p 'volumio' scp -o StrictHostKeyChecking=no -r local_dir/* volumio@192.168.86.34:/remote/path/
 ```
 
@@ -261,15 +275,17 @@ sshpass -p 'volumio' scp -o StrictHostKeyChecking=no -r local_dir/* volumio@192.
 | SSH Password | `volumio` |
 | Architecture | ARM64 (Raspberry Pi 5) |
 
-### Services and Ports
+### Services and Ports (on Raspberry Pi)
 
 | Service | Port | Description |
 |---------|------|-------------|
-| POC httpd | 80 | busybox httpd serving `/home/volumio/svelte-poc` |
-| Volumio backend | 3000 | Original Volumio Node.js backend |
-| Stellar backend | 3002 | Go backend (replaces Volumio for POC) |
+| **POC Frontend** | 8080 | busybox httpd serving `/home/volumio/svelte-poc` |
+| **Stellar Backend** | 3002 | Go backend for POC |
+| Volumio backend | 3000 | Original Volumio Node.js backend (not used by POC) |
 | MPD | 6600 | Music Player Daemon |
-| Kiosk service | - | `volumio-kiosk.service` |
+| Kiosk Chrome DevTools | 9222 | Remote debugging port |
+
+**POC uses only ports 8080 (frontend) and 3002 (backend).**
 
 ### Important Paths on Pi
 
@@ -278,6 +294,7 @@ sshpass -p 'volumio' scp -o StrictHostKeyChecking=no -r local_dir/* volumio@192.
 | `/home/volumio/svelte-poc` | Frontend POC files (httpd serves from here) |
 | `/home/volumio/stellar` | Stellar Go backend binary |
 | `/home/volumio/stellar.log` | Stellar backend logs |
+| `/opt/volumiokiosk.sh` | Kiosk startup script |
 | `/data/volumiokiosk/Default/Cache/` | Chromium kiosk browser cache |
 
 ## Volumio POC (Svelte)
