@@ -12,7 +12,7 @@
 ### Raspberry Pi Status
 - **Cleaned up** - All POC files removed from `/home/volumio/`
 - **Rebooted** - Fresh start
-- **Kiosk URL reset** to `http://localhost:8080` (no `?layout=lcd`)
+- **Kiosk URL reset** to `http://192.168.86.34:8080` (no `?layout=lcd`)
 
 ### Ports on Raspberry Pi
 | Service | Port | Description |
