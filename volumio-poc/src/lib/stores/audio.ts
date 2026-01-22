@@ -20,14 +20,37 @@ export interface AudioStatus {
   format: AudioFormat | null; // Current audio format (null if not playing)
 }
 
+/**
+ * Bit-perfect configuration status from the backend.
+ * This represents the system configuration (MPD, ALSA), not the real-time audio format.
+ */
+export interface BitPerfectConfig {
+  status: 'ok' | 'warning' | 'error'; // Configuration status
+  issues: string[];      // Critical issues preventing bit-perfect output
+  warnings: string[];    // Non-critical warnings
+  config: string[];      // Current configuration details
+}
+
+/**
+ * DSD playback mode response from the backend.
+ */
+export interface DsdModeResponse {
+  mode: 'native' | 'dop';  // Current DSD mode
+  success: boolean;        // Whether the operation succeeded
+  error?: string;          // Error message if failed
+}
+
 // Default state
 const defaultStatus: AudioStatus = {
   locked: false,
   format: null
 };
 
-// Main store
+// Main stores
 export const audioStatus = writable<AudioStatus>(defaultStatus);
+export const bitPerfectConfig = writable<BitPerfectConfig | null>(null);
+export const dsdMode = writable<'native' | 'dop'>('native');
+export const dsdModeLoading = writable<boolean>(false);
 
 // Derived stores for convenient access
 export const isDeviceLocked = derived(audioStatus, $status => $status.locked);
@@ -35,6 +58,9 @@ export const isDeviceLocked = derived(audioStatus, $status => $status.locked);
 export const audioFormat = derived(audioStatus, $status => $status.format);
 
 export const isBitPerfect = derived(audioStatus, $status => $status.format?.isBitPerfect ?? false);
+
+// Derived store for bit-perfect configuration status
+export const isBitPerfectConfigOk = derived(bitPerfectConfig, $config => $config?.status === 'ok');
 
 /**
  * Format sample rate for display (e.g., "192kHz", "DSD128")
@@ -98,6 +124,28 @@ export const audioActions = {
    */
   getStatus: () => {
     socketService.emit('getAudioStatus');
+  },
+
+  /**
+   * Request bit-perfect configuration status from backend
+   */
+  getBitPerfectConfig: () => {
+    socketService.emit('getBitPerfect');
+  },
+
+  /**
+   * Request current DSD mode from backend
+   */
+  getDsdMode: () => {
+    socketService.emit('getDsdMode');
+  },
+
+  /**
+   * Set DSD playback mode (native or dop)
+   */
+  setDsdMode: (mode: 'native' | 'dop') => {
+    dsdModeLoading.set(true);
+    socketService.emit('setDsdMode', { mode });
   }
 };
 
@@ -116,18 +164,43 @@ export function initAudioStore() {
     audioStatus.set(status);
   });
 
+  // Listen for bit-perfect configuration updates from backend
+  socketService.on<BitPerfectConfig>('pushBitPerfect', (config) => {
+    console.log('🔊 pushBitPerfect received:', config);
+    bitPerfectConfig.set(config);
+  });
+
+  // Listen for DSD mode updates from backend
+  socketService.on<DsdModeResponse>('pushDsdMode', (response) => {
+    console.log('🔊 pushDsdMode received:', response);
+    dsdModeLoading.set(false);
+    if (response.mode) {
+      dsdMode.set(response.mode);
+    }
+    // After mode change, refresh bit-perfect status
+    if (response.success) {
+      setTimeout(() => {
+        socketService.emit('getBitPerfect');
+      }, 500);
+    }
+  });
+
   console.log('✅ Audio store initialized');
 
   // Request initial status after a short delay
   setTimeout(() => {
     console.log('📡 Requesting initial audio status...');
     socketService.emit('getAudioStatus');
+    socketService.emit('getDsdMode');
   }, 600);
 }
 
 export function cleanupAudioStore() {
   // Reset to default state
   audioStatus.set(defaultStatus);
+  bitPerfectConfig.set(null);
+  dsdMode.set('native');
+  dsdModeLoading.set(false);
   // Allow re-initialization
   initialized = false;
 }

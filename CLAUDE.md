@@ -236,18 +236,32 @@ The codebase uses Babel 5 for ES6 transpilation. Import/export syntax is support
 
 ## Raspberry Pi Development Setup
 
+### IMPORTANT: localhost vs Raspberry Pi
+
+**NEVER confuse these two environments:**
+
+| Environment | Address | Description |
+|-------------|---------|-------------|
+| **Local (macOS)** | `localhost` | Developer's macOS machine where code is edited and built |
+| **Raspberry Pi** | `192.168.86.34` | Target device running Volumio with LCD panel |
+
+- `localhost` = macOS development machine
+- `192.168.86.34` = Raspberry Pi (Volumio)
+- When deploying, files are built on **localhost** and copied to **Pi**
+- The Pi's kiosk browser loads from `http://localhost:8080` (which is localhost **on the Pi itself**)
+
 ### SSH Access (IMPORTANT)
 
 **All SSH and SCP operations MUST use `sshpass` for automation.** The AI assistant should always use sshpass when connecting to the Pi.
 
 ```bash
-# SSH connection pattern
+# SSH connection pattern (from macOS to Pi)
 sshpass -p 'volumio' ssh -o StrictHostKeyChecking=no volumio@192.168.86.34 "command here"
 
-# SCP file transfer pattern
+# SCP file transfer pattern (from macOS to Pi)
 sshpass -p 'volumio' scp -o StrictHostKeyChecking=no local_file volumio@192.168.86.34:/remote/path/
 
-# SCP directory transfer pattern
+# SCP directory transfer pattern (from macOS to Pi)
 sshpass -p 'volumio' scp -o StrictHostKeyChecking=no -r local_dir/* volumio@192.168.86.34:/remote/path/
 ```
 
@@ -261,43 +275,105 @@ sshpass -p 'volumio' scp -o StrictHostKeyChecking=no -r local_dir/* volumio@192.
 | SSH Password | `volumio` |
 | Architecture | ARM64 (Raspberry Pi 5) |
 
-### Services and Ports
+### Services and Ports (on Raspberry Pi)
 
 | Service | Port | Description |
 |---------|------|-------------|
-| POC httpd | 80 | busybox httpd serving `/home/volumio/svelte-poc` |
-| Volumio backend | 3000 | Original Volumio Node.js backend |
-| Stellar backend | 3002 | Go backend (replaces Volumio for POC) |
+| **Stellar Frontend** | 8080 | busybox httpd serving `/home/volumio/stellar-volumio` |
+| **Stellar Backend** | 3002 | Go backend for POC |
+| Volumio backend | 3000 | Original Volumio Node.js backend (not used by POC) |
 | MPD | 6600 | Music Player Daemon |
-| Kiosk service | - | `volumio-kiosk.service` |
+| Kiosk Chrome DevTools | 9222 | Remote debugging port |
+
+**POC uses only ports 8080 (frontend) and 3002 (backend).**
 
 ### Important Paths on Pi
 
 | Path | Description |
 |------|-------------|
-| `/home/volumio/svelte-poc` | Frontend POC files (httpd serves from here) |
+| `/home/volumio/stellar-volumio` | Stellar frontend files (httpd serves from here) |
 | `/home/volumio/stellar` | Stellar Go backend binary |
 | `/home/volumio/stellar.log` | Stellar backend logs |
+| `/opt/volumiokiosk.sh` | Kiosk startup script |
 | `/data/volumiokiosk/Default/Cache/` | Chromium kiosk browser cache |
 
 ## Volumio POC (Svelte)
 
 The `volumio-poc/` directory contains a Svelte-based POC for a CarPlay-style LCD interface (1920x440).
 
+### POC Tech Stack
+
+| Component | Technology |
+|-----------|------------|
+| Framework | Svelte 5 |
+| Language | TypeScript |
+| Build Tool | Vite 7 |
+| Testing | Vitest + @testing-library/svelte |
+| E2E Testing | Playwright |
+| Backend Communication | Socket.io 4.x client → Stellar backend |
+
+### Development Mode - Backend Connection
+
+**IMPORTANT**: When running `npm run dev` on macOS (localhost:5173), the frontend connects to the **Raspberry Pi's backend** at `192.168.86.34:3002`.
+
+| Environment | Frontend URL | Backend URL |
+|-------------|--------------|-------------|
+| **Dev mode (macOS)** | `localhost:5173` | `192.168.86.34:3002` (Pi) |
+| **Deployed (Pi kiosk)** | `localhost:8080` (on Pi) | `localhost:3002` (on Pi) |
+| **Remote access** | `192.168.86.34:8080` | `192.168.86.34:3002` |
+
+This is configured in `volumio-poc/src/lib/config.ts`. The Stellar backend must be running on the Pi for dev mode to work.
+
+### POC Commands
+
+```bash
+cd volumio-poc
+
+# Development
+npm run dev              # Start Vite dev server (localhost:5173)
+
+# Testing
+npm test                 # Run Vitest in watch mode
+npm run test:run         # Run tests once
+npm run test:coverage    # Run tests with coverage
+
+# E2E Testing (Playwright)
+npm run test:e2e         # Run E2E tests
+npm run test:e2e:ui      # Run with Playwright UI
+npm run test:e2e:headed  # Run in headed browser mode
+npm run test:e2e:debug   # Debug E2E tests
+
+# Build
+npm run build            # Production build → dist/
+```
+
+### Responsive Layout and URL-Based Forcing
+
+The POC supports multiple layouts:
+- **LCDLayout** - For the 1920x440 LCD panel
+- **MobileLayout** - For phones/tablets
+
+To force a specific layout (useful for kiosk mode), use the `?layout=` URL parameter:
+- `?layout=lcd` - Forces LCD layout regardless of screen size
+- `?layout=mobile` - Forces mobile layout
+
+**Kiosk configuration** at `/opt/volumiokiosk.sh` can include `?layout=lcd` to ensure the Pi always uses the LCD layout.
+
 ### POC Deployment to Raspberry Pi
 
-**IMPORTANT**: The httpd server on the Pi serves files from `/home/volumio/svelte-poc`, NOT `/home/volumio/poc`.
+**IMPORTANT**: The httpd server on the Pi serves files from `/home/volumio/stellar-volumio`.
 
 ```bash
 # Build the POC
 cd volumio-poc
 npm run build
 
-# Deploy frontend to Pi
-sshpass -p 'volumio' scp -o StrictHostKeyChecking=no -r dist/* volumio@192.168.86.34:/home/volumio/svelte-poc/
+# Ensure directory exists and deploy frontend to Pi
+sshpass -p 'volumio' ssh -o StrictHostKeyChecking=no volumio@192.168.86.34 "mkdir -p /home/volumio/stellar-volumio"
+sshpass -p 'volumio' scp -o StrictHostKeyChecking=no -r dist/* volumio@192.168.86.34:/home/volumio/stellar-volumio/
 
 # Clear browser cache and restart kiosk
-sshpass -p 'volumio' ssh -o StrictHostKeyChecking=no volumio@192.168.86.34 "sudo rm -rf /data/volumiokiosk/Default/Cache/* && sudo systemctl restart volumio-kiosk"
+sshpass -p 'volumio' ssh -o StrictHostKeyChecking=no volumio@192.168.86.34 "echo 'volumio' | sudo -S rm -rf /data/volumiokiosk/Default/Cache/* && echo 'volumio' | sudo -S systemctl restart volumio-kiosk"
 ```
 
 ### Stellar Backend Deployment
@@ -318,9 +394,52 @@ sshpass -p 'volumio' ssh -o StrictHostKeyChecking=no volumio@192.168.86.34 "tail
 
 ### Stellar Backend Repository
 
+- **Location**: `/Users/eduardomarques/workspace/stellar-volumio-audioplayer-backend`
 - **GitHub**: https://github.com/edumarques81/stellar-volumio-audioplayer-backend
 - **Library**: `zishang520/socket.io` v3 (proper Socket.IO v4 support)
-- **Features**: MPD client, player controls, queue management, music library browsing
+- **Features**: MPD client, player controls, queue management, music library browsing, version API
+
+### Key Socket.IO Events (Stellar Backend)
+
+| Event (Emit) | Event (Receive) | Description |
+|--------------|-----------------|-------------|
+| `getState` | `pushState` | Get/receive player state |
+| `getVersion` | `pushVersion` | Get backend version info |
+| `play` | - | Start playback |
+| `pause` | - | Pause playback |
+| `stop` | - | Stop playback |
+| `prev` | - | Previous track |
+| `next` | - | Next track |
+| `volume` | - | Set volume (0-100) |
+| `seek` | - | Seek to position (seconds) |
+
+### POC Project Structure
+
+```
+volumio-poc/
+├── src/
+│   ├── main.ts                 # App entry point
+│   ├── App.svelte              # Root component
+│   ├── app.css                 # Global CSS
+│   └── lib/
+│       ├── config.ts           # Backend URL configuration
+│       ├── services/
+│       │   └── socket.ts       # Socket.IO wrapper
+│       ├── stores/
+│       │   ├── player.ts       # Player state store
+│       │   └── version.ts      # Version info store
+│       ├── utils/
+│       │   └── deviceDetection.ts  # Device/layout detection
+│       └── components/
+│           ├── LCDLayout.svelte    # 1920x440 LCD layout
+│           ├── MobileLayout.svelte # Mobile/tablet layout
+│           ├── PlayerBar.svelte    # Main player bar
+│           ├── AlbumArt.svelte     # Album artwork
+│           └── ...
+├── e2e/                        # Playwright E2E tests
+├── dist/                       # Production build output
+└── package.json
+```
 
 ## Development Workflow Requirements
 

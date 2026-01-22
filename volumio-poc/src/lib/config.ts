@@ -41,7 +41,14 @@ export function getVolumioHost(): string {
     return `http://localhost:${STELLAR_PORT}`;
   }
 
-  // Case 3: Accessing remotely via IP - connect to same host on Stellar port
+  // Case 3: .local hostname - use configured IP to avoid mDNS resolution issues
+  // mDNS (.local) hostnames often fail for WebSocket connections
+  if (hostname.endsWith('.local')) {
+    console.log('[Config] .local hostname detected, using configured IP:', `http://${DEV_VOLUMIO_IP}:${STELLAR_PORT}`);
+    return `http://${DEV_VOLUMIO_IP}:${STELLAR_PORT}`;
+  }
+
+  // Case 4: Accessing remotely via IP - connect to same host on Stellar port
   console.log('[Config] Remote access detected, connecting to:', `http://${hostname}:${STELLAR_PORT}`);
   return `http://${hostname}:${STELLAR_PORT}`;
 }
@@ -70,6 +77,11 @@ export function getVolumioAssetHost(): string {
 
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
     return `http://localhost:${STELLAR_PORT}`;
+  }
+
+  // Use configured IP for .local hostnames to avoid mDNS issues
+  if (hostname.endsWith('.local')) {
+    return `http://${DEV_VOLUMIO_IP}:${STELLAR_PORT}`;
   }
 
   return `http://${hostname}:${STELLAR_PORT}`;

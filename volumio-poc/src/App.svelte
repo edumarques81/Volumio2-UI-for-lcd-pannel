@@ -11,13 +11,14 @@
   import { initNetworkStore, cleanupNetworkStore } from '$lib/stores/network';
   import { initLcdStore, cleanupLcdStore } from '$lib/stores/lcd';
   import { initAudioStore, cleanupAudioStore } from '$lib/stores/audio';
-  import { initDeviceStore, cleanupDeviceStore, deviceType, isLcdPanel, isMobile } from '$lib/stores/device';
+  import { initDeviceStore, cleanupDeviceStore, deviceType, isLcdPanel, isDesktop, isMobile } from '$lib/stores/device';
   import { currentView, layoutMode, navigationActions } from '$lib/stores/navigation';
   import { socketService as socket } from '$lib/services/socket';
   import { getVolumioHost } from '$lib/config';
 
   // Layouts
   import LCDLayout from '$lib/components/layouts/LCDLayout.svelte';
+  import DesktopLayout from '$lib/components/layouts/DesktopLayout.svelte';
   import MobileLayout from '$lib/components/layouts/MobileLayout.svelte';
 
   // Components (global modals)
@@ -176,6 +177,8 @@
       <!-- Choose layout based on device type -->
       {#if $isLcdPanel}
         <LCDLayout />
+      {:else if $isDesktop}
+        <DesktopLayout />
       {:else}
         <MobileLayout />
       {/if}
@@ -183,12 +186,13 @@
   {:else if $connectionState === 'connecting'}
     <div class="status">
       <div class="spinner"></div>
-      <p>Connecting to Volumio...</p>
+      <p>Connecting to Stellar Volumio...</p>
+      <p class="detail">Backend: {volumioHost}</p>
     </div>
   {:else}
     <div class="status error">
       <p>Connection Failed</p>
-      <p class="detail">Could not connect to Volumio backend at {volumioHost}</p>
+      <p class="detail">Could not connect to Stellar backend at {volumioHost}</p>
       <button on:click={() => socketService.connect()}>Retry Connection</button>
     </div>
   {/if}
