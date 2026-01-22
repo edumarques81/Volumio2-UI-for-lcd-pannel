@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { queue, queueLength, queueDuration, queueLoading, queueActions, formatQueueDuration, type QueueItem } from '$lib/stores/queue';
   import { currentTrack } from '$lib/stores/player';
+  import { navigationActions } from '$lib/stores/navigation';
   import { uiActions } from '$lib/stores/ui';
   import Icon from '../Icon.svelte';
   import SkeletonList from '../SkeletonList.svelte';
@@ -128,10 +129,15 @@
   <!-- Header -->
   <header class="queue-header">
     <div class="header-left">
-      <h1 class="title">Queue</h1>
-      <span class="queue-info">
-        {$queueLength} tracks • {formatQueueDuration($queueDuration)}
-      </span>
+      <button class="back-btn" on:click={navigationActions.goHome} aria-label="Back to home">
+        <Icon name="chevron-left" size={32} />
+      </button>
+      <div class="header-title">
+        <h1 class="title">Queue</h1>
+        <span class="queue-info">
+          {$queueLength} tracks • {formatQueueDuration($queueDuration)}
+        </span>
+      </div>
     </div>
 
     <div class="header-actions">
@@ -292,6 +298,12 @@
 
   .header-left {
     display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+  }
+
+  .header-title {
+    display: flex;
     align-items: baseline;
     gap: var(--spacing-lg);
   }
@@ -338,6 +350,33 @@
     color: #ff3b30;
   }
 
+  .back-btn {
+    width: 56px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: var(--radius-full);
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+
+  .back-btn :global(svg) {
+    stroke-width: 3;
+  }
+
+  .back-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  .back-btn:active {
+    transform: scale(0.95);
+  }
+
   .queue-content {
     flex: 1;
     overflow-y: auto;
@@ -370,17 +409,17 @@
     align-items: center;
     gap: var(--spacing-md);
     padding: var(--spacing-sm) var(--spacing-md);
-    background: rgba(255, 255, 255, 0.03);
+    background: rgba(255, 255, 255, 0.216);
     border-radius: var(--radius-md);
     transition: all 0.2s;
   }
 
   .queue-item:hover {
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.43);
   }
 
   .queue-item.playing {
-    background: rgba(0, 122, 255, 0.15);
+    background: rgba(0, 122, 255, 0.5);
   }
 
   .play-btn {

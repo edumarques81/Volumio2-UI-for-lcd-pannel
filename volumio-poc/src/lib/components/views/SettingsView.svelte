@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
-  import { layoutMode } from '$lib/stores/navigation';
+  import { layoutMode, navigationActions } from '$lib/stores/navigation';
   import {
     systemInfo,
     networkStatus,
@@ -77,11 +77,9 @@
   <!-- Header -->
   <header class="settings-header">
     <div class="header-left">
-      {#if $currentSettingsCategory}
-        <button class="back-btn" data-testid="settings-back" on:click={handleBack} aria-label="Go back">
-          <Icon name="back" size={28} />
-        </button>
-      {/if}
+      <button class="back-btn" on:click={$currentSettingsCategory ? handleBack : navigationActions.goHome} aria-label={$currentSettingsCategory ? 'Go back to categories' : 'Back to home'} data-testid={$currentSettingsCategory ? 'settings-back' : 'home-back'}>
+        <Icon name="chevron-left" size={32} />
+      </button>
       <h1 class="title">
         {$currentSettingsCategory
           ? settingsCategories.find(c => c.id === $currentSettingsCategory)?.title || 'Settings'
@@ -444,21 +442,30 @@
   }
 
   .back-btn {
-    width: 48px;
-    height: 48px;
+    width: 56px;
+    height: 56px;
     display: flex;
     align-items: center;
     justify-content: center;
     border: none;
     border-radius: var(--radius-full);
     background: rgba(255, 255, 255, 0.1);
-    color: var(--color-text-primary);
+    color: #ffffff;
     cursor: pointer;
     transition: all 0.2s;
+    flex-shrink: 0;
+  }
+
+  .back-btn :global(svg) {
+    stroke-width: 3;
   }
 
   .back-btn:hover {
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  .back-btn:active {
+    transform: scale(0.95);
   }
 
   .title {
@@ -485,7 +492,7 @@
     align-items: center;
     gap: var(--spacing-lg);
     padding: var(--spacing-lg);
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.27);
     border: none;
     border-radius: var(--radius-lg);
     color: var(--color-text-primary);
@@ -496,7 +503,7 @@
   }
 
   .category-card:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.54);
   }
 
   .category-card:active {
@@ -554,7 +561,7 @@
     align-items: center;
     justify-content: space-between;
     padding: var(--spacing-lg);
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.27);
     border-radius: var(--radius-md);
     margin-bottom: var(--spacing-sm);
   }
@@ -617,7 +624,7 @@
     flex-direction: column;
     gap: 4px;
     padding: var(--spacing-md);
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.27);
     border-radius: var(--radius-md);
   }
 
@@ -796,7 +803,7 @@
     align-items: center;
     justify-content: space-between;
     padding: var(--spacing-md) var(--spacing-lg);
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.27);
     border: 2px solid transparent;
     border-radius: var(--radius-md);
     color: var(--color-text-primary);
@@ -808,8 +815,8 @@
   }
 
   .audio-output-option:hover:not(.disabled) {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.54);
+    border-color: rgba(255, 255, 255, 0.54);
   }
 
   .audio-output-option:active:not(.disabled) {

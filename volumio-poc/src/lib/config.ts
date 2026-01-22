@@ -57,29 +57,29 @@ export function isVolumioOrigin(): boolean {
 }
 
 /**
- * Get Volumio host for assets (album art, etc.)
- * Volumio still serves these on port 3000
+ * Get Stellar host for assets (album art, etc.)
+ * Album art is now served by Stellar backend on port 3002 via MPD
  */
 export function getVolumioAssetHost(): string {
   const hostname = window.location.hostname;
   const isViteDev = window.location.port === '5173';
 
   if (isViteDev) {
-    return `http://${DEV_VOLUMIO_IP}:3000`;
+    return `http://${DEV_VOLUMIO_IP}:${STELLAR_PORT}`;
   }
 
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return 'http://localhost:3000';
+    return `http://localhost:${STELLAR_PORT}`;
   }
 
-  return `http://${hostname}:3000`;
+  return `http://${hostname}:${STELLAR_PORT}`;
 }
 
 /**
- * Fix asset URL (albumart, etc) to point to Volumio backend
+ * Fix asset URL (albumart, etc) to point to Stellar backend
  *
- * Assets like album art are still served by Volumio on port 3000,
- * even though we connect to Stellar on port 3002 for the socket API.
+ * Album art is now served by the Stellar backend on port 3002,
+ * which fetches embedded art from MPD via the /albumart endpoint.
  */
 export function fixVolumioAssetUrl(url: string | undefined): string | undefined {
   if (!url) return url;

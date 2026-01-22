@@ -92,10 +92,11 @@
     border-radius: var(--radius-md);
     padding: var(--spacing-sm);
     transition: all 0.2s;
+    background: rgba(255, 255, 255, 0.144);
   }
 
   .grid-item:hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.36);
   }
 
   .grid-item:focus-visible {

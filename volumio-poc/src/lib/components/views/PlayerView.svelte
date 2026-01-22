@@ -3,6 +3,7 @@
   import { selectedBackground } from '$lib/stores/settings';
   import { isFavorite, favoritesActions } from '$lib/stores/favorites';
   import { uiActions } from '$lib/stores/ui';
+  import { navigationActions } from '$lib/stores/navigation';
   import AlbumArt from '../AlbumArt.svelte';
   import TrackInfo from '../TrackInfo.svelte';
   import PlayerControls from '../PlayerControls.svelte';
@@ -41,6 +42,11 @@
     <div class="background-image" style="background-image: url('{backgroundImage}')"></div>
     <div class="background-overlay"></div>
   </div>
+
+  <!-- Back button (top-left corner) -->
+  <button class="back-btn" on:click={navigationActions.goHome} aria-label="Back to home">
+    <Icon name="chevron-left" size={28} />
+  </button>
 
   <div class="player-content">
     <!-- Album Art -->
@@ -92,6 +98,39 @@
     padding: var(--spacing-xl);
     box-sizing: border-box;
     overflow: hidden;
+  }
+
+  .back-btn {
+    position: absolute;
+    top: var(--spacing-lg);
+    left: var(--spacing-lg);
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    border: none;
+    border-radius: var(--radius-full);
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    color: #ffffff;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .back-btn :global(svg) {
+    stroke-width: 3;
+  }
+
+  .back-btn:hover {
+    background: rgba(0, 0, 0, 0.6);
+    transform: scale(1.05);
+  }
+
+  .back-btn:active {
+    transform: scale(0.95);
   }
 
   .background {

@@ -9,6 +9,10 @@ Items to implement when moving from POC to production:
 - [ ] **Screen timeout settings** - Add configurable auto-standby timeout in settings
 - [ ] **Wake on touch** - Implement touch-to-wake when display is in standby
 
+## Investigation / Experiments
+
+- [ ] **WebSocket communication** - Investigate and experiment using WebSockets for all communication between Go backend and JS frontend (instead of Socket.IO)
+
 ## Completed (POC Phase)
 
 - [x] Player controls (play, pause, seek, volume, shuffle, repeat)
@@ -24,3 +28,8 @@ Items to implement when moving from POC to production:
 - [x] Testing infrastructure (Vitest + Svelte Testing Library)
 - [x] Store tests (issues, LCD)
 - [x] Component tests (Toast, StatusBar)
+- [x] Network status indicator (WiFi signal strength, Ethernet icon)
+- [x] ON AIR label only shows when music is playing
+- [x] Sub-screen back buttons (left side, white, thick, easy to click)
+- [x] Improved tile contrast/opacity in sub-screens
+- [x] Go backend (Stellar) with Socket.IO, MPD integration, album art endpoint
