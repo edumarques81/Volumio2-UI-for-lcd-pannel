@@ -25,7 +25,14 @@
     initVersionStore,
     cleanupVersionStore
   } from '$lib/stores/version';
+  import {
+    bitPerfectConfig,
+    isBitPerfectConfigOk,
+    audioActions
+  } from '$lib/stores/audio';
   import Icon from '../Icon.svelte';
+
+  let bitPerfectLoading = false;
 
   let audioDevicesCleanup: (() => void) | null = null;
 
@@ -79,6 +86,15 @@
 
   function handleAudioOutputSelect(deviceId: string) {
     audioDevicesActions.setOutput(deviceId);
+  }
+
+  function handleRefreshBitPerfect() {
+    bitPerfectLoading = true;
+    audioActions.getBitPerfectConfig();
+    // Reset loading state after a timeout (the store will be updated by pushBitPerfect)
+    setTimeout(() => {
+      bitPerfectLoading = false;
+    }, 2000);
   }
 </script>
 
@@ -328,6 +344,101 @@
                 <p>No audio devices found</p>
               </div>
             {/if}
+          </div>
+        {/if}
+      </div>
+
+      <!-- Bit-Perfect Audio Section -->
+      <div class="settings-section" data-testid="bit-perfect-section">
+        <div class="section-header">
+          <h2 class="section-title">Bit-Perfect Audio</h2>
+          <button
+            class="refresh-btn"
+            on:click={handleRefreshBitPerfect}
+            disabled={bitPerfectLoading}
+            aria-label="Refresh bit-perfect status"
+          >
+            <Icon name="refresh" size={18} />
+          </button>
+        </div>
+        <p class="section-hint">Verify your audio path is configured for lossless playback</p>
+
+        {#if bitPerfectLoading}
+          <div class="placeholder">
+            <div class="spinner"></div>
+            <p>Checking configuration...</p>
+          </div>
+        {:else if $bitPerfectConfig}
+          <!-- Status Badge -->
+          <div class="bit-perfect-status" class:ok={$bitPerfectConfig.status === 'ok'} class:warning={$bitPerfectConfig.status === 'warning'} class:error={$bitPerfectConfig.status === 'error'}>
+            <div class="status-icon">
+              {#if $bitPerfectConfig.status === 'ok'}
+                <Icon name="check-circle" size={24} />
+              {:else if $bitPerfectConfig.status === 'warning'}
+                <Icon name="alert-triangle" size={24} />
+              {:else}
+                <Icon name="x-circle" size={24} />
+              {/if}
+            </div>
+            <div class="status-text">
+              {#if $bitPerfectConfig.status === 'ok'}
+                <span class="status-title">Bit-Perfect Enabled</span>
+                <span class="status-desc">Audio is passing through without modification</span>
+              {:else if $bitPerfectConfig.status === 'warning'}
+                <span class="status-title">Potential Issues</span>
+                <span class="status-desc">Some settings may affect audio quality</span>
+              {:else}
+                <span class="status-title">Not Bit-Perfect</span>
+                <span class="status-desc">Audio may be resampled or modified</span>
+              {/if}
+            </div>
+          </div>
+
+          <!-- Issues -->
+          {#if $bitPerfectConfig.issues.length > 0}
+            <div class="issues-list">
+              <h3 class="list-title">Issues</h3>
+              {#each $bitPerfectConfig.issues as issue}
+                <div class="issue-item error">
+                  <Icon name="x-circle" size={16} />
+                  <span>{issue}</span>
+                </div>
+              {/each}
+            </div>
+          {/if}
+
+          <!-- Warnings -->
+          {#if $bitPerfectConfig.warnings.length > 0}
+            <div class="issues-list">
+              <h3 class="list-title">Warnings</h3>
+              {#each $bitPerfectConfig.warnings as warning}
+                <div class="issue-item warning">
+                  <Icon name="alert-triangle" size={16} />
+                  <span>{warning}</span>
+                </div>
+              {/each}
+            </div>
+          {/if}
+
+          <!-- Configuration Details -->
+          {#if $bitPerfectConfig.config.length > 0}
+            <div class="config-list">
+              <h3 class="list-title">Current Configuration</h3>
+              {#each $bitPerfectConfig.config as configItem}
+                <div class="config-item">
+                  <code>{configItem}</code>
+                </div>
+              {/each}
+            </div>
+          {/if}
+        {:else}
+          <div class="placeholder">
+            <Icon name="settings" size={48} />
+            <p>Tap refresh to check bit-perfect configuration</p>
+            <button class="action-btn" on:click={handleRefreshBitPerfect}>
+              <Icon name="refresh" size={20} />
+              <span>Check Configuration</span>
+            </button>
           </div>
         {/if}
       </div>
@@ -928,5 +1039,151 @@
     font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, monospace;
     font-size: var(--font-size-sm);
     letter-spacing: 0.02em;
+  }
+
+  /* Bit-Perfect Section Styles */
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-md);
+  }
+
+  .section-header .section-title {
+    margin: 0;
+  }
+
+  .refresh-btn {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: var(--radius-full);
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .refresh-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.2);
+    color: var(--color-text-primary);
+  }
+
+  .refresh-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .bit-perfect-status {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+    padding: var(--spacing-lg);
+    border-radius: var(--radius-lg);
+    margin-bottom: var(--spacing-lg);
+  }
+
+  .bit-perfect-status.ok {
+    background: rgba(48, 209, 88, 0.15);
+    border: 1px solid rgba(48, 209, 88, 0.3);
+  }
+
+  .bit-perfect-status.ok .status-icon {
+    color: #30d158;
+  }
+
+  .bit-perfect-status.warning {
+    background: rgba(255, 159, 10, 0.15);
+    border: 1px solid rgba(255, 159, 10, 0.3);
+  }
+
+  .bit-perfect-status.warning .status-icon {
+    color: #ff9f0a;
+  }
+
+  .bit-perfect-status.error {
+    background: rgba(255, 69, 58, 0.15);
+    border: 1px solid rgba(255, 69, 58, 0.3);
+  }
+
+  .bit-perfect-status.error .status-icon {
+    color: #ff453a;
+  }
+
+  .status-icon {
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .status-text {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .status-title {
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    color: var(--color-text-primary);
+  }
+
+  .status-desc {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+  }
+
+  .issues-list,
+  .config-list {
+    margin-bottom: var(--spacing-lg);
+  }
+
+  .list-title {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 0 0 var(--spacing-sm) 0;
+  }
+
+  .issue-item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: var(--radius-sm);
+    margin-bottom: var(--spacing-xs);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+  }
+
+  .issue-item.error {
+    color: #ff453a;
+  }
+
+  .issue-item.warning {
+    color: #ff9f0a;
+  }
+
+  .issue-item :global(svg) {
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .config-item {
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: var(--radius-sm);
+    margin-bottom: var(--spacing-xs);
+  }
+
+  .config-item code {
+    font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, monospace;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
   }
 </style>
