@@ -1,0 +1,28 @@
+[Unit]
+Description=LCD Control Service
+Documentation=https://github.com/volumio/volumio-poc
+After=network.target graphical.target
+Wants=graphical.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStart=/usr/bin/node /opt/lcd-control/lcd-control-service.js
+Restart=always
+RestartSec=5
+Environment=LCD_CONTROL_PORT=8081
+Environment=LCD_CONTROL_TOKEN_FILE=/etc/lcd-control/token
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lcd-control
+
+# Security hardening
+NoNewPrivileges=false
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/tmp
+PrivateTmp=false
+
+[Install]
+WantedBy=multi-user.target
