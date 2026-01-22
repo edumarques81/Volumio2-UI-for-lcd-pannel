@@ -20,14 +20,26 @@ export interface AudioStatus {
   format: AudioFormat | null; // Current audio format (null if not playing)
 }
 
+/**
+ * Bit-perfect configuration status from the backend.
+ * This represents the system configuration (MPD, ALSA), not the real-time audio format.
+ */
+export interface BitPerfectConfig {
+  status: 'ok' | 'warning' | 'error'; // Configuration status
+  issues: string[];      // Critical issues preventing bit-perfect output
+  warnings: string[];    // Non-critical warnings
+  config: string[];      // Current configuration details
+}
+
 // Default state
 const defaultStatus: AudioStatus = {
   locked: false,
   format: null
 };
 
-// Main store
+// Main stores
 export const audioStatus = writable<AudioStatus>(defaultStatus);
+export const bitPerfectConfig = writable<BitPerfectConfig | null>(null);
 
 // Derived stores for convenient access
 export const isDeviceLocked = derived(audioStatus, $status => $status.locked);
@@ -35,6 +47,9 @@ export const isDeviceLocked = derived(audioStatus, $status => $status.locked);
 export const audioFormat = derived(audioStatus, $status => $status.format);
 
 export const isBitPerfect = derived(audioStatus, $status => $status.format?.isBitPerfect ?? false);
+
+// Derived store for bit-perfect configuration status
+export const isBitPerfectConfigOk = derived(bitPerfectConfig, $config => $config?.status === 'ok');
 
 /**
  * Format sample rate for display (e.g., "192kHz", "DSD128")
@@ -98,6 +113,13 @@ export const audioActions = {
    */
   getStatus: () => {
     socketService.emit('getAudioStatus');
+  },
+
+  /**
+   * Request bit-perfect configuration status from backend
+   */
+  getBitPerfectConfig: () => {
+    socketService.emit('getBitPerfect');
   }
 };
 
@@ -116,6 +138,12 @@ export function initAudioStore() {
     audioStatus.set(status);
   });
 
+  // Listen for bit-perfect configuration updates from backend
+  socketService.on<BitPerfectConfig>('pushBitPerfect', (config) => {
+    console.log('🔊 pushBitPerfect received:', config);
+    bitPerfectConfig.set(config);
+  });
+
   console.log('✅ Audio store initialized');
 
   // Request initial status after a short delay
@@ -128,6 +156,7 @@ export function initAudioStore() {
 export function cleanupAudioStore() {
   // Reset to default state
   audioStatus.set(defaultStatus);
+  bitPerfectConfig.set(null);
   // Allow re-initialization
   initialized = false;
 }

@@ -21,8 +21,11 @@ import {
   audioActions,
   initAudioStore,
   cleanupAudioStore,
+  bitPerfectConfig,
+  isBitPerfectConfigOk,
   type AudioStatus,
-  type AudioFormat
+  type AudioFormat,
+  type BitPerfectConfig
 } from '../audio';
 import { socketService } from '$lib/services/socket';
 
@@ -250,8 +253,8 @@ describe('Audio store', () => {
       initAudioStore();
       initAudioStore();
 
-      // Should only register once due to initialized flag
-      expect(socketService.on).toHaveBeenCalledTimes(1);
+      // Should only register once due to initialized flag (2 handlers: pushAudioStatus + pushBitPerfect)
+      expect(socketService.on).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -322,7 +325,7 @@ describe('Audio store', () => {
 
     it('should allow re-initialization after cleanup', () => {
       initAudioStore();
-      expect(socketService.on).toHaveBeenCalledTimes(1);
+      expect(socketService.on).toHaveBeenCalledTimes(2); // pushAudioStatus + pushBitPerfect
 
       cleanupAudioStore();
 
@@ -330,7 +333,85 @@ describe('Audio store', () => {
       initAudioStore();
 
       // Should register again after cleanup
-      expect(socketService.on).toHaveBeenCalledTimes(1);
+      expect(socketService.on).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('bitPerfectConfig store', () => {
+    const okConfig: BitPerfectConfig = {
+      status: 'ok',
+      issues: [],
+      warnings: [],
+      config: ['output: hw:SU6,0', 'mixer_type: none']
+    };
+
+    const warningConfig: BitPerfectConfig = {
+      status: 'warning',
+      issues: [],
+      warnings: ['Volume normalization detected'],
+      config: ['output: hw:SU6,0']
+    };
+
+    const errorConfig: BitPerfectConfig = {
+      status: 'error',
+      issues: ['Resampler enabled'],
+      warnings: [],
+      config: []
+    };
+
+    it('should have null status initially', () => {
+      expect(get(bitPerfectConfig)).toBeNull();
+    });
+
+    it('should derive isBitPerfectConfigOk as false when null', () => {
+      expect(get(isBitPerfectConfigOk)).toBe(false);
+    });
+
+    it('should derive isBitPerfectConfigOk as true when status is ok', () => {
+      bitPerfectConfig.set(okConfig);
+      expect(get(isBitPerfectConfigOk)).toBe(true);
+    });
+
+    it('should derive isBitPerfectConfigOk as false when status is warning', () => {
+      bitPerfectConfig.set(warningConfig);
+      expect(get(isBitPerfectConfigOk)).toBe(false);
+    });
+
+    it('should derive isBitPerfectConfigOk as false when status is error', () => {
+      bitPerfectConfig.set(errorConfig);
+      expect(get(isBitPerfectConfigOk)).toBe(false);
+    });
+  });
+
+  describe('audioActions.getBitPerfectConfig', () => {
+    it('should emit getBitPerfect', () => {
+      audioActions.getBitPerfectConfig();
+      expect(socketService.emit).toHaveBeenCalledWith('getBitPerfect');
+    });
+  });
+
+  describe('pushBitPerfect handler', () => {
+    it('should register pushBitPerfect event handler on init', () => {
+      initAudioStore();
+      expect(socketService.on).toHaveBeenCalledWith('pushBitPerfect', expect.any(Function));
+    });
+
+    it('should update bitPerfectConfig when receiving pushBitPerfect', () => {
+      initAudioStore();
+
+      const onMock = vi.mocked(socketService.on);
+      const handler = onMock.mock.calls.find(call => call[0] === 'pushBitPerfect')?.[1] as ((config: BitPerfectConfig) => void) | undefined;
+      expect(handler).toBeDefined();
+
+      const config: BitPerfectConfig = {
+        status: 'ok',
+        issues: [],
+        warnings: [],
+        config: ['output: hw:SU6,0']
+      };
+      handler!(config);
+
+      expect(get(bitPerfectConfig)).toEqual(config);
     });
   });
 });
