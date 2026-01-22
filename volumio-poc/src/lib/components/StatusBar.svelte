@@ -6,6 +6,7 @@
   import { statusDrawerOpen } from '$lib/stores/ui';
   import { lcdState, lcdLoading, lcdActions, initLcdStore, cleanupLcdStore } from '$lib/stores/lcd';
   import { networkStatus, networkIcon, isConnected, initNetworkStore, cleanupNetworkStore } from '$lib/stores/network';
+  import { isDeviceLocked, formatBadge, isBitPerfect, initAudioStore, cleanupAudioStore } from '$lib/stores/audio';
   import Icon from './Icon.svelte';
 
   let currentTime = '';
@@ -101,6 +102,25 @@
         </span>
       {/if}
     </button>
+
+    <!-- Audio status badges (when playing) -->
+    {#if $isDeviceLocked}
+      <div class="audio-status">
+        <!-- Lock icon for exclusive access -->
+        <span class="audio-lock" title="Exclusive audio device access">
+          <Icon name="lock" size={14} />
+        </span>
+        <!-- Format badge -->
+        {#if $formatBadge}
+          <span class="audio-format" class:bit-perfect={$isBitPerfect} title={$isBitPerfect ? 'Bit-perfect output' : 'Audio output'}>
+            {#if $isBitPerfect}
+              <Icon name="check" size={12} />
+            {/if}
+            {$formatBadge}
+          </span>
+        {/if}
+      </div>
+    {/if}
 
     <!-- Playback issue banner (inline, next to ON AIR) -->
     {#if topPlaybackIssue}
@@ -371,5 +391,39 @@
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 200px;
+  }
+
+  /* Audio status badges */
+  .audio-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-radius: 16px;
+  }
+
+  .audio-lock {
+    display: flex;
+    align-items: center;
+    color: #5ac8fa;
+    filter: drop-shadow(0 0 4px rgba(90, 200, 250, 0.5));
+  }
+
+  .audio-format {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    letter-spacing: 0.02em;
+  }
+
+  .audio-format.bit-perfect {
+    color: #34c759;
+    text-shadow: 0 0 4px rgba(52, 199, 89, 0.5);
   }
 </style>
