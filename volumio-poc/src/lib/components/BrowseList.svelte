@@ -5,6 +5,9 @@
 
   export let items: BrowseItem[] = [];
 
+  // Track which items have failed to load album art
+  let failedImages: Set<string> = new Set();
+
   const dispatch = createEventDispatcher<{
     itemClick: BrowseItem;
     itemContextMenu: { event: MouseEvent; item: BrowseItem };
@@ -30,6 +33,15 @@
       default:
         return 'music-note';
     }
+  }
+
+  function handleImageError(uri: string) {
+    failedImages.add(uri);
+    failedImages = failedImages; // Trigger reactivity
+  }
+
+  function shouldShowImage(item: BrowseItem): boolean {
+    return !!item.albumart && !failedImages.has(item.uri);
   }
 
   function formatDuration(seconds: number | undefined): string {
@@ -67,8 +79,13 @@
       tabindex="0"
     >
       <div class="list-item-art">
-        {#if item.albumart}
-          <img src={item.albumart} alt={item.title} loading="lazy" />
+        {#if shouldShowImage(item)}
+          <img
+            src={item.albumart}
+            alt={item.title}
+            loading="lazy"
+            on:error={() => handleImageError(item.uri)}
+          />
         {:else}
           <div class="list-item-icon">
             <Icon name={getItemIcon(item)} size={32} />
