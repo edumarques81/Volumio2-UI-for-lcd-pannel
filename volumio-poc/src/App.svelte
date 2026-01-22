@@ -8,6 +8,8 @@
   import { initFavoritesStore } from '$lib/stores/favorites';
   import { initIssueStore, issueActions } from '$lib/stores/issues';
   import { audioDevicesActions } from '$lib/stores/audioDevices';
+  import { initNetworkStore, cleanupNetworkStore } from '$lib/stores/network';
+  import { initLcdStore, cleanupLcdStore } from '$lib/stores/lcd';
   import { currentView, layoutMode, navigationActions } from '$lib/stores/navigation';
   import { socketService as socket } from '$lib/services/socket';
   import { getVolumioHost } from '$lib/config';
@@ -43,6 +45,8 @@
     initSettingsStore();
     initFavoritesStore();
     initIssueStore();
+    initNetworkStore();
+    initLcdStore();
 
     // Expose test functions for debugging (can be called from browser console)
     (window as any).testToast = {
@@ -103,6 +107,19 @@
       }
     };
 
+    // Expose latency debugging helpers
+    (window as any).__latency = {
+      getStats: (event?: string) => socketService.getLatencyStats(event),
+      getAllStats: () => {
+        const events = ['pushState', 'pushQueue', 'pushNetworkStatus', 'pushLcdStatus', 'pushBrowseLibrary'];
+        return events.reduce((acc, e) => {
+          acc[e] = socketService.getLatencyStats(e);
+          return acc;
+        }, {} as Record<string, any>);
+      },
+      clear: () => socketService.clearLatencyMetrics()
+    };
+
     // Expose navigation actions for E2E testing
     (window as any).__navigation = {
       goToQueue: () => navigationActions.goToQueue(),
@@ -140,6 +157,8 @@
 
     // Cleanup on unmount
     return () => {
+      cleanupNetworkStore();
+      cleanupLcdStore();
       socketService.disconnect();
     };
   });
@@ -147,8 +166,9 @@
   // Show mini player when not on home or player view
   $: showMiniPlayer = $currentView !== 'home' && $currentView !== 'player';
 
-  // Show back header when not on home view
-  $: showBackHeader = $currentView !== 'home';
+  // All views now have their own integrated headers, so BackHeader is not needed
+  // (player is full screen, browse/queue/settings have their own headers with home navigation)
+  $: showBackHeader = false;
 
   // Get current view title
   $: viewTitle = {

@@ -5,6 +5,7 @@
   import { highestSeverity, issueCounts, playbackIssues, type Issue } from '$lib/stores/issues';
   import { statusDrawerOpen } from '$lib/stores/ui';
   import { lcdState, lcdLoading, lcdActions, initLcdStore, cleanupLcdStore } from '$lib/stores/lcd';
+  import { networkStatus, networkIcon, isConnected, initNetworkStore, cleanupNetworkStore } from '$lib/stores/network';
   import Icon from './Icon.svelte';
 
   let currentTime = '';
@@ -39,9 +40,13 @@
     // Initialize LCD state tracking
     initLcdStore();
 
+    // Initialize network status tracking
+    initNetworkStore();
+
     return () => {
       clearInterval(interval);
       cleanupLcdStore();
+      cleanupNetworkStore();
     };
   });
 
@@ -49,8 +54,9 @@
   $: lcdButtonLabel = $lcdState === 'off' ? 'LCD On' : 'LCD Off';
   $: lcdButtonIcon = $lcdState === 'off' ? 'monitor' : 'power';
 
-  // Check if something is actually playing (has a real track)
-  $: hasTrack = $currentTrack.title && $currentTrack.title !== 'No track' && $currentTrack.title !== '';
+  // Check if music is actually playing (not just has a track)
+  // ON AIR should only show when playback is active
+  $: hasTrack = $isPlaying && $currentTrack.title && $currentTrack.title !== 'No track' && $currentTrack.title !== '';
 
   // Status dot color based on highest severity
   $: statusColor = {
@@ -112,9 +118,14 @@
   </div>
 
   <div class="right">
-    <div class="indicator" class:connected={$connectionState === 'connected'}>
-      <Icon name="wifi" size={18} />
-    </div>
+    {#if $isConnected}
+      <div
+        class="indicator connected"
+        title={$networkStatus.type === 'wifi' ? `${$networkStatus.ssid} (${$networkStatus.signal}%)` : `Ethernet (${$networkStatus.ip})`}
+      >
+        <Icon name={$networkIcon} size={18} />
+      </div>
+    {/if}
     <span class="time">{currentTime}</span>
     <button
       class="lcd-toggle-btn"

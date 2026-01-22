@@ -1,14 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { get } from 'svelte/store';
 
-// Mock getVolumioHost before importing LCD store
-vi.mock('$lib/config', () => ({
-  getVolumioHost: vi.fn(() => 'http://192.168.86.34:8080')
+// Mock socket service
+vi.mock('$lib/services/socket', () => ({
+  socketService: {
+    emit: vi.fn(),
+    on: vi.fn(() => () => {})
+  }
 }));
-
-// Import mocked fetch from setup
-const mockFetch = vi.fn();
-global.fetch = mockFetch;
 
 import {
   lcdState,
@@ -16,15 +15,17 @@ import {
   lcdActions,
   initLcdStore,
   cleanupLcdStore,
-  type LcdState
+  isLcdOn,
+  type LcdState,
+  type LCDStatus
 } from '../lcd';
+import { socketService } from '$lib/services/socket';
 
-describe('LCD store', () => {
+describe('LCD store (Socket.IO)', () => {
   beforeEach(() => {
     // Reset stores and mocks
     lcdState.set('unknown');
     lcdLoading.set(false);
-    mockFetch.mockReset();
     vi.clearAllMocks();
     cleanupLcdStore();
   });
@@ -41,270 +42,140 @@ describe('LCD store', () => {
     it('should not be loading initially', () => {
       expect(get(lcdLoading)).toBe(false);
     });
+
+    it('should derive isLcdOn as false when unknown', () => {
+      expect(get(isLcdOn)).toBe(false);
+    });
   });
 
   describe('lcdActions.getStatus', () => {
-    it('should fetch status and update state to "on"', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ status: 'on' })
-      });
-
-      const result = await lcdActions.getStatus();
-
-      expect(result).toBe('on');
-      expect(get(lcdState)).toBe('on');
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringMatching(/\/api\/screen\/status$/),
-        expect.objectContaining({
-          method: 'GET',
-          headers: expect.objectContaining({
-            'X-Auth-Token': 'volumio-lcd-control'
-          })
-        })
-      );
-    });
-
-    it('should fetch status and update state to "off"', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ status: 'off' })
-      });
-
-      const result = await lcdActions.getStatus();
-
-      expect(result).toBe('off');
-      expect(get(lcdState)).toBe('off');
-    });
-
-    it('should return "unknown" on fetch error', async () => {
-      mockFetch.mockRejectedValueOnce(new Error('Network error'));
-
-      const result = await lcdActions.getStatus();
-
-      expect(result).toBe('unknown');
-      expect(get(lcdState)).toBe('unknown');
-    });
-
-    it('should return "unknown" on non-ok response', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 500
-      });
-
-      const result = await lcdActions.getStatus();
-
-      expect(result).toBe('unknown');
-      expect(get(lcdState)).toBe('unknown');
+    it('should emit getLcdStatus event', () => {
+      lcdActions.getStatus();
+      expect(socketService.emit).toHaveBeenCalledWith('getLcdStatus');
     });
   });
 
   describe('lcdActions.turnOff', () => {
-    it('should call API and update state to "off" on success', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ success: true })
-      });
+    it('should emit lcdStandby event', () => {
+      lcdActions.turnOff();
+      expect(socketService.emit).toHaveBeenCalledWith('lcdStandby');
+    });
 
-      const result = await lcdActions.turnOff();
-
-      expect(result).toBe(true);
+    it('should optimistically set state to off', () => {
+      lcdActions.turnOff();
       expect(get(lcdState)).toBe('off');
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringMatching(/\/api\/screen\/off$/),
-        expect.objectContaining({
-          method: 'POST',
-          headers: expect.objectContaining({
-            'X-Auth-Token': 'volumio-lcd-control',
-            'Content-Type': 'application/json'
-          })
-        })
-      );
     });
 
-    it('should set loading state during operation', async () => {
-      let loadingDuringFetch = false;
-
-      mockFetch.mockImplementationOnce(async () => {
-        loadingDuringFetch = get(lcdLoading);
-        return {
-          ok: true,
-          json: () => Promise.resolve({ success: true })
-        };
-      });
-
-      await lcdActions.turnOff();
-
-      expect(loadingDuringFetch).toBe(true);
-      expect(get(lcdLoading)).toBe(false); // Should be false after completion
-    });
-
-    it('should return false on failure', async () => {
-      mockFetch.mockRejectedValueOnce(new Error('Network error'));
-
-      const result = await lcdActions.turnOff();
-
-      expect(result).toBe(false);
-      expect(get(lcdLoading)).toBe(false);
-    });
-
-    it('should return false when success is false', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ success: false })
-      });
-
-      const result = await lcdActions.turnOff();
-
-      expect(result).toBe(false);
+    it('should set loading state', () => {
+      lcdActions.turnOff();
+      expect(get(lcdLoading)).toBe(true);
     });
   });
 
   describe('lcdActions.turnOn', () => {
-    it('should call API and update state to "on" on success', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ success: true })
-      });
+    it('should emit lcdWake event', () => {
+      lcdActions.turnOn();
+      expect(socketService.emit).toHaveBeenCalledWith('lcdWake');
+    });
 
-      const result = await lcdActions.turnOn();
-
-      expect(result).toBe(true);
+    it('should optimistically set state to on', () => {
+      lcdActions.turnOn();
       expect(get(lcdState)).toBe('on');
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringMatching(/\/api\/screen\/on$/),
-        expect.objectContaining({
-          method: 'POST'
-        })
-      );
     });
 
-    it('should set loading state during operation', async () => {
-      let loadingDuringFetch = false;
-
-      mockFetch.mockImplementationOnce(async () => {
-        loadingDuringFetch = get(lcdLoading);
-        return {
-          ok: true,
-          json: () => Promise.resolve({ success: true })
-        };
-      });
-
-      await lcdActions.turnOn();
-
-      expect(loadingDuringFetch).toBe(true);
-      expect(get(lcdLoading)).toBe(false);
-    });
-
-    it('should return false on failure', async () => {
-      mockFetch.mockRejectedValueOnce(new Error('Network error'));
-
-      const result = await lcdActions.turnOn();
-
-      expect(result).toBe(false);
+    it('should set loading state', () => {
+      lcdActions.turnOn();
+      expect(get(lcdLoading)).toBe(true);
     });
   });
 
   describe('lcdActions.toggle', () => {
-    it('should turn on when currently off', async () => {
-      // First set state to off
+    it('should turn on when currently off', () => {
       lcdState.set('off');
-
-      // Mock the turnOn call
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ success: true })
-      });
-
-      const result = await lcdActions.toggle();
-
-      expect(result).toBe(true);
+      lcdActions.toggle();
+      expect(socketService.emit).toHaveBeenCalledWith('lcdWake');
       expect(get(lcdState)).toBe('on');
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/screen/on'),
-        expect.any(Object)
-      );
     });
 
-    it('should turn off when currently on', async () => {
-      // First set state to on
+    it('should turn off when currently on', () => {
       lcdState.set('on');
-
-      // Mock the turnOff call
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ success: true })
-      });
-
-      const result = await lcdActions.toggle();
-
-      expect(result).toBe(true);
+      lcdActions.toggle();
+      expect(socketService.emit).toHaveBeenCalledWith('lcdStandby');
       expect(get(lcdState)).toBe('off');
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/screen/off'),
-        expect.any(Object)
-      );
     });
 
-    it('should fetch status first when state is unknown', async () => {
-      // State is unknown initially
-      expect(get(lcdState)).toBe('unknown');
-
-      // Mock getStatus call returning 'on'
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ status: 'on' })
-      });
-
-      // Mock turnOff call
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ success: true })
-      });
-
-      const result = await lcdActions.toggle();
-
-      expect(result).toBe(true);
-      // Should have called getStatus first, then turnOff
-      expect(mockFetch).toHaveBeenCalledTimes(2);
-      expect(mockFetch).toHaveBeenNthCalledWith(
-        1,
-        expect.stringContaining('/api/screen/status'),
-        expect.any(Object)
-      );
+    it('should turn off when state is unknown (defaults to assuming on)', () => {
+      lcdState.set('unknown');
+      lcdActions.toggle();
+      expect(socketService.emit).toHaveBeenCalledWith('lcdStandby');
     });
   });
 
   describe('initLcdStore', () => {
-    it('should fetch initial status on init', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ status: 'on' })
-      });
+    it('should register pushLcdStatus event handler', () => {
+      initLcdStore();
+      expect(socketService.on).toHaveBeenCalledWith('pushLcdStatus', expect.any(Function));
+    });
 
+    it('should not make redundant initial request (backend pushes on connection)', () => {
       initLcdStore();
 
-      // Wait for async status fetch
-      await vi.waitFor(() => {
-        expect(mockFetch).toHaveBeenCalled();
-      });
+      // Should NOT emit getLcdStatus - backend pushes initial state
+      expect(socketService.emit).not.toHaveBeenCalledWith('getLcdStatus');
     });
   });
 
-  describe('URL generation', () => {
-    it('should generate correct LCD service URL from Volumio host', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ status: 'on' })
-      });
+  describe('pushLcdStatus handler', () => {
+    it('should update state to on when isOn is true', () => {
+      initLcdStore();
 
-      await lcdActions.getStatus();
+      // Get the handler that was registered
+      const onMock = vi.mocked(socketService.on);
+      const handler = onMock.mock.calls.find(call => call[0] === 'pushLcdStatus')?.[1] as ((status: LCDStatus) => void) | undefined;
+      expect(handler).toBeDefined();
 
-      // Should use port 8081 instead of the default 8080
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringMatching(/\/api\/screen\/status$/),
-        expect.any(Object)
-      );
+      // Simulate receiving pushLcdStatus
+      handler!({ isOn: true });
+
+      expect(get(lcdState)).toBe('on');
+    });
+
+    it('should update state to off when isOn is false', () => {
+      initLcdStore();
+
+      const onMock = vi.mocked(socketService.on);
+      const handler = onMock.mock.calls.find(call => call[0] === 'pushLcdStatus')?.[1] as ((status: LCDStatus) => void) | undefined;
+      handler!({ isOn: false });
+
+      expect(get(lcdState)).toBe('off');
+    });
+
+    it('should clear loading state on pushLcdStatus', () => {
+      lcdLoading.set(true);
+      initLcdStore();
+
+      const onMock = vi.mocked(socketService.on);
+      const handler = onMock.mock.calls.find(call => call[0] === 'pushLcdStatus')?.[1] as ((status: LCDStatus) => void) | undefined;
+      handler!({ isOn: true });
+
+      expect(get(lcdLoading)).toBe(false);
+    });
+  });
+
+  describe('isLcdOn derived store', () => {
+    it('should be true when state is on', () => {
+      lcdState.set('on');
+      expect(get(isLcdOn)).toBe(true);
+    });
+
+    it('should be false when state is off', () => {
+      lcdState.set('off');
+      expect(get(isLcdOn)).toBe(false);
+    });
+
+    it('should be false when state is unknown', () => {
+      lcdState.set('unknown');
+      expect(get(isLcdOn)).toBe(false);
     });
   });
 });
