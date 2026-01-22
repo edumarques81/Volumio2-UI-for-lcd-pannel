@@ -234,6 +234,52 @@ The `dist` branch contains only compiled builds for integration with Volumio2 sy
 
 The codebase uses Babel 5 for ES6 transpilation. Import/export syntax is supported, but many files still use AngularJS 1.x patterns (immediately-invoked function expressions, manual dependency injection).
 
+## Raspberry Pi Development Setup
+
+### SSH Access (IMPORTANT)
+
+**All SSH and SCP operations MUST use `sshpass` for automation.** The AI assistant should always use sshpass when connecting to the Pi.
+
+```bash
+# SSH connection pattern
+sshpass -p 'volumio' ssh -o StrictHostKeyChecking=no volumio@192.168.86.34 "command here"
+
+# SCP file transfer pattern
+sshpass -p 'volumio' scp -o StrictHostKeyChecking=no local_file volumio@192.168.86.34:/remote/path/
+
+# SCP directory transfer pattern
+sshpass -p 'volumio' scp -o StrictHostKeyChecking=no -r local_dir/* volumio@192.168.86.34:/remote/path/
+```
+
+### Pi Configuration
+
+| Setting | Value |
+|---------|-------|
+| Hostname | `volumioeduardohifi.local` or `volumioeduardohifi.lan` |
+| IP Address | `192.168.86.34` |
+| SSH User | `volumio` |
+| SSH Password | `volumio` |
+| Architecture | ARM64 (Raspberry Pi 5) |
+
+### Services and Ports
+
+| Service | Port | Description |
+|---------|------|-------------|
+| POC httpd | 80 | busybox httpd serving `/home/volumio/svelte-poc` |
+| Volumio backend | 3000 | Original Volumio Node.js backend |
+| Stellar backend | 3002 | Go backend (replaces Volumio for POC) |
+| MPD | 6600 | Music Player Daemon |
+| Kiosk service | - | `volumio-kiosk.service` |
+
+### Important Paths on Pi
+
+| Path | Description |
+|------|-------------|
+| `/home/volumio/svelte-poc` | Frontend POC files (httpd serves from here) |
+| `/home/volumio/stellar` | Stellar Go backend binary |
+| `/home/volumio/stellar.log` | Stellar backend logs |
+| `/data/volumiokiosk/Default/Cache/` | Chromium kiosk browser cache |
+
 ## Volumio POC (Svelte)
 
 The `volumio-poc/` directory contains a Svelte-based POC for a CarPlay-style LCD interface (1920x440).
@@ -247,17 +293,31 @@ The `volumio-poc/` directory contains a Svelte-based POC for a CarPlay-style LCD
 cd volumio-poc
 npm run build
 
-# Deploy to Pi (use sshpass for automation)
-sshpass -p "volumio" scp -r dist/* volumio@192.168.86.34:/home/volumio/svelte-poc/
+# Deploy frontend to Pi
+sshpass -p 'volumio' scp -o StrictHostKeyChecking=no -r dist/* volumio@192.168.86.34:/home/volumio/svelte-poc/
 
 # Clear browser cache and restart kiosk
-sshpass -p "volumio" ssh volumio@192.168.86.34 "rm -rf /data/volumiokiosk/Default/Cache/* /data/volumiokiosk/Default/Code\ Cache/* 2>/dev/null && echo volumio | sudo -S systemctl restart volumio-kiosk"
+sshpass -p 'volumio' ssh -o StrictHostKeyChecking=no volumio@192.168.86.34 "sudo rm -rf /data/volumiokiosk/Default/Cache/* && sudo systemctl restart volumio-kiosk"
 ```
 
-### Pi Network Information
-- Hostname: `volumioeduardohifi.lan` or `volumio@192.168.86.34`
-- SSH password: `volumio`
-- POC web server: `http://localhost:8080` (busybox httpd serving from `/home/volumio/svelte-poc`)
-- Volumio backend: `http://localhost:3000`
-- Stellar backend (Go): `http://localhost:3002`
-- Kiosk service: `volumio-kiosk.service`
+### Stellar Backend Deployment
+
+```bash
+# Build for ARM64
+cd stellar-volumio-audioplayer-backend
+GOOS=linux GOARCH=arm64 go build -o stellar-arm64 ./cmd/stellar
+
+# Stop existing, deploy, and start
+sshpass -p 'volumio' ssh -o StrictHostKeyChecking=no volumio@192.168.86.34 "pkill stellar || true"
+sshpass -p 'volumio' scp -o StrictHostKeyChecking=no stellar-arm64 volumio@192.168.86.34:/home/volumio/stellar
+sshpass -p 'volumio' ssh -o StrictHostKeyChecking=no volumio@192.168.86.34 "chmod +x /home/volumio/stellar && nohup /home/volumio/stellar -port 3002 > /home/volumio/stellar.log 2>&1 &"
+
+# Check logs
+sshpass -p 'volumio' ssh -o StrictHostKeyChecking=no volumio@192.168.86.34 "tail -f /home/volumio/stellar.log"
+```
+
+### Stellar Backend Repository
+
+- **GitHub**: https://github.com/edumarques81/stellar-volumio-audioplayer-backend
+- **Library**: `zishang520/socket.io` v3 (proper Socket.IO v4 support)
+- **Features**: MPD client, player controls, queue management, music library browsing
