@@ -17,7 +17,7 @@
 ### Ports on Raspberry Pi
 | Service | Port | Description |
 |---------|------|-------------|
-| POC Frontend | 8080 | busybox httpd (needs files deployed to `/home/volumio/svelte-poc`) |
+| POC Frontend | 8080 | busybox httpd (needs files deployed to `/home/volumio/stellar-volumio`) |
 | Stellar Backend | 3002 | Go backend (needs binary deployed to `/home/volumio/stellar`) |
 | MPD | 6600 | Music Player Daemon |
 
@@ -27,7 +27,7 @@
 - **Location**: `/Users/eduardomarques/workspace/Volumio2-UI/volumio-poc`
 - **Branch**: `feature/add-version-info`
 - **Build**: `npm run build` → outputs to `dist/`
-- **Deploy**: Copy `dist/*` to Pi at `/home/volumio/svelte-poc/`
+- **Deploy**: Copy `dist/*` to Pi at `/home/volumio/stellar-volumio/`
 
 ### 2. Backend (Stellar)
 - **Location**: `/Users/eduardomarques/workspace/stellar-volumio-audioplayer-backend`
@@ -59,8 +59,8 @@
 # Build and deploy frontend
 cd /Users/eduardomarques/workspace/Volumio2-UI/volumio-poc
 npm run build
-sshpass -p 'volumio' ssh -o StrictHostKeyChecking=no volumio@192.168.86.34 "mkdir -p /home/volumio/svelte-poc"
-sshpass -p 'volumio' scp -o StrictHostKeyChecking=no -r dist/* volumio@192.168.86.34:/home/volumio/svelte-poc/
+sshpass -p 'volumio' ssh -o StrictHostKeyChecking=no volumio@192.168.86.34 "mkdir -p /home/volumio/stellar-volumio"
+sshpass -p 'volumio' scp -o StrictHostKeyChecking=no -r dist/* volumio@192.168.86.34:/home/volumio/stellar-volumio/
 
 # Build and deploy backend
 cd /Users/eduardomarques/workspace/stellar-volumio-audioplayer-backend
