@@ -253,8 +253,8 @@ describe('Audio store', () => {
       initAudioStore();
       initAudioStore();
 
-      // Should only register once due to initialized flag (2 handlers: pushAudioStatus + pushBitPerfect)
-      expect(socketService.on).toHaveBeenCalledTimes(2);
+      // Should only register once due to initialized flag (3 handlers: pushAudioStatus + pushBitPerfect + pushDsdMode)
+      expect(socketService.on).toHaveBeenCalledTimes(3);
     });
   });
 
@@ -325,7 +325,7 @@ describe('Audio store', () => {
 
     it('should allow re-initialization after cleanup', () => {
       initAudioStore();
-      expect(socketService.on).toHaveBeenCalledTimes(2); // pushAudioStatus + pushBitPerfect
+      expect(socketService.on).toHaveBeenCalledTimes(3); // pushAudioStatus + pushBitPerfect + pushDsdMode
 
       cleanupAudioStore();
 
@@ -333,7 +333,7 @@ describe('Audio store', () => {
       initAudioStore();
 
       // Should register again after cleanup
-      expect(socketService.on).toHaveBeenCalledTimes(2);
+      expect(socketService.on).toHaveBeenCalledTimes(3);
     });
   });
 
