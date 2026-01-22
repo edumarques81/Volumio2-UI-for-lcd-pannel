@@ -301,6 +301,18 @@ sshpass -p 'volumio' scp -o StrictHostKeyChecking=no -r local_dir/* volumio@192.
 
 The `volumio-poc/` directory contains a Svelte-based POC for a CarPlay-style LCD interface (1920x440).
 
+### Development Mode - Backend Connection
+
+**IMPORTANT**: When running `npm run dev` on macOS (localhost:5173), the frontend connects to the **Raspberry Pi's backend** at `192.168.86.34:3002`.
+
+| Environment | Frontend URL | Backend URL |
+|-------------|--------------|-------------|
+| **Dev mode (macOS)** | `localhost:5173` | `192.168.86.34:3002` (Pi) |
+| **Deployed (Pi kiosk)** | `localhost:8080` (on Pi) | `localhost:3002` (on Pi) |
+| **Remote access** | `192.168.86.34:8080` | `192.168.86.34:3002` |
+
+This is configured in `volumio-poc/src/lib/config.ts`. The Stellar backend must be running on the Pi for dev mode to work.
+
 ### POC Deployment to Raspberry Pi
 
 **IMPORTANT**: The httpd server on the Pi serves files from `/home/volumio/svelte-poc`, NOT `/home/volumio/poc`.
