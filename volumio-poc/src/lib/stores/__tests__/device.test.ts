@@ -4,6 +4,7 @@ import { get } from 'svelte/store';
 // We need to mock window before importing the module
 let originalInnerWidth: number;
 let originalInnerHeight: number;
+let originalUserAgent: string;
 
 function setWindowSize(width: number, height: number) {
   Object.defineProperty(window, 'innerWidth', {
@@ -18,16 +19,38 @@ function setWindowSize(width: number, height: number) {
   });
 }
 
+function setMobileUserAgent() {
+  Object.defineProperty(navigator, 'userAgent', {
+    value: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148',
+    writable: true,
+    configurable: true
+  });
+}
+
+function setDesktopUserAgent() {
+  Object.defineProperty(navigator, 'userAgent', {
+    value: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+    writable: true,
+    configurable: true
+  });
+}
+
 describe('Device store', () => {
   beforeEach(() => {
     originalInnerWidth = window.innerWidth;
     originalInnerHeight = window.innerHeight;
+    originalUserAgent = navigator.userAgent;
     vi.useFakeTimers();
   });
 
   afterEach(() => {
     vi.useRealTimers();
     setWindowSize(originalInnerWidth, originalInnerHeight);
+    Object.defineProperty(navigator, 'userAgent', {
+      value: originalUserAgent,
+      writable: true,
+      configurable: true
+    });
   });
 
   // Import fresh module for each test
@@ -154,8 +177,9 @@ describe('Device store', () => {
       expect(get(deviceType)).toBe('lcd-panel');
     });
 
-    it('should detect tablet dimensions', async () => {
+    it('should detect tablet dimensions with mobile User-Agent', async () => {
       setWindowSize(1024, 768);
+      setMobileUserAgent();
       const { deviceType, initDeviceStore } = await importDeviceStore();
 
       initDeviceStore();
@@ -163,13 +187,24 @@ describe('Device store', () => {
       expect(get(deviceType)).toBe('tablet');
     });
 
-    it('should detect phone dimensions', async () => {
+    it('should detect phone dimensions with mobile User-Agent', async () => {
       setWindowSize(375, 812);
+      setMobileUserAgent();
       const { deviceType, initDeviceStore } = await importDeviceStore();
 
       initDeviceStore();
 
       expect(get(deviceType)).toBe('phone');
+    });
+
+    it('should detect desktop with desktop User-Agent', async () => {
+      setWindowSize(1920, 1080);
+      setDesktopUserAgent();
+      const { deviceType, initDeviceStore } = await importDeviceStore();
+
+      initDeviceStore();
+
+      expect(get(deviceType)).toBe('desktop');
     });
 
     it('should update screenDimensions', async () => {

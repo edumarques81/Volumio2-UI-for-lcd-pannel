@@ -13,10 +13,14 @@ describe('Device detection utilities', () => {
   // Store original window properties
   let originalInnerWidth: number;
   let originalInnerHeight: number;
+  let originalUserAgent: string;
+  let originalMatchMedia: typeof window.matchMedia;
 
   beforeEach(() => {
     originalInnerWidth = window.innerWidth;
     originalInnerHeight = window.innerHeight;
+    originalUserAgent = navigator.userAgent;
+    originalMatchMedia = window.matchMedia;
   });
 
   afterEach(() => {
@@ -29,6 +33,12 @@ describe('Device detection utilities', () => {
       value: originalInnerHeight,
       writable: true
     });
+    Object.defineProperty(navigator, 'userAgent', {
+      value: originalUserAgent,
+      writable: true,
+      configurable: true
+    });
+    window.matchMedia = originalMatchMedia;
   });
 
   function setWindowSize(width: number, height: number) {
@@ -40,6 +50,35 @@ describe('Device detection utilities', () => {
       value: height,
       writable: true
     });
+  }
+
+  function setMobileUserAgent() {
+    Object.defineProperty(navigator, 'userAgent', {
+      value: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148',
+      writable: true,
+      configurable: true
+    });
+  }
+
+  function setDesktopUserAgent() {
+    Object.defineProperty(navigator, 'userAgent', {
+      value: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+      writable: true,
+      configurable: true
+    });
+  }
+
+  function setTouchDevice(isTouch: boolean) {
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches: query === '(pointer: coarse)' ? isTouch : !isTouch,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn()
+    }));
   }
 
   describe('detectDeviceType', () => {
@@ -65,29 +104,37 @@ describe('Device detection utilities', () => {
       });
     });
 
-    describe('Tablet detection', () => {
-      it('should detect 1024x768 as tablet', () => {
+    describe('Tablet detection (mobile browser)', () => {
+      beforeEach(() => {
+        setMobileUserAgent();
+      });
+
+      it('should detect 1024x768 as tablet with mobile User-Agent', () => {
         setWindowSize(1024, 768);
         expect(detectDeviceType()).toBe('tablet');
       });
 
-      it('should detect 768x1024 (portrait) as tablet', () => {
+      it('should detect 768x1024 (portrait) as tablet with mobile User-Agent', () => {
         setWindowSize(768, 1024);
         expect(detectDeviceType()).toBe('tablet');
       });
 
-      it('should detect iPad Pro 12.9" as tablet', () => {
+      it('should detect iPad Pro 12.9" as tablet with mobile User-Agent', () => {
         setWindowSize(1024, 1366);
         expect(detectDeviceType()).toBe('tablet');
       });
 
-      it('should detect 800x600 as tablet', () => {
+      it('should detect 800x600 as tablet with mobile User-Agent', () => {
         setWindowSize(800, 600);
         expect(detectDeviceType()).toBe('tablet');
       });
     });
 
-    describe('Phone detection', () => {
+    describe('Phone detection (mobile browser)', () => {
+      beforeEach(() => {
+        setMobileUserAgent();
+      });
+
       it('should detect 375x812 (iPhone X) as phone', () => {
         setWindowSize(375, 812);
         expect(detectDeviceType()).toBe('phone');
@@ -113,11 +160,36 @@ describe('Device detection utilities', () => {
         expect(detectDeviceType()).toBe('phone');
       });
     });
+
+    describe('Desktop detection (desktop browser)', () => {
+      beforeEach(() => {
+        setDesktopUserAgent();
+      });
+
+      it('should detect large screen with desktop User-Agent as desktop', () => {
+        setWindowSize(1920, 1080);
+        expect(detectDeviceType()).toBe('desktop');
+      });
+
+      it('should detect 1024x768 with desktop User-Agent as desktop', () => {
+        setWindowSize(1024, 768);
+        expect(detectDeviceType()).toBe('desktop');
+      });
+
+      it('should detect 800x600 with desktop User-Agent as desktop', () => {
+        setWindowSize(800, 600);
+        expect(detectDeviceType()).toBe('desktop');
+      });
+    });
   });
 
   describe('getDeviceTypeName', () => {
     it('should return "LCD Panel" for lcd-panel', () => {
       expect(getDeviceTypeName('lcd-panel')).toBe('LCD Panel');
+    });
+
+    it('should return "Desktop" for desktop', () => {
+      expect(getDeviceTypeName('desktop')).toBe('Desktop');
     });
 
     it('should return "Tablet" for tablet', () => {
@@ -134,6 +206,10 @@ describe('Device detection utilities', () => {
       expect(getDeviceClass('lcd-panel')).toBe('device-lcd-panel');
     });
 
+    it('should return "device-desktop" for desktop', () => {
+      expect(getDeviceClass('desktop')).toBe('device-desktop');
+    });
+
     it('should return "device-tablet" for tablet', () => {
       expect(getDeviceClass('tablet')).toBe('device-tablet');
     });
@@ -146,6 +222,14 @@ describe('Device detection utilities', () => {
   describe('getGridColumns', () => {
     it('should return 6 for lcd-panel', () => {
       expect(getGridColumns('lcd-panel')).toBe(6);
+    });
+
+    it('should return 5 for desktop in landscape', () => {
+      expect(getGridColumns('desktop', true)).toBe(5);
+    });
+
+    it('should return 4 for desktop in portrait', () => {
+      expect(getGridColumns('desktop', false)).toBe(4);
     });
 
     it('should return 4 for tablet in landscape', () => {
@@ -169,6 +253,10 @@ describe('Device detection utilities', () => {
   describe('getTouchTargetSize', () => {
     it('should return 44 for lcd-panel', () => {
       expect(getTouchTargetSize('lcd-panel')).toBe(44);
+    });
+
+    it('should return 36 for desktop (smaller for mouse)', () => {
+      expect(getTouchTargetSize('desktop')).toBe(36);
     });
 
     it('should return 48 for tablet', () => {
