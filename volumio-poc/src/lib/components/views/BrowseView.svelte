@@ -41,7 +41,11 @@
 
   function handleBack() {
     if ($browseStack.length > 1) {
+      // Navigate back within browse hierarchy
       navigationActions.browseBack();
+    } else {
+      // At root, go back to home screen
+      navigationActions.goHome();
     }
   }
 
@@ -80,11 +84,9 @@
   <!-- Header -->
   <header class="browse-header">
     <div class="header-left">
-      {#if $browseStack.length > 1}
-        <button class="back-btn" data-testid="back-button" on:click={handleBack} aria-label="Go back">
-          <Icon name="back" size={28} />
-        </button>
-      {/if}
+      <button class="back-btn" data-testid="back-button" on:click={handleBack} aria-label="Go back">
+        <Icon name="chevron-left" size={32} />
+      </button>
       <h1 class="title">{$currentBrowseLocation?.title || 'Browse'}</h1>
     </div>
 
@@ -175,21 +177,26 @@
   }
 
   .back-btn {
-    width: 48px;
-    height: 48px;
+    width: 56px;
+    height: 56px;
     display: flex;
     align-items: center;
     justify-content: center;
     border: none;
     border-radius: var(--radius-full);
     background: rgba(255, 255, 255, 0.1);
-    color: var(--color-text-primary);
+    color: #ffffff;
     cursor: pointer;
     transition: all 0.2s;
+    flex-shrink: 0;
+  }
+
+  .back-btn :global(svg) {
+    stroke-width: 3;
   }
 
   .back-btn:hover {
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.2);
   }
 
   .back-btn:active {

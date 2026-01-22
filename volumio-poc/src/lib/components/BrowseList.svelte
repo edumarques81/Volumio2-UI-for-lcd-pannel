@@ -125,14 +125,14 @@
     align-items: center;
     gap: var(--spacing-lg);
     padding: var(--spacing-md) var(--spacing-lg);
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.27);
     border-radius: var(--radius-md);
     cursor: pointer;
     transition: all 0.2s;
   }
 
   .list-item:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.54);
   }
 
   .list-item:focus-visible {
