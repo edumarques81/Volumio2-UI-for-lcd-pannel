@@ -236,6 +236,26 @@ The codebase uses Babel 5 for ES6 transpilation. Import/export syntax is support
 
 ## Raspberry Pi Development Setup
 
+### Environment Configuration (.env file)
+
+**IMPORTANT**: Create a `.env` file in the project root with your Pi configuration. Copy from `.env-example`:
+
+```bash
+cp .env-example .env
+# Edit .env with your actual values
+```
+
+The `.env` file contains:
+```
+RASPBERRY_PI_SSH_USERNAME=pi
+RASPBERRY_PI_SSH_PASSWORD=your_password
+RASPBERRY_PI_HOST=raspberry.local
+RASPBERRY_PI_API_ADDRESS=192.168.x.x
+STELLAR_BACKEND_FOLDER=/path/to/stellar-volumio-audioplayer-backend/
+```
+
+**Never commit `.env` to version control** - it's already in `.gitignore`.
+
 ### IMPORTANT: localhost vs Raspberry Pi
 
 **NEVER confuse these two environments:**
@@ -243,59 +263,77 @@ The codebase uses Babel 5 for ES6 transpilation. Import/export syntax is support
 | Environment | Address | Description |
 |-------------|---------|-------------|
 | **Local (macOS)** | `localhost` | Developer's macOS machine where code is edited and built |
-| **Raspberry Pi** | `192.168.86.34` | Target device running Volumio with LCD panel |
+| **Raspberry Pi** | IP from `.env` | Target device running the POC with LCD panel |
 
 - `localhost` = macOS development machine
-- `192.168.86.34` = Raspberry Pi (Volumio)
+- Pi IP = Raspberry Pi (configured in `.env`)
 - When deploying, files are built on **localhost** and copied to **Pi**
-- The Pi's kiosk browser loads from `http://localhost:8080` (which is localhost **on the Pi itself**)
+- The Pi serves frontend at `http://localhost:8080` (localhost **on the Pi itself**)
 
 ### SSH Access (IMPORTANT)
 
-**All SSH and SCP operations MUST use `sshpass` for automation.** The AI assistant should always use sshpass when connecting to the Pi.
+**All SSH and SCP operations MUST use `sshpass` with credentials from `.env` file.**
 
 ```bash
+# Source the .env file first
+source .env
+
 # SSH connection pattern (from macOS to Pi)
-sshpass -p 'volumio' ssh -o StrictHostKeyChecking=no volumio@192.168.86.34 "command here"
+sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" ssh -o StrictHostKeyChecking=no "$RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS" "command here"
 
 # SCP file transfer pattern (from macOS to Pi)
-sshpass -p 'volumio' scp -o StrictHostKeyChecking=no local_file volumio@192.168.86.34:/remote/path/
+sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" scp -o StrictHostKeyChecking=no local_file "$RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS:/remote/path/"
 
-# SCP directory transfer pattern (from macOS to Pi)
-sshpass -p 'volumio' scp -o StrictHostKeyChecking=no -r local_dir/* volumio@192.168.86.34:/remote/path/
+# Rsync for efficient deployment
+sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" rsync -avz --delete local_dir/ "$RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS:~/remote_dir/"
 ```
 
 ### Pi Configuration
 
-| Setting | Value |
-|---------|-------|
-| Hostname | `volumioeduardohifi.local` or `volumioeduardohifi.lan` |
-| IP Address | `192.168.86.34` |
-| SSH User | `volumio` |
-| SSH Password | `volumio` |
+Configuration values are stored in `.env` file. See `.env-example` for required variables.
+
+| Setting | .env Variable |
+|---------|---------------|
+| Hostname | `RASPBERRY_PI_HOST` |
+| IP Address | `RASPBERRY_PI_API_ADDRESS` |
+| SSH User | `RASPBERRY_PI_SSH_USERNAME` |
+| SSH Password | `RASPBERRY_PI_SSH_PASSWORD` |
 | Architecture | ARM64 (Raspberry Pi 5) |
 
 ### Services and Ports (on Raspberry Pi)
 
 | Service | Port | Description |
 |---------|------|-------------|
-| **Stellar Frontend** | 8080 | busybox httpd serving `/home/volumio/stellar-volumio` |
+| **Stellar Frontend** | 8080 | python3 http.server serving `~/stellar-volumio` |
 | **Stellar Backend** | 3002 | Go backend for POC |
-| Volumio backend | 3000 | Original Volumio Node.js backend (not used by POC) |
 | MPD | 6600 | Music Player Daemon |
-| Kiosk Chrome DevTools | 9222 | Remote debugging port |
 
 **POC uses only ports 8080 (frontend) and 3002 (backend).**
+
+### Systemd Services on Pi
+
+The following services are configured on the Pi:
+
+- `stellar-backend.service` - Stellar Go backend on port 3002
+- `stellar-frontend.service` - Python HTTP server on port 8080
+- `mpd.service` - Music Player Daemon
+
+```bash
+# Check service status
+source .env && sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" ssh "$RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS" "systemctl status stellar-backend stellar-frontend mpd"
+
+# Restart services
+source .env && sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" ssh "$RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS" "sudo systemctl restart stellar-backend stellar-frontend"
+```
 
 ### Important Paths on Pi
 
 | Path | Description |
 |------|-------------|
-| `/home/volumio/stellar-volumio` | Stellar frontend files (httpd serves from here) |
-| `/home/volumio/stellar` | Stellar Go backend binary |
-| `/home/volumio/stellar.log` | Stellar backend logs |
-| `/opt/volumiokiosk.sh` | Kiosk startup script |
-| `/data/volumiokiosk/Default/Cache/` | Chromium kiosk browser cache |
+| `~/stellar-volumio` | Stellar frontend files (HTTP server serves from here) |
+| `~/stellar-backend/stellar` | Stellar Go backend binary |
+| `/etc/systemd/system/stellar-*.service` | Systemd service files |
+| `/var/log/syslog` | System logs (check with `journalctl -u stellar-backend`) |
 
 ## Volumio POC (Svelte)
 
@@ -314,15 +352,15 @@ The `volumio-poc/` directory contains a Svelte-based POC for a CarPlay-style LCD
 
 ### Development Mode - Backend Connection
 
-**IMPORTANT**: When running `npm run dev` on macOS (localhost:5173), the frontend connects to the **Raspberry Pi's backend** at `192.168.86.34:3002`.
+**IMPORTANT**: When running `npm run dev` on macOS (localhost:5173), the frontend connects to the **Raspberry Pi's backend**. The Pi IP is configured in `volumio-poc/src/lib/config.ts` (`DEV_VOLUMIO_IP` constant).
 
 | Environment | Frontend URL | Backend URL |
 |-------------|--------------|-------------|
-| **Dev mode (macOS)** | `localhost:5173` | `192.168.86.34:3002` (Pi) |
-| **Deployed (Pi kiosk)** | `localhost:8080` (on Pi) | `localhost:3002` (on Pi) |
-| **Remote access** | `192.168.86.34:8080` | `192.168.86.34:3002` |
+| **Dev mode (macOS)** | `localhost:5173` | `PI_IP:3002` (from config.ts) |
+| **Deployed (Pi)** | `localhost:8080` (on Pi) | `localhost:3002` (on Pi) |
+| **Remote access** | `PI_IP:8080` | `PI_IP:3002` |
 
-This is configured in `volumio-poc/src/lib/config.ts`. The Stellar backend must be running on the Pi for dev mode to work.
+The Stellar backend must be running on the Pi for dev mode to work. Update `DEV_VOLUMIO_IP` in `config.ts` if your Pi IP changes.
 
 ### POC Commands
 
@@ -361,40 +399,62 @@ To force a specific layout (useful for kiosk mode), use the `?layout=` URL param
 
 ### POC Deployment to Raspberry Pi
 
-**IMPORTANT**: The httpd server on the Pi serves files from `/home/volumio/stellar-volumio`.
+**IMPORTANT**: The HTTP server on the Pi serves files from `~/stellar-volumio`.
 
+**Manual deployment using .env**:
 ```bash
-# Build the POC
+# Source credentials and build
+source .env
 cd volumio-poc
 npm run build
 
-# Ensure directory exists and deploy frontend to Pi
-sshpass -p 'volumio' ssh -o StrictHostKeyChecking=no volumio@192.168.86.34 "mkdir -p /home/volumio/stellar-volumio"
-sshpass -p 'volumio' scp -o StrictHostKeyChecking=no -r dist/* volumio@192.168.86.34:/home/volumio/stellar-volumio/
+# Deploy frontend via rsync
+sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" rsync -avz --delete dist/ "$RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS:~/stellar-volumio/"
 
-# Clear browser cache and restart kiosk
-sshpass -p 'volumio' ssh -o StrictHostKeyChecking=no volumio@192.168.86.34 "echo 'volumio' | sudo -S rm -rf /data/volumiokiosk/Default/Cache/* && echo 'volumio' | sudo -S systemctl restart volumio-kiosk"
+# Restart frontend service
+sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" ssh "$RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS" "sudo systemctl restart stellar-frontend"
 ```
 
 ### Stellar Backend Deployment
 
 ```bash
+# Source credentials
+source .env
+
 # Build for ARM64
-cd stellar-volumio-audioplayer-backend
+cd "$STELLAR_BACKEND_FOLDER"
 GOOS=linux GOARCH=arm64 go build -o stellar-arm64 ./cmd/stellar
 
-# Stop existing, deploy, and start
-sshpass -p 'volumio' ssh -o StrictHostKeyChecking=no volumio@192.168.86.34 "pkill stellar || true"
-sshpass -p 'volumio' scp -o StrictHostKeyChecking=no stellar-arm64 volumio@192.168.86.34:/home/volumio/stellar
-sshpass -p 'volumio' ssh -o StrictHostKeyChecking=no volumio@192.168.86.34 "chmod +x /home/volumio/stellar && nohup /home/volumio/stellar -port 3002 > /home/volumio/stellar.log 2>&1 &"
+# Deploy and restart service
+sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" scp stellar-arm64 "$RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS:~/stellar-backend/stellar"
+sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" ssh "$RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS" "chmod +x ~/stellar-backend/stellar && sudo systemctl restart stellar-backend"
 
 # Check logs
-sshpass -p 'volumio' ssh -o StrictHostKeyChecking=no volumio@192.168.86.34 "tail -f /home/volumio/stellar.log"
+sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" ssh "$RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS" "journalctl -u stellar-backend -f"
+```
+
+### Full Deployment (Frontend + Backend)
+
+```bash
+source .env
+
+# Build frontend
+cd volumio-poc && npm run build && cd ..
+
+# Build backend
+cd "$STELLAR_BACKEND_FOLDER" && GOOS=linux GOARCH=arm64 go build -o stellar-arm64 ./cmd/stellar && cd -
+
+# Deploy both
+sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" rsync -avz --delete volumio-poc/dist/ "$RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS:~/stellar-volumio/"
+sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" scp "$STELLAR_BACKEND_FOLDER/stellar-arm64" "$RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS:~/stellar-backend/stellar"
+
+# Restart services
+sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" ssh "$RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS" "chmod +x ~/stellar-backend/stellar && sudo systemctl restart stellar-backend stellar-frontend"
 ```
 
 ### Stellar Backend Repository
 
-- **Location**: `/Users/eduardomarques/workspace/stellar-volumio-audioplayer-backend`
+- **Location**: Configured in `.env` as `STELLAR_BACKEND_FOLDER`
 - **GitHub**: https://github.com/edumarques81/stellar-volumio-audioplayer-backend
 - **Library**: `zishang520/socket.io` v3 (proper Socket.IO v4 support)
 - **Features**: MPD client, player controls, queue management, music library browsing, version API
@@ -419,24 +479,50 @@ sshpass -p 'volumio' ssh -o StrictHostKeyChecking=no volumio@192.168.86.34 "tail
 volumio-poc/
 ├── src/
 │   ├── main.ts                 # App entry point
-│   ├── App.svelte              # Root component
+│   ├── App.svelte              # Root component with layout switching
 │   ├── app.css                 # Global CSS
 │   └── lib/
-│       ├── config.ts           # Backend URL configuration
+│       ├── config.ts           # Backend URL configuration (DEV_VOLUMIO_IP)
 │       ├── services/
 │       │   └── socket.ts       # Socket.IO wrapper
-│       ├── stores/
-│       │   ├── player.ts       # Player state store
-│       │   └── version.ts      # Version info store
+│       ├── stores/             # Svelte stores (state management)
+│       │   ├── player.ts       # Player state (status, seek, track info)
+│       │   ├── queue.ts        # Queue management
+│       │   ├── browse.ts       # Library browsing state
+│       │   ├── audio.ts        # Audio quality info
+│       │   ├── audioDevices.ts # Audio output devices
+│       │   ├── device.ts       # Device type detection
+│       │   ├── favorites.ts    # Favorites management
+│       │   ├── lcd.ts          # LCD brightness control
+│       │   ├── navigation.ts   # View navigation state
+│       │   ├── network.ts      # Network status
+│       │   ├── playlist.ts     # Playlist management
+│       │   ├── settings.ts     # App settings
+│       │   ├── ui.ts           # UI state (modals, etc.)
+│       │   └── version.ts      # Backend version info
 │       ├── utils/
 │       │   └── deviceDetection.ts  # Device/layout detection
 │       └── components/
-│           ├── LCDLayout.svelte    # 1920x440 LCD layout
-│           ├── MobileLayout.svelte # Mobile/tablet layout
+│           ├── layouts/            # Responsive layouts
+│           │   ├── LCDLayout.svelte    # 1920x440 LCD panel
+│           │   ├── MobileLayout.svelte # Mobile/tablet
+│           │   └── DesktopLayout.svelte # Desktop browser
+│           ├── views/              # Main app views
+│           │   ├── HomeScreen.svelte   # Home/now playing
+│           │   ├── BrowseView.svelte   # Library browser
+│           │   ├── QueueView.svelte    # Queue management
+│           │   ├── PlayerView.svelte   # Full player view
+│           │   └── SettingsView.svelte # Settings screen
 │           ├── PlayerBar.svelte    # Main player bar
 │           ├── AlbumArt.svelte     # Album artwork
+│           ├── SeekBar.svelte      # Playback progress
+│           ├── VolumeControl.svelte # Volume slider
 │           └── ...
+├── scripts/
+│   ├── deploy.sh               # Build and deploy to Pi (uses rsync)
+│   └── deploy-to-pi.sh         # Alternative deployment script
 ├── e2e/                        # Playwright E2E tests
+├── docs/                       # Architecture and research docs
 ├── dist/                       # Production build output
 └── package.json
 ```
@@ -473,11 +559,14 @@ volumio-poc/
 **Before starting any development work, Claude MUST establish an SSH session to the Pi for testing:**
 
 ```bash
+# Source credentials first
+source .env
+
 # Open a persistent SSH session at the start of work
-sshpass -p 'volumio' ssh -o StrictHostKeyChecking=no volumio@192.168.86.34
+sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" ssh -o StrictHostKeyChecking=no "$RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS"
 
 # Or run commands to verify connectivity
-sshpass -p 'volumio' ssh -o StrictHostKeyChecking=no volumio@192.168.86.34 "echo 'Pi connection OK' && uptime"
+sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" ssh -o StrictHostKeyChecking=no "$RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS" "echo 'Pi connection OK' && uptime"
 ```
 
 **Testing workflow on Pi:**
@@ -485,14 +574,16 @@ sshpass -p 'volumio' ssh -o StrictHostKeyChecking=no volumio@192.168.86.34 "echo
 1. **Deploy changes** - Use the deployment commands in the sections above
 2. **Check logs** - Monitor for errors:
    ```bash
+   source .env
+
    # Stellar backend logs
-   sshpass -p 'volumio' ssh -o StrictHostKeyChecking=no volumio@192.168.86.34 "tail -f /home/volumio/stellar.log"
+   sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" ssh "$RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS" "journalctl -u stellar-backend -f"
 
    # System logs
-   sshpass -p 'volumio' ssh -o StrictHostKeyChecking=no volumio@192.168.86.34 "journalctl -f"
+   sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" ssh "$RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS" "journalctl -f"
 
    # Kiosk/browser logs
-   sshpass -p 'volumio' ssh -o StrictHostKeyChecking=no volumio@192.168.86.34 "journalctl -u volumio-kiosk -f"
+   sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" ssh "$RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS" "journalctl -u volumio-kiosk -f"
    ```
 3. **Verify functionality** - Test the feature/fix works as expected on actual hardware
 4. **Check for regressions** - Ensure existing functionality still works
@@ -576,3 +667,50 @@ Before considering any task complete, Claude MUST verify:
 - [ ] Functionality verified on Pi hardware
 - [ ] Logs checked for errors
 - [ ] Commit message follows Conventional Commits format
+
+## Performance Debugging
+
+### FPS Performance Overlay
+
+The POC includes a built-in FPS monitoring tool accessible via browser console:
+
+```javascript
+// Start FPS monitoring (shows overlay)
+__performance.start()
+
+// Stop monitoring (hides overlay)
+__performance.stop()
+
+// Toggle on/off
+__performance.toggle()
+
+// Reset counters
+__performance.reset()
+```
+
+**Remote access on Pi** via Chrome DevTools at `http://PI_IP:9222`.
+
+### Pi Hardware Monitoring
+
+```bash
+source .env
+
+# GPU temperature (target: <70°C, throttling at 80°C)
+sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" ssh "$RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS" "vcgencmd measure_temp"
+
+# Throttling status (0x0 = no throttling)
+sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" ssh "$RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS" "vcgencmd get_throttled"
+
+# CPU/process info
+sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" ssh "$RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS" "top -bn1 | head -20"
+```
+
+**Throttling flags** (from `get_throttled`):
+- `0x50000` = Under-voltage + throttling occurred
+- `0x80000` = Soft temperature limit occurred
+
+### GPU Acceleration Verification
+
+Navigate to `chrome://gpu` on the Pi's Chromium to verify:
+- Graphics Feature Status shows "Hardware accelerated"
+- GL_RENDERER shows `V3D` (not `llvmpipe`)

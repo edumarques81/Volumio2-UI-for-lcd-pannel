@@ -22,3 +22,4 @@ src/app/themes/volumio3/assets/static-pages/credits.html
 src/app/themes/volumio/assets/static-pages/credits.html
 src/app/themes/volumio3/assets/variants/load-variant.scss
 src/app/components/myvolumio/templates/terms-and-conditions.html
+.env

@@ -15,6 +15,8 @@
   import { currentView, layoutMode, navigationActions } from '$lib/stores/navigation';
   import { socketService as socket } from '$lib/services/socket';
   import { getVolumioHost } from '$lib/config';
+  import { performanceActions, performanceMetrics, fpsEnabled } from '$lib/stores/performance';
+  import { get } from 'svelte/store';
 
   // Layouts
   import LCDLayout from '$lib/components/layouts/LCDLayout.svelte';
@@ -27,6 +29,7 @@
   import TrackInfoModal from '$lib/components/TrackInfoModal.svelte';
   import StatusDrawer from '$lib/components/StatusDrawer.svelte';
   import Toast from '$lib/components/Toast.svelte';
+  import PerformanceOverlay from '$lib/components/PerformanceOverlay.svelte';
 
   const volumioHost = getVolumioHost();
 
@@ -157,6 +160,16 @@
       }
     };
 
+    // Expose performance monitoring controls for testing
+    (window as any).__performance = {
+      start: () => performanceActions.start(),
+      stop: () => performanceActions.stop(),
+      toggle: () => performanceActions.toggle(),
+      reset: () => performanceActions.reset(),
+      getMetrics: () => get(performanceMetrics),
+      isEnabled: () => get(fpsEnabled)
+    };
+
     // Cleanup on unmount
     return () => {
       cleanupNetworkStore();
@@ -203,6 +216,9 @@
   <TrackInfoModal />
   <StatusDrawer />
   <Toast />
+
+  <!-- Performance monitoring overlay (toggle with __performance.toggle()) -->
+  <PerformanceOverlay position="top-right" />
 </main>
 
 <style>
