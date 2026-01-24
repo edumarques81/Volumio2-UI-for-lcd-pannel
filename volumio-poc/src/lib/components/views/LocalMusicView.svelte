@@ -8,10 +8,14 @@
     localMusicError,
     albumSortOrder,
     trackSortOrder,
+    selectedAlbum,
+    albumTracks,
+    albumTracksLoading,
     localMusicActions,
     initLocalMusicListeners,
     type LocalAlbum,
     type PlayHistoryEntry,
+    type AlbumTrack,
     type AlbumSortOrder,
     type TrackSortOrder
   } from '$lib/stores/localMusic';
@@ -36,7 +40,11 @@
   ];
 
   function handleBack() {
-    navigationActions.goHome();
+    if ($selectedAlbum) {
+      localMusicActions.deselectAlbum();
+    } else {
+      navigationActions.goHome();
+    }
   }
 
   function handleTabClick(tab: TabType) {
@@ -44,7 +52,15 @@
   }
 
   function handleAlbumClick(album: LocalAlbum) {
+    localMusicActions.selectAlbum(album);
+  }
+
+  function handlePlayAlbum(album: LocalAlbum) {
     localMusicActions.playAlbum(album);
+  }
+
+  function handleAlbumTrackClick(track: AlbumTrack) {
+    localMusicActions.playAlbumTrack(track);
   }
 
   function handleTrackClick(track: PlayHistoryEntry) {
@@ -76,6 +92,13 @@
     return date.toLocaleDateString();
   }
 
+  function formatDuration(seconds: number): string {
+    if (!seconds) return '';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  }
+
   function getSourceIcon(source: string): string {
     switch (source) {
       case 'usb': return 'storage';
@@ -97,49 +120,60 @@
       <button class="back-btn" data-testid="back-button" on:click={handleBack} aria-label="Go back">
         <Icon name="chevron-left" size={32} />
       </button>
-      <h1 class="title">Local Music</h1>
+      <h1 class="title">{$selectedAlbum ? $selectedAlbum.title : 'Local Music'}</h1>
+      {#if $selectedAlbum}
+        <span class="subtitle">{$selectedAlbum.artist}</span>
+      {/if}
     </div>
 
     <div class="header-right">
-      <!-- Tabs -->
-      <div class="tabs">
-        <button
-          class="tab"
-          class:active={activeTab === 'albums'}
-          on:click={() => handleTabClick('albums')}
-        >
-          Albums
-        </button>
-        <button
-          class="tab"
-          class:active={activeTab === 'lastPlayed'}
-          on:click={() => handleTabClick('lastPlayed')}
-        >
-          Last Played
-        </button>
-      </div>
+      {#if !$selectedAlbum}
+        <!-- Tabs -->
+        <div class="tabs">
+          <button
+            class="tab"
+            class:active={activeTab === 'albums'}
+            on:click={() => handleTabClick('albums')}
+          >
+            Albums
+          </button>
+          <button
+            class="tab"
+            class:active={activeTab === 'lastPlayed'}
+            on:click={() => handleTabClick('lastPlayed')}
+          >
+            Last Played
+          </button>
+        </div>
 
-      <!-- Sort dropdown -->
-      {#if activeTab === 'albums'}
-        <select
-          class="sort-select"
-          value={$albumSortOrder}
-          on:change={handleAlbumSortChange}
-        >
-          {#each albumSortOptions as option}
-            <option value={option.value}>{option.label}</option>
-          {/each}
-        </select>
+        <!-- Sort dropdown -->
+        {#if activeTab === 'albums'}
+          <select
+            class="sort-select"
+            value={$albumSortOrder}
+            on:change={handleAlbumSortChange}
+          >
+            {#each albumSortOptions as option}
+              <option value={option.value}>{option.label}</option>
+            {/each}
+          </select>
+        {:else}
+          <select
+            class="sort-select"
+            value={$trackSortOrder}
+            on:change={handleTrackSortChange}
+          >
+            {#each trackSortOptions as option}
+              <option value={option.value}>{option.label}</option>
+            {/each}
+          </select>
+        {/if}
       {:else}
-        <select
-          class="sort-select"
-          value={$trackSortOrder}
-          on:change={handleTrackSortChange}
-        >
-          {#each trackSortOptions as option}
-            <option value={option.value}>{option.label}</option>
-          {/each}
-        </select>
+        <!-- Play All button for album detail view -->
+        <button class="play-all-btn" on:click={() => $selectedAlbum && handlePlayAlbum($selectedAlbum)}>
+          <Icon name="play" size={20} />
+          Play All
+        </button>
       {/if}
     </div>
   </header>
@@ -154,6 +188,50 @@
           Retry
         </button>
       </div>
+    {:else if $selectedAlbum}
+      <!-- Album Detail View -->
+      {#if $albumTracksLoading}
+        <SkeletonList count={6} variant="browse" />
+      {:else if $albumTracks.length === 0}
+        <div class="empty">
+          <Icon name="music-note" size={64} />
+          <p>No tracks found</p>
+        </div>
+      {:else}
+        <div class="album-detail">
+          <div class="album-header">
+            <div class="album-cover">
+              {#if $selectedAlbum.albumArt}
+                <img src={$selectedAlbum.albumArt} alt={$selectedAlbum.title} />
+              {:else}
+                <div class="album-placeholder">
+                  <Icon name="album" size={64} />
+                </div>
+              {/if}
+            </div>
+            <div class="album-meta">
+              <span class="track-count">{$albumTracks.length} tracks</span>
+            </div>
+          </div>
+          <div class="album-tracks-list">
+            {#each $albumTracks as track, index}
+              <button
+                class="album-track-item"
+                on:click={() => handleAlbumTrackClick(track)}
+              >
+                <span class="track-number">{track.trackNumber || index + 1}</span>
+                <div class="track-info">
+                  <span class="track-title">{track.title}</span>
+                  {#if track.artist && track.artist !== $selectedAlbum?.artist}
+                    <span class="track-artist">{track.artist}</span>
+                  {/if}
+                </div>
+                <span class="track-duration">{formatDuration(track.duration)}</span>
+              </button>
+            {/each}
+          </div>
+        </div>
+      {/if}
     {:else if $localMusicLoading}
       <SkeletonList count={6} variant="browse" />
     {:else if activeTab === 'albums'}
@@ -586,5 +664,153 @@
     background: rgba(255, 255, 255, 0.1);
     padding: 2px 6px;
     border-radius: var(--radius-sm);
+  }
+
+  /* Header subtitle */
+  .subtitle {
+    font-size: var(--font-size-base);
+    color: var(--color-text-secondary);
+    margin-left: var(--spacing-sm);
+  }
+
+  /* Play All button */
+  .play-all-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-lg);
+    border: none;
+    border-radius: var(--radius-full);
+    background: var(--color-primary);
+    color: white;
+    font-size: var(--font-size-base);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .play-all-btn:hover {
+    opacity: 0.9;
+    transform: scale(1.02);
+  }
+
+  .play-all-btn:active {
+    transform: scale(0.98);
+  }
+
+  /* Album Detail View */
+  .album-detail {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+  }
+
+  .album-header {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--spacing-lg);
+  }
+
+  .album-cover {
+    width: 160px;
+    height: 160px;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.2);
+    flex-shrink: 0;
+  }
+
+  .album-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .album-meta {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+
+  .album-meta .track-count {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+  }
+
+  /* Album Tracks List */
+  .album-tracks-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .album-track-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md) var(--spacing-lg);
+    background: rgba(45, 45, 50, 0.4);
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: left;
+  }
+
+  .album-track-item:first-child {
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+  }
+
+  .album-track-item:last-child {
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+  }
+
+  .album-track-item:only-child {
+    border-radius: var(--radius-md);
+  }
+
+  .album-track-item:hover {
+    background: rgba(55, 55, 60, 0.6);
+  }
+
+  .album-track-item:active {
+    background: rgba(65, 65, 70, 0.7);
+  }
+
+  .track-number {
+    width: 32px;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-tertiary);
+    text-align: center;
+    flex-shrink: 0;
+  }
+
+  .album-track-item .track-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .album-track-item .track-title {
+    font-size: var(--font-size-base);
+    color: var(--color-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .album-track-item .track-artist {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .track-duration {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-tertiary);
+    flex-shrink: 0;
   }
 </style>

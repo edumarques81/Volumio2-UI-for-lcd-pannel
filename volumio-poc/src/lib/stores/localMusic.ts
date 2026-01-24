@@ -25,6 +25,18 @@ export interface LocalAlbum {
   addedAt?: string;
 }
 
+export interface AlbumTrack {
+  id: string;
+  title: string;
+  artist: string;
+  album: string;
+  uri: string;
+  trackNumber: number;
+  duration: number;
+  albumArt: string;
+  source: SourceType;
+}
+
 export interface PlayHistoryEntry {
   id: string;
   trackURI: string;
@@ -51,11 +63,23 @@ export interface LastPlayedResponse {
   error?: string;
 }
 
+export interface AlbumTracksResponse {
+  tracks: AlbumTrack[];
+  totalCount: number;
+  albumUri: string;
+  error?: string;
+}
+
 // Store state
 export const localAlbums = writable<LocalAlbum[]>([]);
 export const lastPlayedTracks = writable<PlayHistoryEntry[]>([]);
 export const localMusicLoading = writable<boolean>(false);
 export const localMusicError = writable<string | null>(null);
+
+// Album detail state
+export const selectedAlbum = writable<LocalAlbum | null>(null);
+export const albumTracks = writable<AlbumTrack[]>([]);
+export const albumTracksLoading = writable<boolean>(false);
 
 // Album sort preference
 const storedAlbumSort = typeof localStorage !== 'undefined'
@@ -95,6 +119,13 @@ function processAlbum(album: LocalAlbum): LocalAlbum {
 }
 
 function processTrack(track: PlayHistoryEntry): PlayHistoryEntry {
+  return {
+    ...track,
+    albumArt: fixVolumioAssetUrl(track.albumArt)
+  };
+}
+
+function processAlbumTrack(track: AlbumTrack): AlbumTrack {
   return {
     ...track,
     albumArt: fixVolumioAssetUrl(track.albumArt)
@@ -144,6 +175,21 @@ export function initLocalMusicListeners(): void {
     if (result.success) {
       lastPlayedTracks.set([]);
     }
+  });
+
+  // Listen for album tracks response
+  socketService.on('pushAlbumTracks', (response: AlbumTracksResponse) => {
+    console.log('[LocalMusic] pushAlbumTracks:', response?.tracks?.length, 'tracks');
+    albumTracksLoading.set(false);
+
+    if (response.error) {
+      localMusicError.set(response.error);
+      return;
+    }
+
+    const processedTracks = (response.tracks || []).map(processAlbumTrack);
+    albumTracks.set(processedTracks);
+    localMusicError.set(null);
   });
 }
 
@@ -217,6 +263,41 @@ export const localMusicActions = {
   },
 
   /**
+   * Select an album to view its tracks
+   */
+  selectAlbum: (album: LocalAlbum): void => {
+    console.log('[LocalMusic] Selecting album:', album.title);
+    selectedAlbum.set(album);
+    albumTracksLoading.set(true);
+    localMusicError.set(null);
+    socketService.emit('getAlbumTracks', { albumUri: album.uri });
+  },
+
+  /**
+   * Deselect album (go back to album list)
+   */
+  deselectAlbum: (): void => {
+    console.log('[LocalMusic] Deselecting album');
+    selectedAlbum.set(null);
+    albumTracks.set([]);
+  },
+
+  /**
+   * Play a specific track from an album
+   */
+  playAlbumTrack: (track: AlbumTrack): void => {
+    console.log('[LocalMusic] Playing track:', track.title);
+    socketService.emit('replaceAndPlay', {
+      uri: track.uri,
+      title: track.title,
+      artist: track.artist,
+      album: track.album,
+      albumart: track.albumArt,
+      origin: 'manual_track'
+    });
+  },
+
+  /**
    * Play a track from history
    */
   playTrack: (track: PlayHistoryEntry): void => {
@@ -282,5 +363,6 @@ export function cleanupLocalMusicListeners(): void {
   socketService.off('pushLocalAlbums');
   socketService.off('pushLastPlayedTracks');
   socketService.off('pushHistoryCleared');
+  socketService.off('pushAlbumTracks');
   listenersInitialized = false;
 }
