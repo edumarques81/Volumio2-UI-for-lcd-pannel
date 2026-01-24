@@ -36,13 +36,27 @@
   } from '$lib/stores/audio';
   import {
     nasShares,
+    nasDevices,
+    nasSharesList,
     sourcesLoading,
     sourcesError,
+    discoveryInProgress,
     sourcesActions,
     initSourcesStore,
     cleanupSourcesStore,
-    type AddNasShareRequest
+    type AddNasShareRequest,
+    type NasDevice,
+    type ShareInfo
   } from '$lib/stores/sources';
+  import {
+    qobuzStatus,
+    qobuzLoading,
+    qobuzError,
+    isQobuzLoggedIn,
+    qobuzActions,
+    initQobuzListeners,
+    cleanupQobuzListeners
+  } from '$lib/stores/qobuz';
   import Icon from '../Icon.svelte';
 
   let bitPerfectLoading = false;
@@ -59,6 +73,44 @@
     username: '',
     password: ''
   };
+
+  // Phase 2: Discovery state
+  let showDiscoveryView = false;
+  let selectedNasDevice: NasDevice | null = null;
+  let browseCredentials = { username: '', password: '' };
+  let showCredentialsForm = false;
+
+  // Qobuz login state
+  let showQobuzLoginForm = false;
+  let qobuzFormData = { email: '', password: '' };
+
+  function resetQobuzForm() {
+    qobuzFormData = { email: '', password: '' };
+  }
+
+  function handleQobuzLoginClick() {
+    resetQobuzForm();
+    showQobuzLoginForm = true;
+  }
+
+  function handleCancelQobuzLogin() {
+    showQobuzLoginForm = false;
+    resetQobuzForm();
+    qobuzActions.clearError();
+  }
+
+  function handleSubmitQobuzLogin() {
+    if (!qobuzFormData.email || !qobuzFormData.password) {
+      return;
+    }
+    qobuzActions.login(qobuzFormData.email, qobuzFormData.password);
+  }
+
+  function handleQobuzLogout() {
+    if (confirm('Logout from Qobuz?')) {
+      qobuzActions.logout();
+    }
+  }
 
   function resetNasForm() {
     nasFormData = {
@@ -102,6 +154,62 @@
     } else {
       sourcesActions.mountNasShare(share.id);
     }
+  }
+
+  // Phase 2: Discovery handlers
+  function handleDiscoverNas() {
+    showDiscoveryView = true;
+    selectedNasDevice = null;
+    sourcesActions.discoverNasDevices();
+  }
+
+  function handleCloseDiscovery() {
+    showDiscoveryView = false;
+    selectedNasDevice = null;
+    showCredentialsForm = false;
+    browseCredentials = { username: '', password: '' };
+    sourcesActions.clearDiscovery();
+  }
+
+  function handleSelectNasDevice(device: NasDevice) {
+    selectedNasDevice = device;
+    browseCredentials = { username: '', password: '' };
+    showCredentialsForm = false;
+    // Try browsing without credentials first (guest access)
+    sourcesActions.browseNasShares(device.ip);
+  }
+
+  function handleBrowseWithCredentials() {
+    if (selectedNasDevice) {
+      sourcesActions.browseNasShares(
+        selectedNasDevice.ip,
+        browseCredentials.username,
+        browseCredentials.password
+      );
+      showCredentialsForm = false;
+    }
+  }
+
+  function handleSelectShare(share: ShareInfo) {
+    if (!selectedNasDevice) return;
+
+    // Pre-fill the NAS form with discovered info
+    nasFormData = {
+      name: share.name,
+      ip: selectedNasDevice.ip,
+      path: share.name,
+      fstype: 'cifs',
+      username: browseCredentials.username,
+      password: browseCredentials.password
+    };
+
+    // Close discovery and show the form
+    handleCloseDiscovery();
+    showNasForm = true;
+  }
+
+  function handleRetryBrowse() {
+    showCredentialsForm = true;
   }
 
   function handleCategoryClick(category: SettingsCategory) {
@@ -148,6 +256,7 @@
     initAudioStore();
     initSourcesStore();
     sourcesActions.listNasShares();
+    initQobuzListeners();
   });
 
   onDestroy(() => {
@@ -155,6 +264,7 @@
     cleanupVersionStore();
     cleanupAudioStore();
     cleanupSourcesStore();
+    cleanupQobuzListeners();
   });
 
   function handleAudioOutputSelect(deviceId: string) {
@@ -651,18 +761,151 @@
     {:else if $currentSettingsCategory === 'sources'}
       <!-- Music Sources -->
 
-      <!-- NAS Drives Section -->
-      <div class="settings-section">
-        <h2 class="section-title">NAS Drives</h2>
-
-        {#if $sourcesError}
-          <div class="error-banner">
-            <Icon name="alert" size={20} />
-            <span>{$sourcesError}</span>
+      <!-- Phase 2: Discovery View -->
+      {#if showDiscoveryView}
+        <div class="settings-section discovery-view">
+          <div class="discovery-header">
+            <button class="back-btn" on:click={handleCloseDiscovery}>
+              <Icon name="arrow-left" size={20} />
+            </button>
+            <h2 class="section-title">
+              {#if selectedNasDevice}
+                {selectedNasDevice.name} - Shares
+              {:else}
+                Discover NAS Devices
+              {/if}
+            </h2>
           </div>
-        {/if}
 
-        {#if showNasForm}
+          {#if $sourcesError}
+            <div class="error-banner">
+              <Icon name="alert" size={20} />
+              <span>{$sourcesError}</span>
+              {#if $sourcesError.includes('authentication')}
+                <button class="link-btn" on:click={handleRetryBrowse}>
+                  Enter Credentials
+                </button>
+              {/if}
+            </div>
+          {/if}
+
+          {#if selectedNasDevice}
+            <!-- Share Browser -->
+            {#if showCredentialsForm}
+              <div class="credentials-form">
+                <p class="form-hint">Enter credentials to access this NAS:</p>
+                <div class="form-group">
+                  <label for="browse-username">Username</label>
+                  <input
+                    id="browse-username"
+                    type="text"
+                    bind:value={browseCredentials.username}
+                    placeholder="username"
+                  />
+                </div>
+                <div class="form-group">
+                  <label for="browse-password">Password</label>
+                  <input
+                    id="browse-password"
+                    type="password"
+                    bind:value={browseCredentials.password}
+                    placeholder="••••••••"
+                  />
+                </div>
+                <div class="form-actions">
+                  <button class="btn-secondary" on:click={() => showCredentialsForm = false}>
+                    Cancel
+                  </button>
+                  <button class="btn-primary" on:click={handleBrowseWithCredentials}>
+                    Browse Shares
+                  </button>
+                </div>
+              </div>
+            {:else if $sourcesLoading}
+              <div class="placeholder">
+                <div class="spinner"></div>
+                <p>Loading shares...</p>
+              </div>
+            {:else if $nasSharesList.length > 0}
+              <div class="shares-list">
+                {#each $nasSharesList as share}
+                  <button
+                    class="share-item"
+                    on:click={() => handleSelectShare(share)}
+                  >
+                    <Icon name="folder" size={24} />
+                    <div class="share-info">
+                      <span class="share-name">{share.name}</span>
+                      {#if share.comment}
+                        <span class="share-comment">{share.comment}</span>
+                      {/if}
+                    </div>
+                    <Icon name="chevron-right" size={20} />
+                  </button>
+                {/each}
+              </div>
+            {:else if !$sourcesError}
+              <div class="placeholder">
+                <Icon name="folder" size={48} />
+                <p>No shares found</p>
+                <button class="action-btn" on:click={handleRetryBrowse}>
+                  <Icon name="key" size={20} />
+                  <span>Enter Credentials</span>
+                </button>
+              </div>
+            {/if}
+          {:else}
+            <!-- Device List -->
+            {#if $discoveryInProgress}
+              <div class="placeholder">
+                <div class="spinner"></div>
+                <p>Scanning network...</p>
+              </div>
+            {:else if $nasDevices.length > 0}
+              <div class="devices-list">
+                {#each $nasDevices as device}
+                  <button
+                    class="device-item"
+                    on:click={() => handleSelectNasDevice(device)}
+                  >
+                    <Icon name="storage" size={24} />
+                    <div class="device-info">
+                      <span class="device-name">{device.name}</span>
+                      <span class="device-ip">{device.ip}</span>
+                    </div>
+                    <Icon name="chevron-right" size={20} />
+                  </button>
+                {/each}
+              </div>
+              <button class="action-btn secondary" on:click={() => sourcesActions.discoverNasDevices()}>
+                <Icon name="refresh" size={20} />
+                <span>Scan Again</span>
+              </button>
+            {:else}
+              <div class="placeholder">
+                <Icon name="storage" size={48} />
+                <p>No NAS devices found on network</p>
+                <button class="action-btn" on:click={() => sourcesActions.discoverNasDevices()}>
+                  <Icon name="refresh" size={20} />
+                  <span>Scan Again</span>
+                </button>
+              </div>
+            {/if}
+          {/if}
+        </div>
+      {:else}
+        <!-- NAS Drives Section -->
+        <div class="settings-section">
+          <h2 class="section-title">NAS Drives</h2>
+
+          {#if $sourcesError}
+            <div class="error-banner">
+              <Icon name="alert" size={20} />
+              <span>{$sourcesError}</span>
+            </div>
+          {/if}
+
+          {#if showNasForm}
           <!-- Add NAS Form -->
           <div class="nas-form">
             <h3 class="form-title">Add NAS Share</h3>
@@ -788,11 +1031,142 @@
             </div>
           {/if}
 
-          <button class="action-btn" on:click={handleAddNasClick}>
-            <Icon name="plus" size={24} />
-            <span>Add NAS Share</span>
-          </button>
+          <div class="action-buttons">
+            <button class="action-btn" on:click={handleDiscoverNas}>
+              <Icon name="wifi" size={24} />
+              <span>Discover NAS</span>
+            </button>
+            <button class="action-btn secondary" on:click={handleAddNasClick}>
+              <Icon name="plus" size={24} />
+              <span>Add Manually</span>
+            </button>
+          </div>
         {/if}
+      </div>
+      {/if}
+
+      <!-- Streaming Services Section -->
+      <div class="settings-section" data-testid="streaming-services-section">
+        <h2 class="section-title">Streaming Services</h2>
+
+        <!-- Qobuz -->
+        <div class="streaming-service" data-testid="qobuz-service">
+          <div class="service-header">
+            <div class="service-info">
+              <div class="service-logo">
+                <Icon name="music" size={24} />
+              </div>
+              <div class="service-details">
+                <span class="service-name">Qobuz</span>
+                {#if $isQobuzLoggedIn}
+                  <span class="service-status logged-in">
+                    {$qobuzStatus.email}
+                    {#if $qobuzStatus.subscription}
+                      <span class="subscription-badge">{$qobuzStatus.subscription}</span>
+                    {/if}
+                  </span>
+                {:else}
+                  <span class="service-status">Not connected</span>
+                {/if}
+              </div>
+            </div>
+            <div class="service-actions">
+              {#if $isQobuzLoggedIn}
+                <button
+                  class="btn-secondary"
+                  on:click={handleQobuzLogout}
+                  disabled={$qobuzLoading}
+                  data-testid="qobuz-logout-btn"
+                >
+                  {#if $qobuzLoading}
+                    <div class="spinner small"></div>
+                  {:else}
+                    Logout
+                  {/if}
+                </button>
+              {:else}
+                <button
+                  class="btn-primary"
+                  on:click={handleQobuzLoginClick}
+                  disabled={$qobuzLoading}
+                  data-testid="qobuz-login-btn"
+                >
+                  Login
+                </button>
+              {/if}
+            </div>
+          </div>
+
+          {#if $qobuzError}
+            <div class="error-banner">
+              <Icon name="alert" size={20} />
+              <span>{$qobuzError}</span>
+              <button class="dismiss-btn" on:click={() => qobuzActions.clearError()}>
+                <Icon name="x" size={16} />
+              </button>
+            </div>
+          {/if}
+
+          {#if showQobuzLoginForm && !$isQobuzLoggedIn}
+            <div class="login-form" data-testid="qobuz-login-form">
+              <div class="form-group">
+                <label for="qobuz-email">Email</label>
+                <input
+                  id="qobuz-email"
+                  type="email"
+                  bind:value={qobuzFormData.email}
+                  placeholder="your@email.com"
+                  disabled={$qobuzLoading}
+                />
+              </div>
+              <div class="form-group">
+                <label for="qobuz-password">Password</label>
+                <input
+                  id="qobuz-password"
+                  type="password"
+                  bind:value={qobuzFormData.password}
+                  placeholder="••••••••"
+                  disabled={$qobuzLoading}
+                />
+              </div>
+              <div class="form-actions">
+                <button class="btn-secondary" on:click={handleCancelQobuzLogin} disabled={$qobuzLoading}>
+                  Cancel
+                </button>
+                <button
+                  class="btn-primary"
+                  on:click={handleSubmitQobuzLogin}
+                  disabled={!qobuzFormData.email || !qobuzFormData.password || $qobuzLoading}
+                >
+                  {#if $qobuzLoading}
+                    <div class="spinner small"></div>
+                    <span>Logging in...</span>
+                  {:else}
+                    Login
+                  {/if}
+                </button>
+              </div>
+              <p class="form-hint">
+                Qobuz streams at the highest quality available for your subscription.
+              </p>
+            </div>
+          {/if}
+        </div>
+
+        <!-- Placeholder for future services -->
+        <div class="streaming-service placeholder-service">
+          <div class="service-header">
+            <div class="service-info">
+              <div class="service-logo">
+                <Icon name="music" size={24} />
+              </div>
+              <div class="service-details">
+                <span class="service-name">Tidal</span>
+                <span class="service-status">Coming soon</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- USB Drives Section -->
@@ -1871,5 +2245,263 @@
   .icon-btn.danger:hover:not(:disabled) {
     background: rgba(255, 69, 58, 0.2);
     color: #ff453a;
+  }
+
+  /* Phase 2: Discovery styles */
+  .discovery-view {
+    animation: slideIn 0.2s ease;
+  }
+
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateX(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  .discovery-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+  }
+
+  .discovery-header .section-title {
+    margin: 0;
+    flex: 1;
+  }
+
+  .back-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: var(--radius-md);
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--color-text-primary);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .back-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  .devices-list,
+  .shares-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-lg);
+  }
+
+  .device-item,
+  .share-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    width: 100%;
+    padding: var(--spacing-md) var(--spacing-lg);
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-md);
+    color: var(--color-text-primary);
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+  }
+
+  .device-item:hover,
+  .share-item:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  .device-info,
+  .share-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .device-name,
+  .share-name {
+    font-weight: 500;
+    color: var(--color-text-primary);
+  }
+
+  .device-ip,
+  .share-comment {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+  }
+
+  .credentials-form {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+  }
+
+  .form-hint {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    margin: 0 0 var(--spacing-md) 0;
+  }
+
+  .link-btn {
+    background: none;
+    border: none;
+    color: var(--color-accent);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    text-decoration: underline;
+    padding: 0;
+    margin-left: var(--spacing-sm);
+  }
+
+  .link-btn:hover {
+    color: color-mix(in srgb, var(--color-accent) 85%, white);
+  }
+
+  .action-buttons {
+    display: flex;
+    gap: var(--spacing-md);
+    flex-wrap: wrap;
+  }
+
+  .action-btn.secondary {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .action-btn.secondary:hover {
+    background: rgba(255, 255, 255, 0.15);
+  }
+
+  /* Streaming Services */
+  .streaming-service {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    padding: var(--spacing-lg);
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: var(--radius-lg);
+    margin-bottom: var(--spacing-md);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .streaming-service.placeholder-service {
+    opacity: 0.5;
+  }
+
+  .service-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+  }
+
+  .service-info {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+  }
+
+  .service-logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-md);
+    color: var(--color-text-primary);
+  }
+
+  .service-details {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .service-name {
+    font-weight: 600;
+    font-size: var(--font-size-lg);
+    color: var(--color-text-primary);
+  }
+
+  .service-status {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+  }
+
+  .service-status.logged-in {
+    color: #30d158;
+  }
+
+  .subscription-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    font-size: var(--font-size-xs);
+    text-transform: capitalize;
+    color: var(--color-text-primary);
+  }
+
+  .service-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+  }
+
+  .login-form {
+    padding-top: var(--spacing-md);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    animation: slideDown 0.2s ease;
+  }
+
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .login-form .form-hint {
+    margin-top: var(--spacing-md);
+    text-align: center;
+  }
+
+  .dismiss-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-left: auto;
+  }
+
+  .dismiss-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: var(--color-text-primary);
   }
 </style>
