@@ -44,6 +44,9 @@ npm run test:run src/lib/stores/__tests__/player.test.ts  # Single test file
 npm run test:run -- --grep "player state"       # Tests matching pattern
 npm run test:e2e                                # E2E tests (Playwright)
 npm run test:e2e:headed                         # E2E in headed browser
+npm run test:e2e:ui                             # Playwright UI mode
+npm run test:e2e:debug                          # Debug mode with inspector
+npm run test:e2e:report                         # View last test report
 npm run test:coverage                           # Tests with coverage
 
 # Build & Type Check
@@ -66,6 +69,9 @@ Required variables:
 - `RASPBERRY_PI_SSH_PASSWORD` - SSH password
 - `RASPBERRY_PI_API_ADDRESS` - Pi IP address
 - `STELLAR_BACKEND_FOLDER` - Path to stellar-volumio-audioplayer-backend repo
+
+Optional (NAS music source):
+- `NAS_IP`, `NAS_SHARE`, `NAS_USERNAME`, `NAS_PASSWORD` - Windows NAS config for mounting music shares
 
 ### SSH Access Pattern
 
@@ -144,13 +150,24 @@ sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" ssh "$RASPBERRY_PI_SSH_USERNAME@$RASPBER
 - `src/App.svelte` - Root component with layout switching
 
 **Patterns:**
-- State managed via Svelte stores in `src/lib/stores/`
+- State managed via Svelte 5 stores in `src/lib/stores/`
+- Each store exports: `init*Store()` function, writable stores, derived stores, and `*Actions` object
 - Tests in `__tests__/` directories adjacent to source files
 - Layouts: `LCDLayout` (1920x440), `MobileLayout`, `DesktopLayout`
 - Force layout via URL: `?layout=lcd` or `?layout=mobile`
 
+**Store Initialization Pattern:**
+```typescript
+// In App.svelte onMount():
+initPlayerStore();   // Registers pushState listener, requests initial state
+initBrowseStore();   // Registers pushBrowseLibrary listener
+initQueueStore();    // Registers pushQueue listener
+// ... etc
+```
+
 ### Socket.IO Events (Stellar Backend)
 
+**Player Events:**
 | Emit | Receive | Description |
 |------|---------|-------------|
 | `getState` | `pushState` | Get/receive player state |
@@ -158,8 +175,30 @@ sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" ssh "$RASPBERRY_PI_SSH_USERNAME@$RASPBER
 | `prev`, `next` | - | Track navigation |
 | `volume` | - | Set volume (0-100) |
 | `seek` | - | Seek to position (seconds) |
+| `setRandom` | - | Toggle shuffle (`{ value: boolean }`) |
+| `setRepeat` | - | Set repeat mode (`{ value: boolean, repeatSingle: boolean }`) |
+| `mute` | - | Mute/unmute (`'mute'` or `'unmute'`) |
+| `GetTrackInfo` | `pushTrackInfo` | Extended track metadata |
+
+**Queue/Library Events:**
+| Emit | Receive | Description |
+|------|---------|-------------|
 | `getQueue` | `pushQueue` | Queue management |
 | `browseLibrary` | `pushBrowseLibrary` | Library browsing |
+| `search` | `pushBrowseLibrary` | Search results |
+| `addToPlaylist`, `removeFromPlaylist` | - | Playlist modification |
+| `createPlaylist`, `deletePlaylist` | - | Playlist CRUD |
+| `playPlaylist` | - | Play entire playlist |
+| `addToFavourites`, `removeFromFavourites` | - | Favorites management |
+| `enqueue` | - | Add items to queue |
+
+**System Events:**
+| Emit | Receive | Description |
+|------|---------|-------------|
+| `getNetworkStatus` | `pushNetworkStatus` | Network connection info |
+| `getLcdStatus` | `pushLcdStatus` | LCD panel state |
+| `lcdStandby`, `lcdWake` | `pushLcdStatus` | LCD power control |
+| - | `pushToastMessage` | Toast notifications from backend |
 
 ## Development Workflow
 
@@ -195,13 +234,40 @@ Before completing any task:
 - [ ] Logs checked for errors (`journalctl -u stellar-backend -f`)
 - [ ] Commit message follows Conventional Commits format
 
-## Performance Debugging
+## Browser Console Debugging (POC)
 
-**FPS Overlay (POC)** - Browser console:
+The POC exposes several debugging helpers on `window`:
+
 ```javascript
+// Performance monitoring
 __performance.start()   // Show FPS overlay
 __performance.stop()    // Hide overlay
+__performance.toggle()  // Toggle overlay
+
+// Latency metrics
+__latency.getStats('pushState')  // Latency for specific event
+__latency.getAllStats()          // All event latencies
+__latency.clear()                // Reset metrics
+
+// Navigation (for E2E testing)
+__navigation.goToQueue()
+__navigation.goToPlayer()
+__navigation.goToBrowse()
+__navigation.goToSettings()
+__navigation.goHome()
+
+// Test toast notifications
+testToast.error('Title', 'Message')
+testToast.warning('Title', 'Message')
+testToast.success('Title', 'Message')
+
+// Test issue system
+testIssue.mpdError()
+testIssue.networkError()
+testIssue.clear()
 ```
+
+## Performance Debugging
 
 **Pi Hardware:**
 ```bash
