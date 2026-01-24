@@ -38,12 +38,50 @@ export interface SourceResult {
   error?: string;
 }
 
-// NOTE: NasDevice and UsbDrive interfaces will be added in Phase 2/3
+/**
+ * Discovered NAS device on the network (Phase 2)
+ */
+export interface NasDevice {
+  name: string;
+  ip: string;
+  hostname?: string;
+}
+
+/**
+ * Available share on a NAS device (Phase 2)
+ */
+export interface ShareInfo {
+  name: string;
+  type: string; // "disk", "printer", "ipc"
+  comment?: string;
+  writable: boolean;
+}
+
+/**
+ * Result of NAS discovery
+ */
+export interface DiscoverResult {
+  devices: NasDevice[];
+  error?: string;
+}
+
+/**
+ * Result of browsing NAS shares
+ */
+export interface BrowseSharesResult {
+  shares: ShareInfo[];
+  error?: string;
+}
+
+// NOTE: UsbDrive interface will be added in Phase 3
 
 // Stores
 export const nasShares = writable<NasShare[]>([]);
+export const nasDevices = writable<NasDevice[]>([]); // Phase 2: Discovered devices
+export const nasSharesList = writable<ShareInfo[]>([]); // Phase 2: Available shares on selected device
 export const sourcesLoading = writable<boolean>(false);
 export const sourcesError = writable<string | null>(null);
+export const discoveryInProgress = writable<boolean>(false); // Phase 2: Discovery state
 
 // Track initialization
 let initialized = false;
@@ -77,7 +115,33 @@ export function initSourcesStore(): void {
     }
   });
 
-  // NOTE: pushNasDevices and pushUsbDrives listeners will be added in Phase 2/3
+  // Phase 2: Listen for discovered NAS devices
+  socketService.on<DiscoverResult>('pushNasDevices', (result) => {
+    console.log('📁 NAS devices discovered:', result);
+    discoveryInProgress.set(false);
+    if (result.error) {
+      sourcesError.set(result.error);
+      setTimeout(() => sourcesError.set(null), 5000);
+    } else {
+      nasDevices.set(result.devices || []);
+      sourcesError.set(null);
+    }
+  });
+
+  // Phase 2: Listen for browsed NAS shares
+  socketService.on<BrowseSharesResult>('pushBrowseNasShares', (result) => {
+    console.log('📁 NAS shares browsed:', result);
+    sourcesLoading.set(false);
+    if (result.error) {
+      sourcesError.set(result.error);
+      setTimeout(() => sourcesError.set(null), 5000);
+    } else {
+      nasSharesList.set(result.shares || []);
+      sourcesError.set(null);
+    }
+  });
+
+  // NOTE: pushUsbDrives listener will be added in Phase 3
 
   console.log('✅ Sources store initialized');
 }
@@ -88,8 +152,11 @@ export function initSourcesStore(): void {
 export function cleanupSourcesStore(): void {
   initialized = false;
   nasShares.set([]);
+  nasDevices.set([]);
+  nasSharesList.set([]);
   sourcesLoading.set(false);
   sourcesError.set(null);
+  discoveryInProgress.set(false);
 }
 
 /**
@@ -143,7 +210,42 @@ export const sourcesActions = {
     sourcesLoading.set(true);
     sourcesError.set(null);
     socketService.emit('unmountNasShare', { id });
+  },
+
+  // ============================================================
+  // Phase 2: NAS Discovery Actions
+  // ============================================================
+
+  /**
+   * Discover NAS devices on the network
+   */
+  discoverNasDevices(): void {
+    console.log('📁 Discovering NAS devices...');
+    discoveryInProgress.set(true);
+    sourcesError.set(null);
+    nasDevices.set([]);
+    socketService.emit('discoverNasDevices');
+  },
+
+  /**
+   * Browse shares on a NAS device
+   */
+  browseNasShares(host: string, username?: string, password?: string): void {
+    console.log('📁 Browsing NAS shares:', host);
+    sourcesLoading.set(true);
+    sourcesError.set(null);
+    nasSharesList.set([]);
+    socketService.emit('browseNasShares', { host, username, password });
+  },
+
+  /**
+   * Clear discovered devices and shares
+   */
+  clearDiscovery(): void {
+    nasDevices.set([]);
+    nasSharesList.set([]);
+    discoveryInProgress.set(false);
   }
 
-  // NOTE: discoverNas, listUsbDrives, and safeEjectUsb will be added in Phase 2/3
+  // NOTE: listUsbDrives and safeEjectUsb will be added in Phase 3
 };

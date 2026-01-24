@@ -8,6 +8,36 @@ Volumio2-UI is a standalone web user interface for Volumio2 audio player. It com
 
 **Node.js Version**: 10.22.1 (strictly enforced - use NVM to manage)
 
+## Quick Reference
+
+### Legacy UI (AngularJS)
+```bash
+npm install && bower install    # Initial setup (Node 10.22.1 required)
+gulp serve --theme="volumio"    # Dev server
+npm run build:volumio           # Production build
+npm test                        # Run tests
+```
+
+### POC (Svelte)
+```bash
+cd volumio-poc
+npm run dev                     # Dev server (localhost:5173)
+npm test                        # Unit tests (watch mode)
+npm run test:run                # Unit tests (once)
+npm run test:run src/lib/stores/__tests__/player.test.ts  # Single test file
+npm run test:e2e                # E2E tests
+npm run build                   # Production build
+npx tsc --noEmit                # Type check only
+```
+
+### Deployment to Pi
+```bash
+source .env
+cd volumio-poc && npm run build
+sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" rsync -avz --delete dist/ "$RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS:~/stellar-volumio/"
+sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" ssh "$RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS" "sudo systemctl restart stellar-frontend"
+```
+
 ## Development Setup
 
 ### Initial Setup
@@ -288,6 +318,13 @@ sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" scp -o StrictHostKeyChecking=no local_fi
 sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" rsync -avz --delete local_dir/ "$RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS:~/remote_dir/"
 ```
 
+**Tip**: Define shell functions to simplify repeated SSH commands:
+```bash
+# Add to ~/.bashrc or ~/.zshrc
+pissh() { source .env && sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" ssh -o StrictHostKeyChecking=no "$RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS" "$@"; }
+piscp() { source .env && sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" scp -o StrictHostKeyChecking=no "$@" "$RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS:"; }
+```
+
 ### Pi Configuration
 
 Configuration values are stored in `.env` file. See `.env-example` for required variables.
@@ -383,6 +420,15 @@ npm run test:e2e:debug   # Debug E2E tests
 
 # Build
 npm run build            # Production build → dist/
+
+# Type checking
+npx tsc --noEmit         # Check types without building
+
+# Run a single test file
+npm run test:run src/lib/stores/__tests__/player.test.ts
+
+# Run tests matching a pattern
+npm run test:run -- --grep "player state"
 ```
 
 ### Responsive Layout and URL-Based Forcing
@@ -472,6 +518,24 @@ sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" ssh "$RASPBERRY_PI_SSH_USERNAME@$RASPBER
 | `next` | - | Next track |
 | `volume` | - | Set volume (0-100) |
 | `seek` | - | Seek to position (seconds) |
+
+### Streaming Services (Planned)
+
+| Service | Status | Quality | API Credentials |
+|---------|--------|---------|-----------------|
+| Qobuz | In Progress | 24-bit/192kHz FLAC | Web player extraction (dev) / api@qobuz.com (prod) |
+| Tidal | Planned | 24-bit/192kHz FLAC | OAuth2 |
+| Audirvana | Planned | TBD | Debian package |
+
+**Qobuz Events:**
+| Event (Emit) | Event (Receive) | Description |
+|--------------|-----------------|-------------|
+| `qobuzLogin` | `pushQobuzLoginResult` | Login with email/password |
+| `qobuzLogout` | `pushQobuzLogoutResult` | Logout |
+| `getQobuzStatus` | `pushQobuzStatus` | Check login status |
+| `browseLibrary` (uri: `qobuz://...`) | `pushBrowseLibrary` | Browse Qobuz content |
+
+See [STREAMING-SERVICES.md](../stellar-volumio-audioplayer-backend/docs/STREAMING-SERVICES.md) for full documentation.
 
 ### POC Project Structure
 

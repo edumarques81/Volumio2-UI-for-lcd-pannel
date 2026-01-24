@@ -12,13 +12,20 @@ vi.mock('$lib/services/socket', () => ({
 // Import store after mock is defined
 import {
   nasShares,
+  nasDevices,
+  nasSharesList,
   sourcesLoading,
   sourcesError,
+  discoveryInProgress,
   initSourcesStore,
   cleanupSourcesStore,
   sourcesActions,
   type NasShare,
-  type SourceResult
+  type NasDevice,
+  type ShareInfo,
+  type SourceResult,
+  type DiscoverResult,
+  type BrowseSharesResult
 } from '../sources';
 import { socketService } from '$lib/services/socket';
 
@@ -37,8 +44,11 @@ describe('Sources store', () => {
   beforeEach(() => {
     // Reset stores
     nasShares.set([]);
+    nasDevices.set([]);
+    nasSharesList.set([]);
     sourcesLoading.set(false);
     sourcesError.set(null);
+    discoveryInProgress.set(false);
     vi.clearAllMocks();
     cleanupSourcesStore();
   });
@@ -78,7 +88,8 @@ describe('Sources store', () => {
       initSourcesStore();
 
       // Should only register once due to initialized flag
-      expect(socketService.on).toHaveBeenCalledTimes(2); // 2 event types (pushListNasShares, pushNasShareResult)
+      // 4 event types: pushListNasShares, pushNasShareResult, pushNasDevices, pushBrowseNasShares
+      expect(socketService.on).toHaveBeenCalledTimes(4);
     });
   });
 
@@ -222,7 +233,7 @@ describe('Sources store', () => {
 
     it('should allow re-initialization after cleanup', () => {
       initSourcesStore();
-      expect(socketService.on).toHaveBeenCalledTimes(2);
+      expect(socketService.on).toHaveBeenCalledTimes(4); // Updated for Phase 2: 4 event types
 
       cleanupSourcesStore();
 
@@ -230,7 +241,178 @@ describe('Sources store', () => {
       initSourcesStore();
 
       // Should register again after cleanup
-      expect(socketService.on).toHaveBeenCalledTimes(2);
+      expect(socketService.on).toHaveBeenCalledTimes(4);
+    });
+
+    it('should reset Phase 2 stores on cleanup', () => {
+      // Set some Phase 2 values
+      nasDevices.set([{ name: 'NAS1', ip: '192.168.1.10' }]);
+      nasSharesList.set([{ name: 'Music', type: 'disk', writable: true }]);
+      discoveryInProgress.set(true);
+
+      cleanupSourcesStore();
+
+      expect(get(nasDevices)).toEqual([]);
+      expect(get(nasSharesList)).toEqual([]);
+      expect(get(discoveryInProgress)).toBe(false);
+    });
+  });
+
+  // ============================================================
+  // Phase 2: NAS Discovery Tests
+  // ============================================================
+
+  describe('Phase 2: NAS Discovery', () => {
+    describe('initSourcesStore with discovery events', () => {
+      it('should register pushNasDevices event handler', () => {
+        initSourcesStore();
+        expect(socketService.on).toHaveBeenCalledWith('pushNasDevices', expect.any(Function));
+      });
+
+      it('should register pushBrowseNasShares event handler', () => {
+        initSourcesStore();
+        expect(socketService.on).toHaveBeenCalledWith('pushBrowseNasShares', expect.any(Function));
+      });
+    });
+
+    describe('pushNasDevices handler', () => {
+      const mockDevices: NasDevice[] = [
+        { name: 'NAS1', ip: '192.168.1.10', hostname: 'nas1.local' },
+        { name: 'NAS2', ip: '192.168.1.20', hostname: 'nas2.local' }
+      ];
+
+      it('should update nasDevices when receiving devices', () => {
+        discoveryInProgress.set(true);
+        initSourcesStore();
+
+        const onMock = vi.mocked(socketService.on);
+        const handler = onMock.mock.calls.find(call => call[0] === 'pushNasDevices')?.[1] as ((result: DiscoverResult) => void) | undefined;
+        expect(handler).toBeDefined();
+
+        handler!({ devices: mockDevices });
+
+        expect(get(nasDevices)).toEqual(mockDevices);
+        expect(get(discoveryInProgress)).toBe(false);
+      });
+
+      it('should handle empty devices array', () => {
+        initSourcesStore();
+
+        const onMock = vi.mocked(socketService.on);
+        const handler = onMock.mock.calls.find(call => call[0] === 'pushNasDevices')?.[1] as ((result: DiscoverResult) => void) | undefined;
+
+        handler!({ devices: [] });
+
+        expect(get(nasDevices)).toEqual([]);
+      });
+
+      it('should set error on discovery failure', () => {
+        initSourcesStore();
+
+        const onMock = vi.mocked(socketService.on);
+        const handler = onMock.mock.calls.find(call => call[0] === 'pushNasDevices')?.[1] as ((result: DiscoverResult) => void) | undefined;
+
+        handler!({ devices: [], error: 'Network scan failed' });
+
+        expect(get(nasDevices)).toEqual([]);
+        expect(get(sourcesError)).toBe('Network scan failed');
+      });
+    });
+
+    describe('pushBrowseNasShares handler', () => {
+      const mockShares: ShareInfo[] = [
+        { name: 'Music', type: 'disk', comment: 'Music files', writable: true },
+        { name: 'Videos', type: 'disk', comment: 'Video files', writable: true }
+      ];
+
+      it('should update nasSharesList when receiving shares', () => {
+        sourcesLoading.set(true);
+        initSourcesStore();
+
+        const onMock = vi.mocked(socketService.on);
+        const handler = onMock.mock.calls.find(call => call[0] === 'pushBrowseNasShares')?.[1] as ((result: BrowseSharesResult) => void) | undefined;
+        expect(handler).toBeDefined();
+
+        handler!({ shares: mockShares });
+
+        expect(get(nasSharesList)).toEqual(mockShares);
+        expect(get(sourcesLoading)).toBe(false);
+      });
+
+      it('should set error on auth failure', () => {
+        initSourcesStore();
+
+        const onMock = vi.mocked(socketService.on);
+        const handler = onMock.mock.calls.find(call => call[0] === 'pushBrowseNasShares')?.[1] as ((result: BrowseSharesResult) => void) | undefined;
+
+        handler!({ shares: [], error: 'authentication required' });
+
+        expect(get(nasSharesList)).toEqual([]);
+        expect(get(sourcesError)).toBe('authentication required');
+      });
+    });
+
+    describe('sourcesActions.discoverNasDevices', () => {
+      it('should emit discoverNasDevices event', () => {
+        sourcesActions.discoverNasDevices();
+        expect(socketService.emit).toHaveBeenCalledWith('discoverNasDevices');
+      });
+
+      it('should set discoveryInProgress to true', () => {
+        sourcesActions.discoverNasDevices();
+        expect(get(discoveryInProgress)).toBe(true);
+      });
+
+      it('should clear existing devices', () => {
+        nasDevices.set([{ name: 'OldNAS', ip: '192.168.1.99' }]);
+        sourcesActions.discoverNasDevices();
+        expect(get(nasDevices)).toEqual([]);
+      });
+    });
+
+    describe('sourcesActions.browseNasShares', () => {
+      it('should emit browseNasShares with host', () => {
+        sourcesActions.browseNasShares('192.168.1.10');
+        expect(socketService.emit).toHaveBeenCalledWith('browseNasShares', {
+          host: '192.168.1.10',
+          username: undefined,
+          password: undefined
+        });
+      });
+
+      it('should emit browseNasShares with credentials', () => {
+        sourcesActions.browseNasShares('192.168.1.10', 'user', 'pass');
+        expect(socketService.emit).toHaveBeenCalledWith('browseNasShares', {
+          host: '192.168.1.10',
+          username: 'user',
+          password: 'pass'
+        });
+      });
+
+      it('should set loading to true', () => {
+        sourcesActions.browseNasShares('192.168.1.10');
+        expect(get(sourcesLoading)).toBe(true);
+      });
+
+      it('should clear existing shares list', () => {
+        nasSharesList.set([{ name: 'OldShare', type: 'disk', writable: true }]);
+        sourcesActions.browseNasShares('192.168.1.10');
+        expect(get(nasSharesList)).toEqual([]);
+      });
+    });
+
+    describe('sourcesActions.clearDiscovery', () => {
+      it('should clear all discovery state', () => {
+        nasDevices.set([{ name: 'NAS1', ip: '192.168.1.10' }]);
+        nasSharesList.set([{ name: 'Music', type: 'disk', writable: true }]);
+        discoveryInProgress.set(true);
+
+        sourcesActions.clearDiscovery();
+
+        expect(get(nasDevices)).toEqual([]);
+        expect(get(nasSharesList)).toEqual([]);
+        expect(get(discoveryInProgress)).toBe(false);
+      });
     });
   });
 });

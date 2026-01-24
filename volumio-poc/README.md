@@ -140,6 +140,21 @@ The POC uses Socket.io to communicate with Volumio backend. Key events:
 - `pushQueue` - Queue updates
 - `pushToastMessage` - Toast notifications
 
+### Streaming Services (Planned)
+
+| Service | Events | Description |
+|---------|--------|-------------|
+| Qobuz | `qobuzLogin`, `qobuzLogout`, `getQobuzStatus` | Hi-Res streaming (24-bit/192kHz) |
+| Tidal | `tidalLogin`, `tidalLogout`, `getTidalStatus` | Hi-Res streaming |
+
+Browse streaming content via standard `browseLibrary` event with service-specific URIs:
+- `qobuz://` - Qobuz root menu
+- `qobuz://myalbums` - User's albums
+- `qobuz://album/{id}` - Album tracks
+- `tidal://` - Tidal root menu (planned)
+
+See [STREAMING-SERVICES.md](../docs/STREAMING-SERVICES.md) in the backend repo for full documentation.
+
 See [Volumio WebSocket API](https://github.com/volumio/Volumio2/wiki/WebSockets-API-Reference) for complete API documentation.
 
 ## Development Notes
