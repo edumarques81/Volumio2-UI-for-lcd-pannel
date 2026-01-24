@@ -1,0 +1,590 @@
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import { navigationActions } from '$lib/stores/navigation';
+  import {
+    localAlbums,
+    lastPlayedTracks,
+    localMusicLoading,
+    localMusicError,
+    albumSortOrder,
+    trackSortOrder,
+    localMusicActions,
+    initLocalMusicListeners,
+    type LocalAlbum,
+    type PlayHistoryEntry,
+    type AlbumSortOrder,
+    type TrackSortOrder
+  } from '$lib/stores/localMusic';
+  import Icon from '../Icon.svelte';
+  import SkeletonList from '../SkeletonList.svelte';
+
+  type TabType = 'albums' | 'lastPlayed';
+  let activeTab: TabType = 'albums';
+
+  // Album sort options
+  const albumSortOptions: { value: AlbumSortOrder; label: string }[] = [
+    { value: 'alphabetical', label: 'A-Z' },
+    { value: 'by_artist', label: 'Artist' },
+    { value: 'recently_added', label: 'Recent' }
+  ];
+
+  // Track sort options
+  const trackSortOptions: { value: TrackSortOrder; label: string }[] = [
+    { value: 'last_played', label: 'Recent' },
+    { value: 'most_played', label: 'Most Played' },
+    { value: 'alphabetical', label: 'A-Z' }
+  ];
+
+  function handleBack() {
+    navigationActions.goHome();
+  }
+
+  function handleTabClick(tab: TabType) {
+    activeTab = tab;
+  }
+
+  function handleAlbumClick(album: LocalAlbum) {
+    localMusicActions.playAlbum(album);
+  }
+
+  function handleTrackClick(track: PlayHistoryEntry) {
+    localMusicActions.playTrack(track);
+  }
+
+  function handleAlbumSortChange(event: Event) {
+    const select = event.target as HTMLSelectElement;
+    localMusicActions.setAlbumSort(select.value as AlbumSortOrder);
+  }
+
+  function handleTrackSortChange(event: Event) {
+    const select = event.target as HTMLSelectElement;
+    localMusicActions.setTrackSort(select.value as TrackSortOrder);
+  }
+
+  function formatPlayedAt(playedAt: string): string {
+    const date = new Date(playedAt);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
+  }
+
+  function getSourceIcon(source: string): string {
+    switch (source) {
+      case 'usb': return 'storage';
+      case 'local': return 'folder';
+      default: return 'music-note';
+    }
+  }
+
+  onMount(() => {
+    initLocalMusicListeners();
+    localMusicActions.refresh();
+  });
+</script>
+
+<div class="local-music-view" data-view="localMusic">
+  <!-- Header -->
+  <header class="view-header">
+    <div class="header-left">
+      <button class="back-btn" data-testid="back-button" on:click={handleBack} aria-label="Go back">
+        <Icon name="chevron-left" size={32} />
+      </button>
+      <h1 class="title">Local Music</h1>
+    </div>
+
+    <div class="header-right">
+      <!-- Tabs -->
+      <div class="tabs">
+        <button
+          class="tab"
+          class:active={activeTab === 'albums'}
+          on:click={() => handleTabClick('albums')}
+        >
+          Albums
+        </button>
+        <button
+          class="tab"
+          class:active={activeTab === 'lastPlayed'}
+          on:click={() => handleTabClick('lastPlayed')}
+        >
+          Last Played
+        </button>
+      </div>
+
+      <!-- Sort dropdown -->
+      {#if activeTab === 'albums'}
+        <select
+          class="sort-select"
+          value={$albumSortOrder}
+          on:change={handleAlbumSortChange}
+        >
+          {#each albumSortOptions as option}
+            <option value={option.value}>{option.label}</option>
+          {/each}
+        </select>
+      {:else}
+        <select
+          class="sort-select"
+          value={$trackSortOrder}
+          on:change={handleTrackSortChange}
+        >
+          {#each trackSortOptions as option}
+            <option value={option.value}>{option.label}</option>
+          {/each}
+        </select>
+      {/if}
+    </div>
+  </header>
+
+  <!-- Content -->
+  <div class="view-content">
+    {#if $localMusicError}
+      <div class="error-message">
+        <Icon name="warning" size={48} />
+        <p>{$localMusicError}</p>
+        <button class="retry-btn" on:click={() => localMusicActions.refresh()}>
+          Retry
+        </button>
+      </div>
+    {:else if $localMusicLoading}
+      <SkeletonList count={6} variant="browse" />
+    {:else if activeTab === 'albums'}
+      <!-- Albums Grid -->
+      {#if $localAlbums.length === 0}
+        <div class="empty">
+          <Icon name="folder-open" size={64} />
+          <p>No local albums found</p>
+          <span class="hint">Add music to INTERNAL or USB storage</span>
+        </div>
+      {:else}
+        <div class="albums-grid">
+          {#each $localAlbums as album}
+            <button
+              class="album-card"
+              on:click={() => handleAlbumClick(album)}
+            >
+              <div class="album-art">
+                {#if album.albumArt}
+                  <img src={album.albumArt} alt={album.title} loading="lazy" />
+                {:else}
+                  <div class="album-placeholder">
+                    <Icon name="album" size={48} />
+                  </div>
+                {/if}
+                <div class="source-badge">
+                  <Icon name={getSourceIcon(album.source)} size={14} />
+                </div>
+              </div>
+              <div class="album-info">
+                <span class="album-title">{album.title}</span>
+                <span class="album-artist">{album.artist}</span>
+                <span class="album-tracks">{album.trackCount} tracks</span>
+              </div>
+            </button>
+          {/each}
+        </div>
+      {/if}
+    {:else}
+      <!-- Last Played List -->
+      {#if $lastPlayedTracks.length === 0}
+        <div class="empty">
+          <Icon name="history" size={64} />
+          <p>No play history yet</p>
+          <span class="hint">Tracks you play manually will appear here</span>
+        </div>
+      {:else}
+        <div class="tracks-list">
+          {#each $lastPlayedTracks as track}
+            <button
+              class="track-item"
+              on:click={() => handleTrackClick(track)}
+            >
+              <div class="track-art">
+                {#if track.albumArt}
+                  <img src={track.albumArt} alt={track.album} loading="lazy" />
+                {:else}
+                  <div class="track-placeholder">
+                    <Icon name="music-note" size={24} />
+                  </div>
+                {/if}
+              </div>
+              <div class="track-info">
+                <span class="track-title">{track.title}</span>
+                <span class="track-artist">{track.artist}</span>
+              </div>
+              <div class="track-meta">
+                <span class="played-at">{formatPlayedAt(track.playedAt)}</span>
+                {#if track.playCount > 1}
+                  <span class="play-count">{track.playCount}x</span>
+                {/if}
+              </div>
+            </button>
+          {/each}
+        </div>
+      {/if}
+    {/if}
+  </div>
+</div>
+
+<style>
+  .local-music-view {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+  }
+
+  .view-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-lg) var(--spacing-xl);
+    background: rgba(45, 45, 50, 0.7);
+    backdrop-filter: blur(1.5px) saturate(135%);
+    -webkit-backdrop-filter: blur(1.5px) saturate(135%);
+    flex-shrink: 0;
+    box-shadow:
+      0 1px 4px rgba(0, 0, 0, 0.15),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-lg);
+  }
+
+  .back-btn {
+    width: 56px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: var(--radius-full);
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+
+  .back-btn :global(svg) {
+    stroke-width: 3;
+  }
+
+  .back-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  .back-btn:active {
+    transform: scale(0.95);
+  }
+
+  .title {
+    font-size: var(--font-size-2xl);
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .tabs {
+    display: flex;
+    gap: var(--spacing-xs);
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-full);
+    padding: 4px;
+  }
+
+  .tab {
+    padding: var(--spacing-sm) var(--spacing-lg);
+    border: none;
+    border-radius: var(--radius-full);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-base);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .tab.active {
+    background: rgba(255, 255, 255, 0.2);
+    color: var(--color-text-primary);
+  }
+
+  .tab:hover:not(.active) {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .sort-select {
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: none;
+    border-radius: var(--radius-md);
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    outline: none;
+  }
+
+  .sort-select:hover {
+    background: rgba(255, 255, 255, 0.15);
+  }
+
+  .view-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--spacing-lg);
+  }
+
+  .empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    gap: var(--spacing-md);
+    color: var(--color-text-secondary);
+  }
+
+  .empty .hint {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-tertiary);
+  }
+
+  .error-message {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    gap: var(--spacing-md);
+    color: var(--color-text-secondary);
+  }
+
+  .retry-btn {
+    padding: var(--spacing-sm) var(--spacing-lg);
+    border: none;
+    border-radius: var(--radius-md);
+    background: var(--color-primary);
+    color: white;
+    font-size: var(--font-size-base);
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+
+  .retry-btn:hover {
+    opacity: 0.9;
+  }
+
+  /* Albums Grid */
+  .albums-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: var(--spacing-lg);
+  }
+
+  .album-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    background: rgba(45, 45, 50, 0.6);
+    backdrop-filter: blur(1px);
+    border-radius: var(--radius-lg);
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+  }
+
+  .album-card:hover {
+    background: rgba(55, 55, 60, 0.7);
+    transform: translateY(-2px);
+  }
+
+  .album-card:active {
+    transform: scale(0.98);
+  }
+
+  .album-art {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.2);
+  }
+
+  .album-art img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .album-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-tertiary);
+  }
+
+  .source-badge {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.6);
+    border-radius: var(--radius-full);
+    color: var(--color-text-primary);
+  }
+
+  .album-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .album-title {
+    font-size: var(--font-size-base);
+    font-weight: 500;
+    color: var(--color-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .album-artist {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .album-tracks {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-tertiary);
+  }
+
+  /* Tracks List */
+  .tracks-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+  }
+
+  .track-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    background: rgba(45, 45, 50, 0.5);
+    border-radius: var(--radius-md);
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+  }
+
+  .track-item:hover {
+    background: rgba(55, 55, 60, 0.6);
+  }
+
+  .track-item:active {
+    transform: scale(0.99);
+  }
+
+  .track-art {
+    width: 56px;
+    height: 56px;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.2);
+    flex-shrink: 0;
+  }
+
+  .track-art img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .track-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-tertiary);
+  }
+
+  .track-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .track-title {
+    font-size: var(--font-size-base);
+    font-weight: 500;
+    color: var(--color-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .track-artist {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .track-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+
+  .played-at {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-tertiary);
+  }
+
+  .play-count {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    background: rgba(255, 255, 255, 0.1);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+  }
+</style>

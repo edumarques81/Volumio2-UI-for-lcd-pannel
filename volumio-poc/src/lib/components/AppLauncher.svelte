@@ -97,13 +97,12 @@
     {
       id: 'local-music',
       title: 'Local Music',
-      subtitle: 'Local Raspberry Pi',
+      subtitle: 'Local + USB',
       icon: 'folder',
       gradient: 'linear-gradient(180deg, #f5a623 0%, #c47f0a 100%)',
       iconGradient: { from: '#fffaf0', to: '#ffe4b3' },
       action: () => {
-        browseActions.browse('music-library/INTERNAL');
-        navigationActions.goToBrowse('music-library/INTERNAL', 'Local Music');
+        navigationActions.goToLocalMusic();
       }
     },
     {

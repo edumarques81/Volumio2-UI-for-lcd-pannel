@@ -8,6 +8,7 @@
   import BrowseView from '../views/BrowseView.svelte';
   import QueueView from '../views/QueueView.svelte';
   import SettingsView from '../views/SettingsView.svelte';
+  import LocalMusicView from '../views/LocalMusicView.svelte';
 
   // Background - fallback to local bg.jpg
   $: viewBackground = $selectedBackground || '/bg.jpg';
@@ -113,6 +114,8 @@
       <QueueView />
     {:else if $currentView === 'settings'}
       <SettingsView />
+    {:else if $currentView === 'localMusic'}
+      <LocalMusicView />
     {/if}
   </main>
 </div>

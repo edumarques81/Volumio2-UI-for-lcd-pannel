@@ -3,7 +3,7 @@ import { writable, derived } from 'svelte/store';
 /**
  * Available views in the application
  */
-export type ViewType = 'home' | 'player' | 'browse' | 'queue' | 'settings';
+export type ViewType = 'home' | 'player' | 'browse' | 'queue' | 'settings' | 'localMusic';
 
 /**
  * Layout modes:
@@ -81,6 +81,13 @@ export const navigationActions = {
    */
   goToSettings() {
     currentView.set('settings');
+  },
+
+  /**
+   * Navigate to local music view (local + USB only, no NAS/streaming)
+   */
+  goToLocalMusic() {
+    currentView.set('localMusic');
   },
 
   /**
