@@ -34,11 +34,75 @@
     dsdMode,
     dsdModeLoading
   } from '$lib/stores/audio';
+  import {
+    nasShares,
+    sourcesLoading,
+    sourcesError,
+    sourcesActions,
+    initSourcesStore,
+    cleanupSourcesStore,
+    type AddNasShareRequest
+  } from '$lib/stores/sources';
   import Icon from '../Icon.svelte';
 
   let bitPerfectLoading = false;
 
   let audioDevicesCleanup: (() => void) | null = null;
+
+  // NAS Form state
+  let showNasForm = false;
+  let nasFormData: AddNasShareRequest = {
+    name: '',
+    ip: '',
+    path: '',
+    fstype: 'cifs',
+    username: '',
+    password: ''
+  };
+
+  function resetNasForm() {
+    nasFormData = {
+      name: '',
+      ip: '',
+      path: '',
+      fstype: 'cifs',
+      username: '',
+      password: ''
+    };
+  }
+
+  function handleAddNasClick() {
+    resetNasForm();
+    showNasForm = true;
+  }
+
+  function handleCancelNasForm() {
+    showNasForm = false;
+    resetNasForm();
+  }
+
+  function handleSubmitNasForm() {
+    if (!nasFormData.name || !nasFormData.ip || !nasFormData.path) {
+      return;
+    }
+    sourcesActions.addNasShare(nasFormData);
+    showNasForm = false;
+    resetNasForm();
+  }
+
+  function handleDeleteNasShare(id: string, name: string) {
+    if (confirm(`Delete NAS share "${name}"?`)) {
+      sourcesActions.deleteNasShare(id);
+    }
+  }
+
+  function handleMountToggle(share: { id: string; mounted: boolean }) {
+    if (share.mounted) {
+      sourcesActions.unmountNasShare(share.id);
+    } else {
+      sourcesActions.mountNasShare(share.id);
+    }
+  }
 
   function handleCategoryClick(category: SettingsCategory) {
     settingsActions.openCategory(category.id);
@@ -82,12 +146,15 @@
     audioDevicesCleanup = audioDevicesActions.init();
     initVersionStore();
     initAudioStore();
+    initSourcesStore();
+    sourcesActions.listNasShares();
   });
 
   onDestroy(() => {
     audioDevicesCleanup?.();
     cleanupVersionStore();
     cleanupAudioStore();
+    cleanupSourcesStore();
   });
 
   function handleAudioOutputSelect(deviceId: string) {
@@ -583,16 +650,167 @@
       </div>
     {:else if $currentSettingsCategory === 'sources'}
       <!-- Music Sources -->
+
+      <!-- NAS Drives Section -->
       <div class="settings-section">
-        <h2 class="section-title">Music Sources</h2>
+        <h2 class="section-title">NAS Drives</h2>
+
+        {#if $sourcesError}
+          <div class="error-banner">
+            <Icon name="alert" size={20} />
+            <span>{$sourcesError}</span>
+          </div>
+        {/if}
+
+        {#if showNasForm}
+          <!-- Add NAS Form -->
+          <div class="nas-form">
+            <h3 class="form-title">Add NAS Share</h3>
+
+            <div class="form-group">
+              <label for="nas-name">Name</label>
+              <input
+                id="nas-name"
+                type="text"
+                bind:value={nasFormData.name}
+                placeholder="My NAS Music"
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="nas-ip">IP Address</label>
+              <input
+                id="nas-ip"
+                type="text"
+                bind:value={nasFormData.ip}
+                placeholder="192.168.1.100"
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="nas-path">Share Path</label>
+              <input
+                id="nas-path"
+                type="text"
+                bind:value={nasFormData.path}
+                placeholder="Music"
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="nas-fstype">Protocol</label>
+              <select id="nas-fstype" bind:value={nasFormData.fstype}>
+                <option value="cifs">SMB/CIFS (Windows Share)</option>
+                <option value="nfs">NFS</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="nas-username">Username (optional)</label>
+              <input
+                id="nas-username"
+                type="text"
+                bind:value={nasFormData.username}
+                placeholder="guest"
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="nas-password">Password (optional)</label>
+              <input
+                id="nas-password"
+                type="password"
+                bind:value={nasFormData.password}
+                placeholder="••••••••"
+              />
+            </div>
+
+            <div class="form-actions">
+              <button class="btn-secondary" on:click={handleCancelNasForm}>
+                Cancel
+              </button>
+              <button
+                class="btn-primary"
+                on:click={handleSubmitNasForm}
+                disabled={!nasFormData.name || !nasFormData.ip || !nasFormData.path || $sourcesLoading}
+              >
+                {#if $sourcesLoading}
+                  <div class="spinner small"></div>
+                {:else}
+                  Add Share
+                {/if}
+              </button>
+            </div>
+          </div>
+        {:else}
+          <!-- NAS Shares List -->
+          {#if $nasShares.length > 0}
+            <div class="nas-list">
+              {#each $nasShares as share}
+                <div class="nas-item" class:mounted={share.mounted}>
+                  <div class="nas-info">
+                    <div class="nas-name">
+                      <Icon name="storage" size={20} />
+                      <span>{share.name}</span>
+                    </div>
+                    <div class="nas-details">
+                      <span class="nas-ip">{share.ip}/{share.path}</span>
+                      <span class="nas-status" class:online={share.mounted}>
+                        {share.mounted ? 'Mounted' : 'Not mounted'}
+                      </span>
+                    </div>
+                  </div>
+                  <div class="nas-actions">
+                    <button
+                      class="icon-btn"
+                      on:click={() => handleMountToggle(share)}
+                      title={share.mounted ? 'Unmount' : 'Mount'}
+                      disabled={$sourcesLoading}
+                    >
+                      <Icon name={share.mounted ? 'eject' : 'play'} size={20} />
+                    </button>
+                    <button
+                      class="icon-btn danger"
+                      on:click={() => handleDeleteNasShare(share.id, share.name)}
+                      title="Delete"
+                      disabled={$sourcesLoading}
+                    >
+                      <Icon name="trash" size={20} />
+                    </button>
+                  </div>
+                </div>
+              {/each}
+            </div>
+          {:else}
+            <div class="placeholder">
+              <Icon name="storage" size={48} />
+              <p>No NAS shares configured</p>
+            </div>
+          {/if}
+
+          <button class="action-btn" on:click={handleAddNasClick}>
+            <Icon name="plus" size={24} />
+            <span>Add NAS Share</span>
+          </button>
+        {/if}
+      </div>
+
+      <!-- USB Drives Section -->
+      <div class="settings-section">
+        <h2 class="section-title">USB Drives</h2>
+        <div class="placeholder">
+          <Icon name="usb" size={48} />
+          <p>USB drive detection coming soon</p>
+        </div>
+      </div>
+
+      <!-- Library Rescan -->
+      <div class="settings-section">
+        <h2 class="section-title">Music Library</h2>
         <button class="action-btn" on:click={handleRescan}>
           <Icon name="refresh" size={24} />
           <span>Rescan Music Library</span>
         </button>
-        <div class="placeholder">
-          <Icon name="storage" size={48} />
-          <p>NAS and streaming service configuration coming soon</p>
-        </div>
       </div>
     {:else if $currentSettingsCategory === 'system'}
       <!-- System Settings -->
@@ -1449,5 +1667,209 @@
     width: 18px;
     height: 18px;
     border-width: 2px;
+  }
+
+  /* ============================================
+     NAS/Sources Styles
+     ============================================ */
+
+  .error-banner {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    background: rgba(255, 69, 58, 0.2);
+    border-radius: var(--radius-md);
+    color: #ff453a;
+    margin-bottom: var(--spacing-md);
+    font-size: var(--font-size-sm);
+  }
+
+  .nas-form {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    margin-bottom: var(--spacing-lg);
+  }
+
+  .form-title {
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    margin: 0 0 var(--spacing-lg) 0;
+    color: var(--color-text-primary);
+  }
+
+  .form-group {
+    margin-bottom: var(--spacing-md);
+  }
+
+  .form-group label {
+    display: block;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    margin-bottom: var(--spacing-xs);
+  }
+
+  .form-group input,
+  .form-group select {
+    width: 100%;
+    padding: var(--spacing-md);
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: var(--radius-md);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-base);
+    box-sizing: border-box;
+  }
+
+  .form-group input::placeholder {
+    color: var(--color-text-tertiary);
+  }
+
+  .form-group input:focus,
+  .form-group select:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    background: rgba(255, 255, 255, 0.15);
+  }
+
+  .form-group select {
+    appearance: none;
+    cursor: pointer;
+  }
+
+  .form-actions {
+    display: flex;
+    gap: var(--spacing-md);
+    justify-content: flex-end;
+    margin-top: var(--spacing-lg);
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md) var(--spacing-lg);
+    border: none;
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-base);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    min-height: var(--touch-target-min);
+  }
+
+  .btn-primary {
+    background: var(--color-accent);
+    color: white;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-accent) 85%, white);
+  }
+
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .btn-secondary {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--color-text-primary);
+  }
+
+  .btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.15);
+  }
+
+  .nas-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-lg);
+  }
+
+  .nas-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-md) var(--spacing-lg);
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.2s;
+  }
+
+  .nas-item.mounted {
+    border-color: rgba(48, 209, 88, 0.3);
+    background: rgba(48, 209, 88, 0.1);
+  }
+
+  .nas-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .nas-name {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    font-weight: 500;
+    color: var(--color-text-primary);
+  }
+
+  .nas-details {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+  }
+
+  .nas-status {
+    padding: 2px 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    font-size: var(--font-size-xs);
+  }
+
+  .nas-status.online {
+    background: rgba(48, 209, 88, 0.2);
+    color: #30d158;
+  }
+
+  .nas-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+  }
+
+  .icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: var(--radius-md);
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--color-text-primary);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .icon-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  .icon-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .icon-btn.danger:hover:not(:disabled) {
+    background: rgba(255, 69, 58, 0.2);
+    color: #ff453a;
   }
 </style>
