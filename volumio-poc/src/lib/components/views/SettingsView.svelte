@@ -3,7 +3,6 @@
   import { layoutMode, navigationActions } from '$lib/stores/navigation';
   import {
     systemInfo,
-    networkStatus,
     settingsCategories,
     currentSettingsCategory,
     settingsActions,
@@ -11,6 +10,7 @@
     selectedBackground,
     type SettingsCategory
   } from '$lib/stores/settings';
+  import { networkStatus, isConnected } from '$lib/stores/network';
   import {
     audioDevices,
     audioDevicesLoading,
@@ -494,19 +494,60 @@
     {:else if $currentSettingsCategory === 'network'}
       <!-- Network Settings -->
       <div class="settings-section">
-        <h2 class="section-title">Network Status</h2>
+        <h2 class="section-title">Connection Status</h2>
         {#if $networkStatus}
           <div class="info-grid">
+            <!-- Connection Status -->
             <div class="info-item">
               <span class="info-label">Status</span>
-              <span class="info-value" class:online={$networkStatus.online}>
-                {$networkStatus.online ? 'Connected' : 'Disconnected'}
+              <span class="info-value" class:online={$isConnected} class:offline={!$isConnected}>
+                {$isConnected ? 'Connected' : 'Disconnected'}
               </span>
             </div>
+
+            <!-- Connection Type -->
+            <div class="info-item">
+              <span class="info-label">Connection Type</span>
+              <span class="info-value connection-type">
+                {#if $networkStatus.type === 'wifi'}
+                  <Icon name="wifi" size={18} />
+                  <span>WiFi</span>
+                {:else if $networkStatus.type === 'ethernet'}
+                  <Icon name="ethernet" size={18} />
+                  <span>Ethernet</span>
+                {:else}
+                  <Icon name="wifi-off" size={18} />
+                  <span>None</span>
+                {/if}
+              </span>
+            </div>
+
+            <!-- WiFi-specific info -->
+            {#if $networkStatus.type === 'wifi'}
+              {#if $networkStatus.ssid}
+                <div class="info-item">
+                  <span class="info-label">Network Name</span>
+                  <span class="info-value">{$networkStatus.ssid}</span>
+                </div>
+              {/if}
+              <div class="info-item">
+                <span class="info-label">Signal Strength</span>
+                <span class="info-value signal-strength">
+                  <span class="signal-bars">
+                    <span class="bar" class:active={$networkStatus.strength >= 1}></span>
+                    <span class="bar" class:active={$networkStatus.strength >= 2}></span>
+                    <span class="bar" class:active={$networkStatus.strength >= 3}></span>
+                  </span>
+                  <span>{$networkStatus.signal}%</span>
+                </span>
+              </div>
+            {/if}
+
+            <!-- IP Address -->
             {#if $networkStatus.ip}
               <div class="info-item">
                 <span class="info-label">IP Address</span>
-                <span class="info-value">{$networkStatus.ip}</span>
+                <span class="info-value mono">{$networkStatus.ip}</span>
               </div>
             {/if}
           </div>
@@ -516,6 +557,29 @@
             <p>Loading network status...</p>
           </div>
         {/if}
+      </div>
+
+      <!-- Device Access -->
+      <div class="settings-section">
+        <h2 class="section-title">Device Access</h2>
+        <div class="info-grid">
+          {#if $systemInfo?.host}
+            <div class="info-item">
+              <span class="info-label">Hostname</span>
+              <span class="info-value mono">{$systemInfo.host}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Local Address</span>
+              <span class="info-value mono">http://{$systemInfo.host}.local</span>
+            </div>
+          {/if}
+          {#if $networkStatus?.ip}
+            <div class="info-item">
+              <span class="info-label">Direct Address</span>
+              <span class="info-value mono">http://{$networkStatus.ip}</span>
+            </div>
+          {/if}
+        </div>
       </div>
     {:else if $currentSettingsCategory === 'sources'}
       <!-- Music Sources -->
@@ -842,6 +906,44 @@
 
   .info-value.online {
     color: #30d158;
+  }
+
+  .info-value.offline {
+    color: #ff453a;
+  }
+
+  .info-value.connection-type {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+  }
+
+  .info-value.signal-strength {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+  }
+
+  .signal-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 16px;
+  }
+
+  .signal-bars .bar {
+    width: 4px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 1px;
+    transition: background 0.2s;
+  }
+
+  .signal-bars .bar:nth-child(1) { height: 6px; }
+  .signal-bars .bar:nth-child(2) { height: 10px; }
+  .signal-bars .bar:nth-child(3) { height: 14px; }
+
+  .signal-bars .bar.active {
+    background: #30d158;
   }
 
   .placeholder {

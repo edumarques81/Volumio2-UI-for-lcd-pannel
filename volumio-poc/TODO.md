@@ -33,3 +33,4 @@ Items to implement when moving from POC to production:
 - [x] Sub-screen back buttons (left side, white, thick, easy to click)
 - [x] Improved tile contrast/opacity in sub-screens
 - [x] Go backend (Stellar) with Socket.IO, MPD integration, album art endpoint
+- [x] Network settings page (connection status, type, WiFi/Ethernet details, hostname, access URLs)
