@@ -9,9 +9,23 @@ Items to implement when moving from POC to production:
 - [ ] **Screen timeout settings** - Add configurable auto-standby timeout in settings
 - [ ] **Wake on touch** - Implement touch-to-wake when display is in standby
 
+## Streaming Services
+
+### Tidal Integration (Next)
+- [ ] Research Tidal API authentication (OAuth, app credentials)
+- [ ] Add Tidal backend service (similar to Qobuz)
+- [ ] Add Tidal frontend store and settings UI
+- [ ] Implement Tidal browsing (albums, artists, playlists, search)
+- [ ] Implement Tidal playback with quality selection
+
+### Audirvana Integration (Later)
+- [ ] Research Audirvana debian package installation
+- [ ] Investigate integration approach
+
 ## Investigation / Experiments
 
 - [ ] **WebSocket communication** - Investigate and experiment using WebSockets for all communication between Go backend and JS frontend (instead of Socket.IO)
+- [ ] **Audio quality configuration** - Check Volumio3-backend (original) for specific configuration to set/enhance audio quality (resampling, DSD, bit-perfect settings, output format)
 
 ## Completed (POC Phase)
 
