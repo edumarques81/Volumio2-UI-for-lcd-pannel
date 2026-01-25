@@ -260,6 +260,13 @@ class SocketService {
   clearLatencyMetrics(): void {
     latencyMetrics.set([]);
   }
+
+  /**
+   * Get the underlying socket instance (for E2E testing)
+   */
+  getSocket(): any {
+    return this.socket;
+  }
 }
 
 // Singleton instance - uses config to determine the correct host

@@ -125,6 +125,9 @@
       clear: () => socketService.clearLatencyMetrics()
     };
 
+    // Expose socket for E2E testing
+    (window as any).__socket = socketService.getSocket();
+
     // Expose navigation actions for E2E testing
     (window as any).__navigation = {
       goToQueue: () => navigationActions.goToQueue(),
