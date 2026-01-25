@@ -9,6 +9,7 @@
   import LocalMusicView from '../views/LocalMusicView.svelte';
   import AudirvanaView from '../views/AudirvanaView.svelte';
   import MiniPlayer from '../MiniPlayer.svelte';
+  import StandbyOverlay from '../StandbyOverlay.svelte';
 
   // Show mini player when not on home or player view
   $: showMiniPlayer = $currentView !== 'home' && $currentView !== 'player';
@@ -16,6 +17,9 @@
   // Background for non-home views - fallback to local bg.jpg
   $: viewBackground = $selectedBackground || '/bg.jpg';
 </script>
+
+<!-- Standby/Brightness overlay (covers entire screen, handles wake) -->
+<StandbyOverlay />
 
 <div class="lcd-layout">
   {#if $currentView === 'home'}

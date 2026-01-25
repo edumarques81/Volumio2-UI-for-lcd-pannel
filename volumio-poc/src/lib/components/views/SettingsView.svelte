@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { layoutMode, navigationActions } from '$lib/stores/navigation';
+  import { brightness, lcdActions } from '$lib/stores/lcd';
   import {
     systemInfo,
     settingsCategories,
@@ -379,6 +380,28 @@
               <Icon name="compact" size={20} />
               Compact
             </button>
+          </div>
+        </div>
+
+        <div class="setting-item brightness-setting" data-testid="brightness-setting">
+          <div class="setting-info">
+            <span class="setting-label">Screen Brightness</span>
+            <span class="setting-desc">Adjust display brightness level</span>
+          </div>
+          <div class="brightness-control">
+            <Icon name="sun" size={18} />
+            <input
+              type="range"
+              min="10"
+              max="100"
+              step="5"
+              value={$brightness}
+              on:input={(e) => lcdActions.setBrightness(parseInt(e.currentTarget.value))}
+              class="brightness-slider"
+              aria-label="Screen brightness"
+              data-testid="brightness-slider"
+            />
+            <span class="brightness-value">{$brightness}%</span>
           </div>
         </div>
       </div>
@@ -2670,5 +2693,80 @@
   .dismiss-btn:hover {
     background: rgba(255, 255, 255, 0.2);
     color: var(--color-text-primary);
+  }
+
+  /* Brightness Control Styles */
+  .brightness-setting {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--spacing-md);
+  }
+
+  .brightness-control {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-sm) 0;
+  }
+
+  .brightness-control :global(svg) {
+    color: var(--color-text-secondary);
+    flex-shrink: 0;
+  }
+
+  .brightness-slider {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  .brightness-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 24px;
+    height: 24px;
+    background: var(--color-accent);
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    transition: transform 0.15s ease;
+  }
+
+  .brightness-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.1);
+  }
+
+  .brightness-slider::-webkit-slider-thumb:active {
+    transform: scale(0.95);
+  }
+
+  .brightness-slider::-moz-range-thumb {
+    width: 24px;
+    height: 24px;
+    background: var(--color-accent);
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  }
+
+  .brightness-slider::-moz-range-track {
+    height: 8px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+  }
+
+  .brightness-value {
+    min-width: 48px;
+    text-align: right;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--color-text-primary);
+    font-variant-numeric: tabular-nums;
   }
 </style>

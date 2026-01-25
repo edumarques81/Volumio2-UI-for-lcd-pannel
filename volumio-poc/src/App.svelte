@@ -9,7 +9,7 @@
   import { initIssueStore, issueActions } from '$lib/stores/issues';
   import { audioDevicesActions } from '$lib/stores/audioDevices';
   import { initNetworkStore, cleanupNetworkStore } from '$lib/stores/network';
-  import { initLcdStore, cleanupLcdStore } from '$lib/stores/lcd';
+  import { initLcdStore, cleanupLcdStore, lcdActions } from '$lib/stores/lcd';
   import { initAudioStore, cleanupAudioStore } from '$lib/stores/audio';
   import { initAudirvanaStore, cleanupAudirvanaStore } from '$lib/stores/audirvana';
   import { initAudioEngineStore, cleanupAudioEngineStore } from '$lib/stores/audioEngine';
@@ -140,6 +140,9 @@
       goToSettings: () => navigationActions.goToSettings(),
       goHome: () => navigationActions.goHome()
     };
+
+    // Expose LCD actions for E2E testing
+    (window as any).lcdActions = lcdActions;
 
     // Expose audio devices test helper for E2E testing
     (window as any).__testAudioDevices = {

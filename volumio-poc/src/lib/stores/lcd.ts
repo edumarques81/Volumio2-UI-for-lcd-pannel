@@ -11,8 +11,16 @@ export interface LCDStatus {
 export const lcdState = writable<LcdState>('unknown');
 export const lcdLoading = writable<boolean>(false);
 
-// Derived store for quick boolean access
+// Brightness store (0-100, CSS overlay based since no hardware backlight)
+export const brightness = writable<number>(100);
+
+// Derived stores for quick boolean access
 export const isLcdOn = derived(lcdState, ($state) => $state === 'on');
+export const isStandby = derived(lcdState, ($state) => $state === 'off');
+export const isDimmed = derived(
+  [lcdState, brightness],
+  ([$state, $brightness]) => $state === 'on' && $brightness < 100
+);
 
 /**
  * LCD control actions (Socket.IO based)
@@ -57,6 +65,56 @@ export const lcdActions = {
     } else {
       this.turnOff();
     }
+  },
+
+  /**
+   * Set brightness level (0-100)
+   * Since there's no hardware backlight, this controls a CSS overlay
+   */
+  setBrightness(value: number): void {
+    const clamped = Math.max(0, Math.min(100, value));
+    console.log('📺 LCD brightness:', clamped);
+    brightness.set(clamped);
+  },
+
+  /**
+   * Dim the display to a specific brightness level
+   * Keeps the display on but reduces brightness via CSS overlay
+   */
+  dim(level: number = 30): void {
+    console.log('📺 LCD dim to:', level);
+    this.setBrightness(level);
+  },
+
+  /**
+   * Put display into standby mode (CSS overlay only - no backend call)
+   * This keeps the browser running so touch-to-wake works reliably.
+   * Use turnOff() for actual hardware power off.
+   */
+  standby(): void {
+    console.log('📺 LCD standby (CSS overlay)');
+    lcdState.set('off');
+    brightness.set(0); // Full black overlay
+    lcdLoading.set(false);
+  },
+
+  /**
+   * Wake display from standby and restore full brightness (CSS overlay only)
+   * This is instant since it's just removing the CSS overlay.
+   */
+  wake(): void {
+    console.log('📺 LCD wake (CSS overlay)');
+    lcdState.set('on');
+    brightness.set(100); // Restore full brightness
+    lcdLoading.set(false);
+  },
+
+  /**
+   * Reset brightness to full (100%)
+   */
+  resetBrightness(): void {
+    console.log('📺 LCD brightness reset');
+    brightness.set(100);
   }
 };
 

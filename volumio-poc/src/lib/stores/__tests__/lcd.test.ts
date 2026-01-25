@@ -16,6 +16,9 @@ import {
   initLcdStore,
   cleanupLcdStore,
   isLcdOn,
+  brightness,
+  isStandby,
+  isDimmed,
   type LcdState,
   type LCDStatus
 } from '../lcd';
@@ -176,6 +179,130 @@ describe('LCD store (Socket.IO)', () => {
     it('should be false when state is unknown', () => {
       lcdState.set('unknown');
       expect(get(isLcdOn)).toBe(false);
+    });
+  });
+
+  describe('brightness store', () => {
+    it('should have default brightness of 100', () => {
+      expect(get(brightness)).toBe(100);
+    });
+
+    it('should update brightness via setBrightness action', () => {
+      lcdActions.setBrightness(50);
+      expect(get(brightness)).toBe(50);
+    });
+
+    it('should clamp brightness to 0-100 range', () => {
+      lcdActions.setBrightness(150);
+      expect(get(brightness)).toBe(100);
+
+      lcdActions.setBrightness(-10);
+      expect(get(brightness)).toBe(0);
+    });
+  });
+
+  describe('extended state model (ON/DIMMED/STANDBY)', () => {
+    beforeEach(() => {
+      brightness.set(100);
+    });
+
+    it('should report isStandby when state is off', () => {
+      lcdState.set('off');
+      expect(get(isStandby)).toBe(true);
+    });
+
+    it('should not report isStandby when state is on', () => {
+      lcdState.set('on');
+      expect(get(isStandby)).toBe(false);
+    });
+
+    it('should report isDimmed when brightness < 100 and state is on', () => {
+      lcdState.set('on');
+      brightness.set(30);
+      expect(get(isDimmed)).toBe(true);
+    });
+
+    it('should not report isDimmed when brightness is 100', () => {
+      lcdState.set('on');
+      brightness.set(100);
+      expect(get(isDimmed)).toBe(false);
+    });
+
+    it('should not report isDimmed when in standby (even with low brightness)', () => {
+      lcdState.set('off');
+      brightness.set(30);
+      expect(get(isDimmed)).toBe(false);
+    });
+  });
+
+  describe('lcdActions.dim', () => {
+    it('should set brightness to specified value', () => {
+      lcdActions.dim(30);
+      expect(get(brightness)).toBe(30);
+    });
+
+    it('should keep state as on when dimming', () => {
+      lcdState.set('on');
+      lcdActions.dim(30);
+      expect(get(lcdState)).toBe('on');
+    });
+  });
+
+  describe('lcdActions.standby (CSS overlay mode)', () => {
+    it('should NOT emit backend events (CSS-only mode)', () => {
+      lcdActions.standby();
+      expect(socketService.emit).not.toHaveBeenCalled();
+    });
+
+    it('should set state to off', () => {
+      lcdState.set('on');
+      lcdActions.standby();
+      expect(get(lcdState)).toBe('off');
+    });
+
+    it('should set brightness to 0 for full black overlay', () => {
+      brightness.set(100);
+      lcdActions.standby();
+      expect(get(brightness)).toBe(0);
+    });
+
+    it('should not set loading state', () => {
+      lcdActions.standby();
+      expect(get(lcdLoading)).toBe(false);
+    });
+  });
+
+  describe('lcdActions.wake (CSS overlay mode)', () => {
+    it('should NOT emit backend events (CSS-only mode)', () => {
+      lcdState.set('off');
+      lcdActions.wake();
+      expect(socketService.emit).not.toHaveBeenCalled();
+    });
+
+    it('should restore brightness to 100 when waking', () => {
+      brightness.set(0);
+      lcdState.set('off');
+      lcdActions.wake();
+      expect(get(brightness)).toBe(100);
+    });
+
+    it('should set state to on', () => {
+      lcdState.set('off');
+      lcdActions.wake();
+      expect(get(lcdState)).toBe('on');
+    });
+
+    it('should not set loading state', () => {
+      lcdActions.wake();
+      expect(get(lcdLoading)).toBe(false);
+    });
+  });
+
+  describe('lcdActions.resetBrightness', () => {
+    it('should reset brightness to 100', () => {
+      brightness.set(30);
+      lcdActions.resetBrightness();
+      expect(get(brightness)).toBe(100);
     });
   });
 });

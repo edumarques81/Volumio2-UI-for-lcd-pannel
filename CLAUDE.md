@@ -155,7 +155,7 @@ eval "$SSH_CMD 'chmod +x ~/stellar-backend/stellar && sudo systemctl restart ste
 | `audirvana.ts` | Audirvana Studio integration and discovery |
 | `audio.ts` | Audio output settings, bit-perfect config |
 | `audioDevices.ts` | DAC/output device enumeration |
-| `lcd.ts` | LCD panel power state (standby/wake) |
+| `lcd.ts` | LCD panel state, brightness, standby overlay (CSS-based) |
 | `network.ts` | Network status |
 | `favorites.ts`, `playlist.ts` | User collections |
 | `settings.ts` | UI preferences |
@@ -208,8 +208,25 @@ initQueueStore();    // Registers pushQueue listener
 |------|---------|-------------|
 | `getNetworkStatus` | `pushNetworkStatus` | Network connection info |
 | `getLcdStatus` | `pushLcdStatus` | LCD panel state |
-| `lcdStandby`, `lcdWake` | `pushLcdStatus` | LCD power control |
+| `lcdStandby`, `lcdWake` | `pushLcdStatus` | LCD hardware power control (wlr-randr) |
 | - | `pushToastMessage` | Toast notifications from backend |
+
+**LCD Control System:**
+
+The LCD control uses a hybrid approach:
+- **Standby/Wake (CSS overlay)**: Handled entirely in frontend via `StandbyOverlay.svelte`. Uses CSS opacity overlay for instant, reliable standby without disconnecting the browser.
+- **Hardware power control**: Backend uses `wlr-randr` for Wayland (Cage compositor). Note: Turning off display via wlr-randr disconnects the browser, breaking touch-to-wake.
+- **Brightness**: CSS overlay dimmer (0-100%), controlled via Settings slider.
+
+Key components:
+- `lcd.ts` store: `lcdState`, `brightness`, `isStandby`, `isDimmed`, `lcdActions`
+- `StandbyOverlay.svelte`: Full-screen overlay with touch wake, brightness dimmer
+- `SettingsView.svelte`: Brightness slider in Appearance > Display section
+
+State model:
+- **ON**: `lcdState='on'`, `brightness=100` (no overlay)
+- **DIMMED**: `lcdState='on'`, `brightness<100` (partial overlay)
+- **STANDBY**: `lcdState='off'`, `brightness=0` (full black overlay, touch to wake)
 
 **Audirvana Integration:**
 | Emit | Receive | Description |
