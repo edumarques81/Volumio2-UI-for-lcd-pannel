@@ -23,9 +23,14 @@ import {
   cleanupAudioStore,
   bitPerfectConfig,
   isBitPerfectConfigOk,
+  mixerEnabled,
+  mixerLoading,
+  applyBitPerfectLoading,
   type AudioStatus,
   type AudioFormat,
-  type BitPerfectConfig
+  type BitPerfectConfig,
+  type MixerModeResponse,
+  type ApplyBitPerfectResponse
 } from '../audio';
 import { socketService } from '$lib/services/socket';
 
@@ -253,8 +258,8 @@ describe('Audio store', () => {
       initAudioStore();
       initAudioStore();
 
-      // Should only register once due to initialized flag (3 handlers: pushAudioStatus + pushBitPerfect + pushDsdMode)
-      expect(socketService.on).toHaveBeenCalledTimes(3);
+      // Should only register once due to initialized flag (5 handlers: pushAudioStatus + pushBitPerfect + pushDsdMode + pushMixerMode + pushApplyBitPerfect)
+      expect(socketService.on).toHaveBeenCalledTimes(5);
     });
   });
 
@@ -325,7 +330,7 @@ describe('Audio store', () => {
 
     it('should allow re-initialization after cleanup', () => {
       initAudioStore();
-      expect(socketService.on).toHaveBeenCalledTimes(3); // pushAudioStatus + pushBitPerfect + pushDsdMode
+      expect(socketService.on).toHaveBeenCalledTimes(5); // pushAudioStatus + pushBitPerfect + pushDsdMode + pushMixerMode + pushApplyBitPerfect
 
       cleanupAudioStore();
 
@@ -333,7 +338,7 @@ describe('Audio store', () => {
       initAudioStore();
 
       // Should register again after cleanup
-      expect(socketService.on).toHaveBeenCalledTimes(3);
+      expect(socketService.on).toHaveBeenCalledTimes(5);
     });
   });
 
@@ -412,6 +417,157 @@ describe('Audio store', () => {
       handler!(config);
 
       expect(get(bitPerfectConfig)).toEqual(config);
+    });
+  });
+
+  describe('mixerEnabled store', () => {
+    it('should be false initially', () => {
+      expect(get(mixerEnabled)).toBe(false);
+    });
+
+    it('should update when set', () => {
+      mixerEnabled.set(true);
+      expect(get(mixerEnabled)).toBe(true);
+      mixerEnabled.set(false);
+      expect(get(mixerEnabled)).toBe(false);
+    });
+  });
+
+  describe('mixerLoading store', () => {
+    it('should be false initially', () => {
+      expect(get(mixerLoading)).toBe(false);
+    });
+
+    it('should update when set', () => {
+      mixerLoading.set(true);
+      expect(get(mixerLoading)).toBe(true);
+      mixerLoading.set(false);
+      expect(get(mixerLoading)).toBe(false);
+    });
+  });
+
+  describe('applyBitPerfectLoading store', () => {
+    it('should be false initially', () => {
+      expect(get(applyBitPerfectLoading)).toBe(false);
+    });
+
+    it('should update when set', () => {
+      applyBitPerfectLoading.set(true);
+      expect(get(applyBitPerfectLoading)).toBe(true);
+      applyBitPerfectLoading.set(false);
+      expect(get(applyBitPerfectLoading)).toBe(false);
+    });
+  });
+
+  describe('audioActions.getMixerMode', () => {
+    it('should emit getMixerMode', () => {
+      audioActions.getMixerMode();
+      expect(socketService.emit).toHaveBeenCalledWith('getMixerMode');
+    });
+  });
+
+  describe('audioActions.setMixerMode', () => {
+    it('should set mixerLoading to true and emit setMixerMode with enabled=true', () => {
+      audioActions.setMixerMode(true);
+      expect(get(mixerLoading)).toBe(true);
+      expect(socketService.emit).toHaveBeenCalledWith('setMixerMode', { enabled: true });
+    });
+
+    it('should set mixerLoading to true and emit setMixerMode with enabled=false', () => {
+      audioActions.setMixerMode(false);
+      expect(get(mixerLoading)).toBe(true);
+      expect(socketService.emit).toHaveBeenCalledWith('setMixerMode', { enabled: false });
+    });
+  });
+
+  describe('audioActions.applyBitPerfect', () => {
+    it('should set applyBitPerfectLoading to true and emit applyBitPerfect', () => {
+      audioActions.applyBitPerfect();
+      expect(get(applyBitPerfectLoading)).toBe(true);
+      expect(socketService.emit).toHaveBeenCalledWith('applyBitPerfect');
+    });
+  });
+
+  describe('pushMixerMode handler', () => {
+    it('should register pushMixerMode event handler on init', () => {
+      initAudioStore();
+      expect(socketService.on).toHaveBeenCalledWith('pushMixerMode', expect.any(Function));
+    });
+
+    it('should update mixerEnabled and reset mixerLoading when receiving pushMixerMode', () => {
+      initAudioStore();
+
+      const onMock = vi.mocked(socketService.on);
+      const handler = onMock.mock.calls.find(call => call[0] === 'pushMixerMode')?.[1] as ((response: MixerModeResponse) => void) | undefined;
+      expect(handler).toBeDefined();
+
+      // Set loading state first
+      mixerLoading.set(true);
+
+      const response: MixerModeResponse = {
+        enabled: true,
+        success: true
+      };
+      handler!(response);
+
+      expect(get(mixerEnabled)).toBe(true);
+      expect(get(mixerLoading)).toBe(false);
+    });
+
+    it('should set mixerEnabled to false when receiving disabled response', () => {
+      initAudioStore();
+
+      const onMock = vi.mocked(socketService.on);
+      const handler = onMock.mock.calls.find(call => call[0] === 'pushMixerMode')?.[1] as ((response: MixerModeResponse) => void) | undefined;
+
+      const response: MixerModeResponse = {
+        enabled: false,
+        success: true
+      };
+      handler!(response);
+
+      expect(get(mixerEnabled)).toBe(false);
+    });
+  });
+
+  describe('pushApplyBitPerfect handler', () => {
+    it('should register pushApplyBitPerfect event handler on init', () => {
+      initAudioStore();
+      expect(socketService.on).toHaveBeenCalledWith('pushApplyBitPerfect', expect.any(Function));
+    });
+
+    it('should reset applyBitPerfectLoading when receiving pushApplyBitPerfect', () => {
+      initAudioStore();
+
+      const onMock = vi.mocked(socketService.on);
+      const handler = onMock.mock.calls.find(call => call[0] === 'pushApplyBitPerfect')?.[1] as ((response: ApplyBitPerfectResponse) => void) | undefined;
+      expect(handler).toBeDefined();
+
+      // Set loading state first
+      applyBitPerfectLoading.set(true);
+
+      const response: ApplyBitPerfectResponse = {
+        success: true,
+        applied: ['mixer_type = bit-perfect'],
+        errors: []
+      };
+      handler!(response);
+
+      expect(get(applyBitPerfectLoading)).toBe(false);
+    });
+  });
+
+  describe('cleanupAudioStore with mixer stores', () => {
+    it('should reset mixer stores on cleanup', () => {
+      mixerEnabled.set(true);
+      mixerLoading.set(true);
+      applyBitPerfectLoading.set(true);
+
+      cleanupAudioStore();
+
+      expect(get(mixerEnabled)).toBe(false);
+      expect(get(mixerLoading)).toBe(false);
+      expect(get(applyBitPerfectLoading)).toBe(false);
     });
   });
 });

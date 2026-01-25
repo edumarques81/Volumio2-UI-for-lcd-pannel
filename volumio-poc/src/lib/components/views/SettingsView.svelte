@@ -32,7 +32,10 @@
     initAudioStore,
     cleanupAudioStore,
     dsdMode,
-    dsdModeLoading
+    dsdModeLoading,
+    mixerEnabled,
+    mixerLoading,
+    applyBitPerfectLoading
   } from '$lib/stores/audio';
   import {
     nasShares,
@@ -614,6 +617,41 @@
               {/each}
             </div>
           {/if}
+
+          <!-- Mixer Control -->
+          <div class="setting-row" data-testid="mixer-toggle">
+            <div class="setting-info">
+              <span class="setting-label">Software Mixer</span>
+              <span class="setting-hint">
+                Disable for bit-perfect output (volume control via DAC/amp)
+              </span>
+            </div>
+            <label class="toggle">
+              <input
+                type="checkbox"
+                checked={$mixerEnabled}
+                on:change={(e) => audioActions.setMixerMode(e.currentTarget.checked)}
+                disabled={$mixerLoading}
+              />
+              <span class="toggle-slider" class:loading={$mixerLoading}></span>
+            </label>
+          </div>
+
+          <!-- Apply All Bit-Perfect Settings Button -->
+          <button
+            class="apply-btn"
+            on:click={() => audioActions.applyBitPerfect()}
+            disabled={$applyBitPerfectLoading}
+            data-testid="apply-bitperfect-btn"
+          >
+            {#if $applyBitPerfectLoading}
+              <div class="spinner small"></div>
+              <span>Applying...</span>
+            {:else}
+              <Icon name="check-circle" size={18} />
+              <span>Apply Bit-Perfect Settings</span>
+            {/if}
+          </button>
         {:else}
           <div class="placeholder">
             <Icon name="settings" size={48} />
@@ -1928,6 +1966,135 @@
     font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, monospace;
     font-size: var(--font-size-sm);
     color: var(--color-text-secondary);
+  }
+
+  /* Mixer Toggle Styles */
+  .setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-md) var(--spacing-lg);
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: var(--radius-md);
+    margin-top: var(--spacing-lg);
+    margin-bottom: var(--spacing-md);
+  }
+
+  .setting-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+    margin-right: var(--spacing-md);
+  }
+
+  .setting-label {
+    font-size: var(--font-size-base);
+    font-weight: 500;
+    color: var(--color-text-primary);
+  }
+
+  .setting-hint {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    line-height: 1.4;
+  }
+
+  /* Toggle Switch */
+  .toggle {
+    position: relative;
+    display: inline-block;
+    width: 52px;
+    height: 30px;
+    flex-shrink: 0;
+  }
+
+  .toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(120, 120, 128, 0.36);
+    transition: 0.3s;
+    border-radius: 30px;
+  }
+
+  .toggle-slider::before {
+    position: absolute;
+    content: '';
+    height: 26px;
+    width: 26px;
+    left: 2px;
+    bottom: 2px;
+    background-color: white;
+    transition: 0.3s;
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  }
+
+  .toggle input:checked + .toggle-slider {
+    background-color: var(--color-accent);
+  }
+
+  .toggle input:checked + .toggle-slider::before {
+    transform: translateX(22px);
+  }
+
+  .toggle input:disabled + .toggle-slider {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .toggle-slider.loading {
+    opacity: 0.6;
+    pointer-events: none;
+  }
+
+  /* Apply Button */
+  .apply-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-sm);
+    width: 100%;
+    padding: var(--spacing-md) var(--spacing-lg);
+    margin-top: var(--spacing-md);
+    background: var(--color-accent);
+    color: white;
+    border: none;
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-base);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .apply-btn:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-accent) 85%, white);
+    transform: translateY(-1px);
+  }
+
+  .apply-btn:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  .apply-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .apply-btn .spinner {
+    width: 18px;
+    height: 18px;
+    border-width: 2px;
   }
 
   /* DSD Mode Toggle Styles */

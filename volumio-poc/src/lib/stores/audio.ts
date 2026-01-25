@@ -40,6 +40,24 @@ export interface DsdModeResponse {
   error?: string;          // Error message if failed
 }
 
+/**
+ * Mixer mode response from the backend.
+ */
+export interface MixerModeResponse {
+  enabled: boolean;        // true if software mixer enabled
+  success: boolean;        // Whether the operation succeeded
+  error?: string;          // Error message if failed
+}
+
+/**
+ * Apply bit-perfect response from the backend.
+ */
+export interface ApplyBitPerfectResponse {
+  success: boolean;        // Whether the operation succeeded
+  applied: string[];       // Settings that were changed
+  errors: string[];        // Any errors encountered
+}
+
 // Default state
 const defaultStatus: AudioStatus = {
   locked: false,
@@ -51,6 +69,9 @@ export const audioStatus = writable<AudioStatus>(defaultStatus);
 export const bitPerfectConfig = writable<BitPerfectConfig | null>(null);
 export const dsdMode = writable<'native' | 'dop'>('native');
 export const dsdModeLoading = writable<boolean>(false);
+export const mixerEnabled = writable<boolean>(false);
+export const mixerLoading = writable<boolean>(false);
+export const applyBitPerfectLoading = writable<boolean>(false);
 
 // Derived stores for convenient access
 export const isDeviceLocked = derived(audioStatus, $status => $status.locked);
@@ -146,6 +167,29 @@ export const audioActions = {
   setDsdMode: (mode: 'native' | 'dop') => {
     dsdModeLoading.set(true);
     socketService.emit('setDsdMode', { mode });
+  },
+
+  /**
+   * Request current mixer mode from backend
+   */
+  getMixerMode: () => {
+    socketService.emit('getMixerMode');
+  },
+
+  /**
+   * Set mixer mode (enabled or disabled)
+   */
+  setMixerMode: (enabled: boolean) => {
+    mixerLoading.set(true);
+    socketService.emit('setMixerMode', { enabled });
+  },
+
+  /**
+   * Apply all optimal bit-perfect settings
+   */
+  applyBitPerfect: () => {
+    applyBitPerfectLoading.set(true);
+    socketService.emit('applyBitPerfect');
   }
 };
 
@@ -185,6 +229,26 @@ export function initAudioStore() {
     }
   });
 
+  // Listen for mixer mode updates from backend
+  socketService.on<MixerModeResponse>('pushMixerMode', (response) => {
+    console.log('🔊 pushMixerMode received:', response);
+    mixerLoading.set(false);
+    mixerEnabled.set(response.enabled);
+    // After mode change, refresh bit-perfect status
+    if (response.success) {
+      setTimeout(() => {
+        socketService.emit('getBitPerfect');
+      }, 500);
+    }
+  });
+
+  // Listen for apply bit-perfect result from backend
+  socketService.on<ApplyBitPerfectResponse>('pushApplyBitPerfect', (response) => {
+    console.log('🔊 pushApplyBitPerfect received:', response);
+    applyBitPerfectLoading.set(false);
+    // Note: pushBitPerfect and pushMixerMode will be broadcast by the backend
+  });
+
   console.log('✅ Audio store initialized');
 
   // Request initial status after a short delay
@@ -192,6 +256,7 @@ export function initAudioStore() {
     console.log('📡 Requesting initial audio status...');
     socketService.emit('getAudioStatus');
     socketService.emit('getDsdMode');
+    socketService.emit('getMixerMode');
   }, 600);
 }
 
@@ -201,6 +266,9 @@ export function cleanupAudioStore() {
   bitPerfectConfig.set(null);
   dsdMode.set('native');
   dsdModeLoading.set(false);
+  mixerEnabled.set(false);
+  mixerLoading.set(false);
+  applyBitPerfectLoading.set(false);
   // Allow re-initialization
   initialized = false;
 }
