@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, fireEvent } from '@testing-library/svelte';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, fireEvent, cleanup } from '@testing-library/svelte';
 import { get } from 'svelte/store';
 
 // Mock stores
@@ -16,7 +16,7 @@ vi.mock('$lib/stores/lcd', () => ({
     subscribe: vi.fn()
   },
   lcdActions: {
-    wake: vi.fn()
+    turnOn: vi.fn()
   }
 }));
 
@@ -30,13 +30,28 @@ import StandbyOverlay from '../StandbyOverlay.svelte';
 import { lcdState, brightness, isStandby, lcdActions } from '$lib/stores/lcd';
 import { navigationActions } from '$lib/stores/navigation';
 
+// Helper to mock URL parameter for LCD detection
+function mockUrlLayout(layout: string | null) {
+  const search = layout ? `?layout=${layout}` : '';
+  Object.defineProperty(window, 'location', {
+    value: { search },
+    writable: true
+  });
+}
+
 describe('StandbyOverlay', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default to LCD panel for most tests (Pi uses ?layout=lcd)
+    mockUrlLayout('lcd');
+  });
+
+  afterEach(() => {
+    cleanup();
   });
 
   describe('visibility', () => {
-    it('should be visible when in standby mode', async () => {
+    it('should be visible when in standby mode on LCD panel', async () => {
       // Mock isStandby as true
       vi.mocked(isStandby.subscribe).mockImplementation((callback) => {
         callback(true);
@@ -119,7 +134,7 @@ describe('StandbyOverlay', () => {
 
       await fireEvent.touchStart(overlay!);
 
-      expect(lcdActions.wake).toHaveBeenCalled();
+      expect(lcdActions.turnOn).toHaveBeenCalled();
     });
 
     it('should navigate to home on wake', async () => {
@@ -182,7 +197,7 @@ describe('StandbyOverlay', () => {
       await fireEvent.touchStart(overlay!);
 
       // Should not call wake when not in standby
-      expect(lcdActions.wake).not.toHaveBeenCalled();
+      expect(lcdActions.turnOn).not.toHaveBeenCalled();
       expect(navigationActions.goHome).not.toHaveBeenCalled();
     });
 
@@ -205,7 +220,7 @@ describe('StandbyOverlay', () => {
       await fireEvent.touchStart(overlay!);
 
       // Should only call wake once due to debouncing
-      expect(lcdActions.wake).toHaveBeenCalledTimes(1);
+      expect(lcdActions.turnOn).toHaveBeenCalledTimes(1);
     });
 
     it('should wake on mousedown when in standby', async () => {
@@ -223,7 +238,7 @@ describe('StandbyOverlay', () => {
 
       await fireEvent.mouseDown(overlay!);
 
-      expect(lcdActions.wake).toHaveBeenCalled();
+      expect(lcdActions.turnOn).toHaveBeenCalled();
       expect(navigationActions.goHome).toHaveBeenCalled();
     });
   });
@@ -316,6 +331,71 @@ describe('StandbyOverlay', () => {
 
       // Dimmer opacity is set via inline style
       expect(dimmer.getAttribute('style')).toContain('opacity: 0.5');
+    });
+  });
+
+  describe('non-LCD device behavior (remote browsers)', () => {
+    beforeEach(() => {
+      // No ?layout=lcd parameter for remote browsers
+      mockUrlLayout(null);
+    });
+
+    it('should NOT show standby overlay on non-LCD devices', async () => {
+      vi.mocked(isStandby.subscribe).mockImplementation((callback) => {
+        callback(true); // Standby is active
+        return () => {};
+      });
+      vi.mocked(brightness.subscribe).mockImplementation((callback) => {
+        callback(100);
+        return () => {};
+      });
+
+      const { container } = render(StandbyOverlay);
+      const overlay = container.querySelector('.standby-overlay');
+
+      // Overlay should not be rendered on non-LCD devices
+      expect(overlay).toBeFalsy();
+    });
+
+    it('should NOT show brightness dimmer on non-LCD devices', async () => {
+      vi.mocked(isStandby.subscribe).mockImplementation((callback) => {
+        callback(false);
+        return () => {};
+      });
+      vi.mocked(brightness.subscribe).mockImplementation((callback) => {
+        callback(50); // Reduced brightness
+        return () => {};
+      });
+
+      const { container } = render(StandbyOverlay);
+      const dimmer = container.querySelector('.brightness-dimmer');
+
+      // Dimmer should not be rendered on non-LCD devices
+      expect(dimmer).toBeFalsy();
+    });
+
+    it('should NOT wake on touch when on non-LCD device', async () => {
+      vi.mocked(isStandby.subscribe).mockImplementation((callback) => {
+        callback(true);
+        return () => {};
+      });
+      vi.mocked(brightness.subscribe).mockImplementation((callback) => {
+        callback(100);
+        return () => {};
+      });
+
+      render(StandbyOverlay);
+
+      // Fire touch event on document (since overlay is not rendered)
+      const event = new TouchEvent('touchstart', {
+        bubbles: true,
+        cancelable: true
+      });
+      document.dispatchEvent(event);
+
+      // Should not call wake on non-LCD devices
+      expect(lcdActions.turnOn).not.toHaveBeenCalled();
+      expect(navigationActions.goHome).not.toHaveBeenCalled();
     });
   });
 });
