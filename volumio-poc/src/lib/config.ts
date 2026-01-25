@@ -19,8 +19,8 @@
 // Development IP - change this to your Volumio device IP
 const DEV_VOLUMIO_IP = '192.168.86.34';
 
-// Stellar backend port (Go backend on port 3002, Volumio on 3000)
-const STELLAR_PORT = 3002;
+// Stellar backend port (now using Volumio standard port 3000)
+const STELLAR_PORT = 3000;
 
 /**
  * Get the Volumio backend URL based on current environment

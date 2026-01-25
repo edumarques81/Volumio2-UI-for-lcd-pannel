@@ -1,0 +1,32 @@
+<?xml version="1.0" standalone='no'?>
+<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+<service-group>
+  <name replace-wildcards="yes">%h</name>
+
+  <!-- Volumio Discovery Service (port 3000 to match Volumio standard) -->
+  <service>
+    <type>_Volumio._tcp</type>
+    <port>3000</port>
+    <txt-record>volumioName=Stellar</txt-record>
+    <txt-record>UUID=stellar-rpi-001</txt-record>
+  </service>
+
+  <!-- HTTP Web UI -->
+  <service>
+    <type>_http._tcp</type>
+    <port>8080</port>
+    <txt-record>path=/</txt-record>
+  </service>
+
+  <!-- SSH for Finder visibility -->
+  <service>
+    <type>_ssh._tcp</type>
+    <port>22</port>
+  </service>
+
+  <!-- SFTP for Finder visibility -->
+  <service>
+    <type>_sftp-ssh._tcp</type>
+    <port>22</port>
+  </service>
+</service-group>

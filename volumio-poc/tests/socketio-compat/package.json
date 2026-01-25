@@ -1,0 +1,14 @@
+{
+  "name": "socketio-compat-test",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "test:v2": "node test-v2-client.mjs",
+    "test:v4": "node test-v4-client.mjs",
+    "verify:discovery": "bash verify-discovery.sh"
+  },
+  "dependencies": {
+    "socket.io-client-v2": "npm:socket.io-client@2.5.0",
+    "socket.io-client-v4": "npm:socket.io-client@4.7.5"
+  }
+}

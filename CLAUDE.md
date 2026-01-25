@@ -200,6 +200,36 @@ initQueueStore();    // Registers pushQueue listener
 | `lcdStandby`, `lcdWake` | `pushLcdStatus` | LCD power control |
 | - | `pushToastMessage` | Toast notifications from backend |
 
+### Socket.IO Compatibility & mDNS Discovery
+
+**Version Matrix:**
+| Component | Socket.IO Version | Protocol |
+|-----------|-------------------|----------|
+| Volumio Connect apps (iOS/Android) | v2.x client | Engine.IO v3 |
+| Stellar Go backend | v3 server | Engine.IO v4 + EIO3 compat |
+| Svelte frontend (POC) | v4 client | Engine.IO v4 |
+
+The Stellar backend enables `allowEIO3: true` to support Socket.IO v2 clients (Volumio Connect apps).
+
+**mDNS Discovery:**
+The device is discoverable via Avahi mDNS with service type `_Volumio._tcp`:
+```bash
+# Verify discovery from Mac
+dns-sd -B _Volumio._tcp local.
+
+# Service details
+dns-sd -L raspberrypi _Volumio._tcp local.
+```
+
+The Avahi service file is at `/etc/avahi/services/stellar.service` on the Pi.
+
+**Test Socket.IO v2 Compatibility:**
+```bash
+cd volumio-poc/tests/socketio-compat
+npm run test:v2    # Test v2 client can connect to Stellar backend
+npm run verify:discovery  # Verify mDNS discovery
+```
+
 ## Development Workflow
 
 ### Test-Driven Development
