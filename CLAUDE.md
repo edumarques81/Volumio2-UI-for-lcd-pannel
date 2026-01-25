@@ -10,6 +10,19 @@ This repository contains two projects:
 - **Legacy UI** (root): AngularJS 1.5 application (Node.js 10.22.1 required)
 - **POC** (`volumio-poc/`): Svelte 5 application for CarPlay-style LCD interface (1920x440)
 
+## Important: localhost vs Raspberry Pi
+
+> **Key Concept:** Development happens on your Mac, deployment targets the Pi.
+
+| Term | Refers To | Example |
+|------|-----------|---------|
+| `localhost` | Your macOS development machine | `localhost:5173` (Vite dev server) |
+| Pi IP | Raspberry Pi target device | `192.168.x.x:3000` (Stellar backend) |
+
+- Dev mode frontend (`localhost:5173`) connects to Pi backend (`PI_IP:3000`)
+- Configure Pi IP in `volumio-poc/src/lib/config.ts` (`DEV_VOLUMIO_IP`)
+- Production: Frontend and backend both run on the Pi
+
 ## Quick Reference
 
 ### Legacy UI (AngularJS)
@@ -28,6 +41,10 @@ npm run build:volumio3                          # Production build (Contemporary
 
 # Test
 npm test                                        # Run all tests (Karma + Jasmine)
+# Note: Karma doesn't support single-file testing easily. Run full suite.
+
+# Linting
+# JSHint runs automatically via webpack during `gulp serve`
 ```
 
 ### POC (Svelte)
@@ -53,7 +70,10 @@ npm run test:coverage                           # Tests with coverage
 npm run build                                   # Production build → dist/
 npx tsc --noEmit                                # Type check only
 
-# Deploy to Pi (requires .env configured)
+# Linting
+# No ESLint/Prettier configured. TypeScript provides type checking.
+
+# Deploy to Pi (see Environment Variables below)
 npm run deploy                                  # Runs scripts/deploy.sh
 ```
 
@@ -61,17 +81,26 @@ npm run deploy                                  # Runs scripts/deploy.sh
 
 ### Environment Setup
 
-Create `.env` from `.env-example`:
+Create `.env` in the **project root** (not volumio-poc/):
 ```bash
 cp .env-example .env
 # Edit with your Pi credentials
 ```
 
-Required variables:
-- `RASPBERRY_PI_SSH_USERNAME` - SSH user (typically `pi`)
-- `RASPBERRY_PI_SSH_PASSWORD` - SSH password
-- `RASPBERRY_PI_API_ADDRESS` - Pi IP address
-- `STELLAR_BACKEND_FOLDER` - Path to stellar-volumio-audioplayer-backend repo
+**Root .env variables** (for SSH helper and backend deployment):
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `RASPBERRY_PI_SSH_USERNAME` | SSH user | `pi` |
+| `RASPBERRY_PI_SSH_PASSWORD` | SSH password | `your_password` |
+| `RASPBERRY_PI_API_ADDRESS` | Pi IP address | `192.168.1.100` |
+| `STELLAR_BACKEND_FOLDER` | Path to Stellar backend repo | `/path/to/stellar-backend` |
+
+**POC deploy script** (`volumio-poc/scripts/deploy.sh`) uses different env vars:
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `VOLUMIO_PI_HOST` | `192.168.86.34` | Pi IP for deployment |
+| `VOLUMIO_PI_USER` | `volumio` | SSH user |
+| `VOLUMIO_PI_PASS` | `volumio` | SSH password |
 
 Optional (NAS music source):
 - `NAS_IP`, `NAS_SHARE`, `NAS_USERNAME`, `NAS_PASSWORD` - Windows NAS config for mounting music shares
@@ -109,13 +138,6 @@ eval "$SSH_CMD 'chmod +x ~/stellar-backend/stellar && sudo systemctl restart ste
 | `stellar-backend` | 3000 | Stellar Go backend (Volumio standard port) |
 | `mpd` | 6600 | Music Player Daemon |
 
-### localhost vs Pi
-
-- `localhost` = Your macOS development machine
-- Pi IP (from `.env`) = Raspberry Pi target device
-- Dev mode frontend (`localhost:5173`) connects to Pi backend (`PI_IP:3000`)
-- Configure Pi IP in `volumio-poc/src/lib/config.ts` (`DEV_VOLUMIO_IP`)
-
 ## Architecture
 
 ### Legacy UI (AngularJS)
@@ -136,7 +158,7 @@ eval "$SSH_CMD 'chmod +x ~/stellar-backend/stellar && sudo systemctl restart ste
 
 ### POC (Svelte)
 
-**Tech Stack**: Svelte 5, TypeScript, Vite 7, Vitest, Playwright, Socket.io 4.x
+**Tech Stack**: Svelte 5, TypeScript, Vite 7, Vitest 4.x, Playwright, Socket.io 4.x
 
 **Key Files:**
 - `src/lib/config.ts` - Backend URL configuration (`DEV_VOLUMIO_IP`)
@@ -144,7 +166,7 @@ eval "$SSH_CMD 'chmod +x ~/stellar-backend/stellar && sudo systemctl restart ste
 - `src/lib/stores/` - Svelte stores (see below)
 - `src/App.svelte` - Root component with layout switching
 
-**Stores:**
+**Stores (21 total):**
 | Store | Purpose |
 |-------|---------|
 | `player.ts` | Playback state, volume, seek, track info |
@@ -155,11 +177,18 @@ eval "$SSH_CMD 'chmod +x ~/stellar-backend/stellar && sudo systemctl restart ste
 | `audirvana.ts` | Audirvana Studio integration and discovery |
 | `audio.ts` | Audio output settings, bit-perfect config |
 | `audioDevices.ts` | DAC/output device enumeration |
-| `lcd.ts` | LCD panel standby modes (CSS dimmed / hardware), brightness control |
+| `lcd.ts` | LCD standby modes (CSS dimmed / hardware), brightness |
 | `network.ts` | Network status |
 | `favorites.ts`, `playlist.ts` | User collections |
 | `settings.ts` | UI preferences |
 | `issues.ts` | System issue notifications |
+| `device.ts` | Device detection/information |
+| `performance.ts` | FPS monitoring, performance metrics |
+| `sources.ts` | Music source configuration |
+| `ui.ts` | UI state (drawers, modals) |
+| `version.ts` | Application version info |
+| `qobuz.ts` | Qobuz streaming integration |
+| `localMusic.ts` | Local music library management |
 
 **Patterns:**
 - Each store exports: `init*Store()` function, writable stores, derived stores, and `*Actions` object
@@ -213,40 +242,17 @@ initQueueStore();    // Registers pushQueue listener
 
 **LCD Control System:**
 
-The LCD control uses a hybrid approach with two configurable standby modes:
+Two standby modes configurable in Settings → Appearance:
+- **CSS Dimmed (default)**: Dims to 20% via overlay. Instant wake, reliable touch-to-wake.
+- **Hardware**: Uses `wlr-randr` to power off display. Saves power, slower wake.
 
-**Standby Modes (Settings → Appearance):**
-- **CSS Dimmed Standby (default)**: Dims display to 20% brightness via CSS overlay. Instant wake, reliable touch-to-wake since browser stays active. Recommended for most use cases.
-- **Hardware Standby**: Uses `wlr-randr` to turn off display via Wayland/Cage. Saves power but wake is slower and touch-to-wake may be unreliable.
+**Key Files:** `lcd.ts` (store), `settings.ts` (mode persistence), `StandbyOverlay.svelte` (overlay + touch handling)
 
-**Key Components:**
-- `lcd.ts` store: `lcdState`, `brightness`, `workingBrightness`, `isStandby`, `isDimmed`, `isDimmedStandby`, `lcdActions`
-- `settings.ts` store: `lcdStandbyMode` ('css' | 'hardware'), persisted to localStorage
-- `StandbyOverlay.svelte`: Full-screen overlay with touch wake, brightness dimmer (LCD panel only via `?layout=lcd`)
-- `SettingsView.svelte`: LCD Standby Mode selector and brightness slider
+**State Model:** ON (100%) → DIMMED (<100%) → DIMMED STANDBY (≤20%) or HARDWARE STANDBY (`lcdState='off'`)
 
-**State Model:**
-- **ON**: `brightness=100` (no overlay)
-- **DIMMED**: `brightness<100` (partial overlay, adjustable via slider)
-- **DIMMED STANDBY**: `brightness<=20` (CSS standby, touch anywhere to wake)
-- **HARDWARE STANDBY**: `lcdState='off'` (display powered off via wlr-randr)
+**LCD Actions:** `standby()`, `wake()`, `toggle()`, `turnOff()`, `turnOn()`, `setBrightness(n)`
 
-**LCD Actions:**
-```typescript
-lcdActions.standby()   // CSS dimmed standby (saves workingBrightness, dims to 20%)
-lcdActions.wake()      // Restore brightness to workingBrightness
-lcdActions.toggle()    // Auto-selects based on lcdStandbyMode setting
-lcdActions.turnOff()   // Hardware standby (wlr-randr)
-lcdActions.turnOn()    // Hardware wake (wlr-randr)
-lcdActions.setBrightness(50)  // Set CSS brightness (0-100)
-```
-
-**Touch Handling (Pi/Wayland):**
-- Uses non-passive event listeners (`{ passive: false }`) for reliable `preventDefault()` on Pi
-- CSS `touch-action: none` prevents browser gesture interception
-- 500ms debounce prevents rapid wake calls
-- Z-index hierarchy: StandbyOverlay (10000) > brightness dimmer (9999) > PerformanceOverlay (9998)
-- StandbyOverlay only renders on physical LCD (`?layout=lcd` URL param)
+**Touch Handling:** Non-passive listeners for Pi/Wayland, 500ms debounce, StandbyOverlay only on `?layout=lcd`
 
 **Audirvana Integration:**
 | Emit | Receive | Description |
@@ -303,6 +309,22 @@ Example: `git commit -m "feat(audio): add bit-perfect audio status indicator"`
 - [ ] Tests written and passing
 - [ ] Code deployed to Pi and verified on hardware
 - [ ] Logs checked for errors (`journalctl -u stellar-backend -f`)
+
+### E2E Test Status
+
+Current E2E tests have **38% pass rate** (21 passing, 34 failing). Known issues documented in `volumio-poc/E2E-TEST-ISSUES.md`:
+- Navigation selectors don't match actual component structure
+- Player control `data-testid` attributes missing
+- Status drawer rendering issues
+
+**Priority:** Add `data-testid` attributes when modifying components.
+
+### Additional Documentation
+
+For detailed setup and architecture, see:
+- `volumio-poc/DEVELOPMENT.md` - Full development guide (kiosk setup, deployment)
+- `volumio-poc/POC_SUMMARY.md` - Project summary with performance metrics
+- `volumio-poc/E2E-TEST-ISSUES.md` - Test failure analysis
 
 ## Browser Console Debugging (POC)
 
