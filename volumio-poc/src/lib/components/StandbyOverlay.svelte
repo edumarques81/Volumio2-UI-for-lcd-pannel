@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount, onDestroy } from 'svelte';
   import { isStandby, brightness, lcdActions } from '$lib/stores/lcd';
   import { navigationActions } from '$lib/stores/navigation';
 
@@ -6,16 +7,50 @@
   // brightness 100% = opacity 0, brightness 0% = opacity 1
   $: dimmerOpacity = (100 - $brightness) / 100;
 
+  // Debounce tracking to prevent rapid wake calls
+  let lastWakeTime = 0;
+  const DEBOUNCE_MS = 500;
+
+  // Reference to overlay element for non-passive event listeners
+  let overlayElement: HTMLDivElement;
+
   function handleWake(event: TouchEvent | MouseEvent) {
     event.stopPropagation();
     event.preventDefault();
 
-    if ($isStandby) {
-      console.log('📺 Wake from standby');
-      lcdActions.wake();
-      navigationActions.goHome();
+    // Only process if in standby mode
+    if (!$isStandby) {
+      return;
     }
+
+    // Debounce rapid touches
+    const now = Date.now();
+    if (now - lastWakeTime < DEBOUNCE_MS) {
+      return;
+    }
+    lastWakeTime = now;
+
+    console.log('📺 Wake from standby');
+    lcdActions.wake();
+    navigationActions.goHome();
   }
+
+  onMount(() => {
+    // Add non-passive event listeners for reliable touch handling on Pi/Wayland
+    // Svelte's on:touchstart creates passive listeners by default which ignore preventDefault()
+    if (overlayElement) {
+      overlayElement.addEventListener('touchstart', handleWake, { passive: false });
+      overlayElement.addEventListener('touchend', handleWake, { passive: false });
+    }
+  });
+
+  onDestroy(() => {
+    // Cleanup event listeners
+    if (overlayElement) {
+      overlayElement.removeEventListener('touchstart', handleWake);
+      overlayElement.removeEventListener('touchend', handleWake);
+    }
+  });
 </script>
 
 <!-- Brightness dimmer overlay (always present, opacity based on brightness) -->
@@ -27,9 +62,9 @@
 
 <!-- Standby overlay (captures all touches when in standby) -->
 <div
+  bind:this={overlayElement}
   class="standby-overlay"
   class:active={$isStandby}
-  on:touchstart={handleWake}
   on:mousedown={handleWake}
   role="presentation"
   aria-label="Screen is in standby. Touch to wake."
@@ -44,8 +79,8 @@
     bottom: 0;
     background-color: black;
     pointer-events: none;
-    z-index: 9998;
-    transition: opacity 0.3s ease;
+    z-index: 9999;
+    transition: opacity 0.5s ease;
   }
 
   .standby-overlay {
@@ -55,10 +90,15 @@
     right: 0;
     bottom: 0;
     background-color: black;
-    z-index: 9999;
+    z-index: 10000;
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.5s ease;
+    /* Critical for Pi/Wayland touch handling */
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
   }
 
   .standby-overlay.active {

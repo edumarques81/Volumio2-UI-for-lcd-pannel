@@ -228,6 +228,12 @@ State model:
 - **DIMMED**: `lcdState='on'`, `brightness<100` (partial overlay)
 - **STANDBY**: `lcdState='off'`, `brightness=0` (full black overlay, touch to wake)
 
+Touch handling (Pi/Wayland):
+- Uses non-passive event listeners (`{ passive: false }`) for reliable `preventDefault()` on Pi
+- CSS `touch-action: none` prevents browser gesture interception
+- 500ms debounce prevents rapid wake calls
+- Z-index hierarchy: StandbyOverlay (10000) > brightness dimmer (9999) > PerformanceOverlay (9998)
+
 **Audirvana Integration:**
 | Emit | Receive | Description |
 |------|---------|-------------|

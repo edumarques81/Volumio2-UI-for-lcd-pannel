@@ -169,7 +169,7 @@
 <style>
 	.performance-overlay {
 		position: fixed;
-		z-index: 9999;
+		z-index: 9998; /* Below StandbyOverlay (10000) and brightness dimmer (9999) */
 		background: rgba(0, 0, 0, 0.85);
 		border: 1px solid rgba(255, 255, 255, 0.2);
 		border-radius: 8px;

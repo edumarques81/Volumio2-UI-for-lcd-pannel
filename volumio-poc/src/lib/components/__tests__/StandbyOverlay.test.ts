@@ -165,5 +165,157 @@ describe('StandbyOverlay', () => {
       expect(stopPropagationSpy).toHaveBeenCalled();
       expect(preventDefaultSpy).toHaveBeenCalled();
     });
+
+    it('should NOT wake when not in standby mode', async () => {
+      vi.mocked(isStandby.subscribe).mockImplementation((callback) => {
+        callback(false); // Not in standby
+        return () => {};
+      });
+      vi.mocked(brightness.subscribe).mockImplementation((callback) => {
+        callback(100);
+        return () => {};
+      });
+
+      const { container } = render(StandbyOverlay);
+      const overlay = container.querySelector('.standby-overlay');
+
+      await fireEvent.touchStart(overlay!);
+
+      // Should not call wake when not in standby
+      expect(lcdActions.wake).not.toHaveBeenCalled();
+      expect(navigationActions.goHome).not.toHaveBeenCalled();
+    });
+
+    it('should debounce rapid successive touches', async () => {
+      vi.mocked(isStandby.subscribe).mockImplementation((callback) => {
+        callback(true);
+        return () => {};
+      });
+      vi.mocked(brightness.subscribe).mockImplementation((callback) => {
+        callback(100);
+        return () => {};
+      });
+
+      const { container } = render(StandbyOverlay);
+      const overlay = container.querySelector('.standby-overlay');
+
+      // Fire multiple rapid touches
+      await fireEvent.touchStart(overlay!);
+      await fireEvent.touchStart(overlay!);
+      await fireEvent.touchStart(overlay!);
+
+      // Should only call wake once due to debouncing
+      expect(lcdActions.wake).toHaveBeenCalledTimes(1);
+    });
+
+    it('should wake on mousedown when in standby', async () => {
+      vi.mocked(isStandby.subscribe).mockImplementation((callback) => {
+        callback(true);
+        return () => {};
+      });
+      vi.mocked(brightness.subscribe).mockImplementation((callback) => {
+        callback(100);
+        return () => {};
+      });
+
+      const { container } = render(StandbyOverlay);
+      const overlay = container.querySelector('.standby-overlay');
+
+      await fireEvent.mouseDown(overlay!);
+
+      expect(lcdActions.wake).toHaveBeenCalled();
+      expect(navigationActions.goHome).toHaveBeenCalled();
+    });
+  });
+
+  describe('CSS properties for touch handling', () => {
+    it('should have active class when in standby (enables touch-action: none)', async () => {
+      vi.mocked(isStandby.subscribe).mockImplementation((callback) => {
+        callback(true);
+        return () => {};
+      });
+      vi.mocked(brightness.subscribe).mockImplementation((callback) => {
+        callback(100);
+        return () => {};
+      });
+
+      const { container } = render(StandbyOverlay);
+      const overlay = container.querySelector('.standby-overlay') as HTMLElement;
+
+      // When active, CSS includes touch-action: none (verified via class presence)
+      expect(overlay.classList.contains('active')).toBe(true);
+    });
+
+    it('should have active class when in standby (enables pointer-events: all)', async () => {
+      vi.mocked(isStandby.subscribe).mockImplementation((callback) => {
+        callback(true);
+        return () => {};
+      });
+      vi.mocked(brightness.subscribe).mockImplementation((callback) => {
+        callback(100);
+        return () => {};
+      });
+
+      const { container } = render(StandbyOverlay);
+      const overlay = container.querySelector('.standby-overlay') as HTMLElement;
+
+      // CSS .standby-overlay.active has pointer-events: all
+      expect(overlay.classList.contains('active')).toBe(true);
+    });
+
+    it('should not have active class when not in standby (pointer-events: none)', async () => {
+      vi.mocked(isStandby.subscribe).mockImplementation((callback) => {
+        callback(false);
+        return () => {};
+      });
+      vi.mocked(brightness.subscribe).mockImplementation((callback) => {
+        callback(100);
+        return () => {};
+      });
+
+      const { container } = render(StandbyOverlay);
+      const overlay = container.querySelector('.standby-overlay') as HTMLElement;
+
+      // Without .active class, CSS has pointer-events: none
+      expect(overlay.classList.contains('active')).toBe(false);
+    });
+  });
+
+  describe('z-index ordering', () => {
+    it('should have both overlay elements present', async () => {
+      vi.mocked(isStandby.subscribe).mockImplementation((callback) => {
+        callback(true);
+        return () => {};
+      });
+      vi.mocked(brightness.subscribe).mockImplementation((callback) => {
+        callback(100);
+        return () => {};
+      });
+
+      const { container } = render(StandbyOverlay);
+      const overlay = container.querySelector('.standby-overlay');
+      const dimmer = container.querySelector('.brightness-dimmer');
+
+      // Verify both elements exist (z-index is defined in CSS: overlay=10000, dimmer=9999)
+      expect(overlay).toBeTruthy();
+      expect(dimmer).toBeTruthy();
+    });
+
+    it('should have brightness dimmer with opacity based on brightness', async () => {
+      vi.mocked(isStandby.subscribe).mockImplementation((callback) => {
+        callback(true);
+        return () => {};
+      });
+      vi.mocked(brightness.subscribe).mockImplementation((callback) => {
+        callback(50); // 50% brightness = 0.5 opacity
+        return () => {};
+      });
+
+      const { container } = render(StandbyOverlay);
+      const dimmer = container.querySelector('.brightness-dimmer') as HTMLElement;
+
+      // Dimmer opacity is set via inline style
+      expect(dimmer.getAttribute('style')).toContain('opacity: 0.5');
+    });
   });
 });
