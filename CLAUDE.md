@@ -52,6 +52,9 @@ npm run test:coverage                           # Tests with coverage
 # Build & Type Check
 npm run build                                   # Production build → dist/
 npx tsc --noEmit                                # Type check only
+
+# Deploy to Pi (requires .env configured)
+npm run deploy                                  # Runs scripts/deploy.sh
 ```
 
 ## Raspberry Pi Development
@@ -73,38 +76,30 @@ Required variables:
 Optional (NAS music source):
 - `NAS_IP`, `NAS_SHARE`, `NAS_USERNAME`, `NAS_PASSWORD` - Windows NAS config for mounting music shares
 
-### SSH Access Pattern
+### SSH Helper
 
-All SSH operations MUST use `sshpass` with credentials from `.env`:
+All SSH operations use `sshpass` with credentials from `.env`. Define this helper:
 ```bash
 source .env
-sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" ssh -o StrictHostKeyChecking=no "$RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS" "command"
+SSH_CMD="sshpass -p '$RASPBERRY_PI_SSH_PASSWORD' ssh -o StrictHostKeyChecking=no $RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS"
 ```
 
 ### Deployment
 
-**Frontend (POC) to Pi:**
+**Frontend (POC):** Use the deploy script or manually:
 ```bash
-source .env
-cd volumio-poc && npm run build
-sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" rsync -avz --delete dist/ "$RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS:~/stellar-volumio/"
-sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" ssh "$RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS" "sudo systemctl restart stellar-frontend"
+cd volumio-poc && npm run deploy    # Uses scripts/deploy.sh
 ```
 
-**Backend (Stellar) to Pi:**
+**Backend (Stellar):**
 ```bash
-source .env
-cd "$STELLAR_BACKEND_FOLDER"
+source .env && cd "$STELLAR_BACKEND_FOLDER"
 GOOS=linux GOARCH=arm64 go build -o stellar-arm64 ./cmd/stellar
 sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" scp stellar-arm64 "$RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS:~/stellar-backend/stellar"
-sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" ssh "$RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS" "chmod +x ~/stellar-backend/stellar && sudo systemctl restart stellar-backend"
+eval "$SSH_CMD 'chmod +x ~/stellar-backend/stellar && sudo systemctl restart stellar-backend'"
 ```
 
-**Check logs:**
-```bash
-source .env
-sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" ssh "$RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS" "journalctl -u stellar-backend -f"
-```
+**View logs:** `eval "$SSH_CMD 'journalctl -u stellar-backend -f'"`
 
 ### Services on Pi
 
@@ -114,7 +109,7 @@ sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" ssh "$RASPBERRY_PI_SSH_USERNAME@$RASPBER
 | `stellar-backend` | 3000 | Stellar Go backend (Volumio standard port) |
 | `mpd` | 6600 | Music Player Daemon |
 
-### localhost vs Pi (Important)
+### localhost vs Pi
 
 - `localhost` = Your macOS development machine
 - Pi IP (from `.env`) = Raspberry Pi target device
@@ -146,11 +141,27 @@ sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" ssh "$RASPBERRY_PI_SSH_USERNAME@$RASPBER
 **Key Files:**
 - `src/lib/config.ts` - Backend URL configuration (`DEV_VOLUMIO_IP`)
 - `src/lib/services/socket.ts` - Socket.IO wrapper
-- `src/lib/stores/` - Svelte stores (player, queue, browse, navigation, etc.)
+- `src/lib/stores/` - Svelte stores (see below)
 - `src/App.svelte` - Root component with layout switching
 
+**Stores:**
+| Store | Purpose |
+|-------|---------|
+| `player.ts` | Playback state, volume, seek, track info |
+| `queue.ts` | Play queue management |
+| `browse.ts` | Library browsing, navigation history |
+| `navigation.ts` | View routing, layout mode |
+| `audioEngine.ts` | Audio engine selection (Stellar/Audirvana) |
+| `audirvana.ts` | Audirvana Studio integration and discovery |
+| `audio.ts` | Audio output settings, bit-perfect config |
+| `audioDevices.ts` | DAC/output device enumeration |
+| `lcd.ts` | LCD panel power state (standby/wake) |
+| `network.ts` | Network status |
+| `favorites.ts`, `playlist.ts` | User collections |
+| `settings.ts` | UI preferences |
+| `issues.ts` | System issue notifications |
+
 **Patterns:**
-- State managed via Svelte 5 stores in `src/lib/stores/`
 - Each store exports: `init*Store()` function, writable stores, derived stores, and `*Actions` object
 - Tests in `__tests__/` directories adjacent to source files
 - Layouts: `LCDLayout` (1920x440), `MobileLayout`, `DesktopLayout`
@@ -200,6 +211,15 @@ initQueueStore();    // Registers pushQueue listener
 | `lcdStandby`, `lcdWake` | `pushLcdStatus` | LCD power control |
 | - | `pushToastMessage` | Toast notifications from backend |
 
+**Audirvana Integration:**
+| Emit | Receive | Description |
+|------|---------|-------------|
+| `getAudirvanaStatus` | `pushAudirvanaStatus` | Get Audirvana detection/discovery status |
+| `audirvanaStartService` | - | Start Audirvana systemd service |
+| `audirvanaStopService` | - | Stop Audirvana systemd service |
+
+The audio engine store manages mutual exclusion between MPD and Audirvana for bit-perfect playback.
+
 ### Socket.IO Compatibility & mDNS Discovery
 
 **Version Matrix:**
@@ -234,37 +254,18 @@ npm run verify:discovery  # Verify mDNS discovery
 
 ## Development Workflow
 
-### Test-Driven Development
-
-1. Write tests first (failing)
-2. Implement minimal code to pass
-3. Refactor while keeping tests green
-4. Run all tests before committing
-
 ### Conventional Commits
 
-All commits follow `<type>(<scope>): <description>` format:
-- `feat` - New feature
-- `fix` - Bug fix
-- `docs` - Documentation
-- `refactor` - Code restructuring
-- `test` - Adding/correcting tests
-- `chore` - Build/tooling changes
+Commits follow `<type>(<scope>): <description>` format:
+- `feat`, `fix`, `docs`, `refactor`, `test`, `chore`
 
-Examples:
-```bash
-git commit -m "feat(audio): add bit-perfect audio status indicator"
-git commit -m "fix(device): correct phone detection for tall screens"
-git commit -m "test(player): add unit tests for seek functionality"
-```
+Example: `git commit -m "feat(audio): add bit-perfect audio status indicator"`
 
 ### Development Checklist
 
-Before completing any task:
 - [ ] Tests written and passing
 - [ ] Code deployed to Pi and verified on hardware
 - [ ] Logs checked for errors (`journalctl -u stellar-backend -f`)
-- [ ] Commit message follows Conventional Commits format
 
 ## Browser Console Debugging (POC)
 
