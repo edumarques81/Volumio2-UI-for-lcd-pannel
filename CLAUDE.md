@@ -155,7 +155,7 @@ eval "$SSH_CMD 'chmod +x ~/stellar-backend/stellar && sudo systemctl restart ste
 | `audirvana.ts` | Audirvana Studio integration and discovery |
 | `audio.ts` | Audio output settings, bit-perfect config |
 | `audioDevices.ts` | DAC/output device enumeration |
-| `lcd.ts` | LCD panel state, brightness, standby overlay (CSS-based) |
+| `lcd.ts` | LCD panel standby modes (CSS dimmed / hardware), brightness control |
 | `network.ts` | Network status |
 | `favorites.ts`, `playlist.ts` | User collections |
 | `settings.ts` | UI preferences |
@@ -213,26 +213,40 @@ initQueueStore();    // Registers pushQueue listener
 
 **LCD Control System:**
 
-The LCD control uses a hybrid approach:
-- **Standby/Wake (CSS overlay)**: Handled entirely in frontend via `StandbyOverlay.svelte`. Uses CSS opacity overlay for instant, reliable standby without disconnecting the browser.
-- **Hardware power control**: Backend uses `wlr-randr` for Wayland (Cage compositor). Note: Turning off display via wlr-randr disconnects the browser, breaking touch-to-wake.
-- **Brightness**: CSS overlay dimmer (0-100%), controlled via Settings slider.
+The LCD control uses a hybrid approach with two configurable standby modes:
 
-Key components:
-- `lcd.ts` store: `lcdState`, `brightness`, `isStandby`, `isDimmed`, `lcdActions`
-- `StandbyOverlay.svelte`: Full-screen overlay with touch wake, brightness dimmer
-- `SettingsView.svelte`: Brightness slider in Appearance > Display section
+**Standby Modes (Settings → Appearance):**
+- **CSS Dimmed Standby (default)**: Dims display to 20% brightness via CSS overlay. Instant wake, reliable touch-to-wake since browser stays active. Recommended for most use cases.
+- **Hardware Standby**: Uses `wlr-randr` to turn off display via Wayland/Cage. Saves power but wake is slower and touch-to-wake may be unreliable.
 
-State model:
-- **ON**: `lcdState='on'`, `brightness=100` (no overlay)
-- **DIMMED**: `lcdState='on'`, `brightness<100` (partial overlay)
-- **STANDBY**: `lcdState='off'`, `brightness=0` (full black overlay, touch to wake)
+**Key Components:**
+- `lcd.ts` store: `lcdState`, `brightness`, `workingBrightness`, `isStandby`, `isDimmed`, `isDimmedStandby`, `lcdActions`
+- `settings.ts` store: `lcdStandbyMode` ('css' | 'hardware'), persisted to localStorage
+- `StandbyOverlay.svelte`: Full-screen overlay with touch wake, brightness dimmer (LCD panel only via `?layout=lcd`)
+- `SettingsView.svelte`: LCD Standby Mode selector and brightness slider
 
-Touch handling (Pi/Wayland):
+**State Model:**
+- **ON**: `brightness=100` (no overlay)
+- **DIMMED**: `brightness<100` (partial overlay, adjustable via slider)
+- **DIMMED STANDBY**: `brightness<=20` (CSS standby, touch anywhere to wake)
+- **HARDWARE STANDBY**: `lcdState='off'` (display powered off via wlr-randr)
+
+**LCD Actions:**
+```typescript
+lcdActions.standby()   // CSS dimmed standby (saves workingBrightness, dims to 20%)
+lcdActions.wake()      // Restore brightness to workingBrightness
+lcdActions.toggle()    // Auto-selects based on lcdStandbyMode setting
+lcdActions.turnOff()   // Hardware standby (wlr-randr)
+lcdActions.turnOn()    // Hardware wake (wlr-randr)
+lcdActions.setBrightness(50)  // Set CSS brightness (0-100)
+```
+
+**Touch Handling (Pi/Wayland):**
 - Uses non-passive event listeners (`{ passive: false }`) for reliable `preventDefault()` on Pi
 - CSS `touch-action: none` prevents browser gesture interception
 - 500ms debounce prevents rapid wake calls
 - Z-index hierarchy: StandbyOverlay (10000) > brightness dimmer (9999) > PerformanceOverlay (9998)
+- StandbyOverlay only renders on physical LCD (`?layout=lcd` URL param)
 
 **Audirvana Integration:**
 | Emit | Receive | Description |

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { get } from 'svelte/store';
-  import { isStandby, brightness, lcdActions } from '$lib/stores/lcd';
+  import { isDimmedStandby, brightness, lcdActions } from '$lib/stores/lcd';
   import { navigationActions } from '$lib/stores/navigation';
 
   // Check if running on physical LCD (Pi uses ?layout=lcd URL parameter)
@@ -15,7 +15,8 @@
   }
 
   // Only apply standby overlay on physical LCD panel, not remote browsers
-  $: shouldShowOverlay = isPhysicalLcd && $isStandby;
+  // Use isDimmedStandby to detect when brightness is at standby level (20% or below)
+  $: shouldShowOverlay = isPhysicalLcd && $isDimmedStandby;
   $: shouldApplyBrightness = isPhysicalLcd;
 
   // Calculate dimmer opacity (inverted brightness)
@@ -37,14 +38,14 @@
       return; // Not a physical LCD, ignore
     }
 
-    // Check standby state using get() for synchronous access
-    const inStandby = get(isStandby);
+    // Check if in dimmed standby mode using get() for synchronous access
+    const inDimmedStandby = get(isDimmedStandby);
 
-    if (!inStandby) {
-      return; // Not in standby, let event propagate normally
+    if (!inDimmedStandby) {
+      return; // Not in dimmed standby, let event propagate normally
     }
 
-    // We're in standby - consume this touch and wake up
+    // We're in dimmed standby - consume this touch and wake up
     event.stopPropagation();
     event.preventDefault();
     event.stopImmediatePropagation();
@@ -56,8 +57,8 @@
     }
     lastWakeTime = now;
 
-    console.log('📺 Wake from standby (document touch capture)');
-    lcdActions.turnOn();  // Use turnOn() to send backend command (not just CSS)
+    console.log('📺 Wake from dimmed standby (document touch capture)');
+    lcdActions.wake();  // Restore to working brightness
     navigationActions.goHome();
   }
 
@@ -70,9 +71,9 @@
       return; // Not a physical LCD, ignore
     }
 
-    const inStandby = get(isStandby);
+    const inDimmedStandby = get(isDimmedStandby);
 
-    if (!inStandby) {
+    if (!inDimmedStandby) {
       return;
     }
 
@@ -85,8 +86,8 @@
     }
     lastWakeTime = now;
 
-    console.log('📺 Wake from standby (mousedown)');
-    lcdActions.turnOn();  // Use turnOn() to send backend command (not just CSS)
+    console.log('📺 Wake from dimmed standby (mousedown)');
+    lcdActions.wake();  // Restore to working brightness
     navigationActions.goHome();
   }
 
@@ -144,11 +145,10 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: black;
+    /* Transparent - just captures touches, brightness dimmer handles visuals */
+    background-color: transparent;
     z-index: 10000;
-    opacity: 0;
     pointer-events: none;
-    transition: opacity 0.5s ease;
     touch-action: none;
     user-select: none;
     -webkit-user-select: none;
@@ -156,7 +156,7 @@
   }
 
   .standby-overlay.active {
-    opacity: 1;
+    /* Capture all pointer events when in dimmed standby mode */
     pointer-events: all;
     cursor: pointer;
   }

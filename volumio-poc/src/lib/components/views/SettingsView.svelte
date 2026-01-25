@@ -9,7 +9,9 @@
     settingsActions,
     availableBackgrounds,
     selectedBackground,
-    type SettingsCategory
+    lcdStandbyMode,
+    type SettingsCategory,
+    type LcdStandbyMode
   } from '$lib/stores/settings';
   import { networkStatus, isConnected } from '$lib/stores/network';
   import {
@@ -402,6 +404,39 @@
               data-testid="brightness-slider"
             />
             <span class="brightness-value">{$brightness}%</span>
+          </div>
+        </div>
+
+        <div class="setting-item" data-testid="lcd-standby-mode-setting">
+          <div class="setting-info">
+            <span class="setting-label">LCD Standby Mode</span>
+            <span class="setting-desc">
+              {#if $lcdStandbyMode === 'css'}
+                Dimmed (20%) - instant wake, reliable touch
+              {:else}
+                Hardware off - saves power, slower wake
+              {/if}
+            </span>
+          </div>
+          <div class="mode-buttons">
+            <button
+              class="mode-btn"
+              class:active={$lcdStandbyMode === 'css'}
+              on:click={() => settingsActions.setLcdStandbyMode('css')}
+              data-testid="lcd-standby-mode-css"
+            >
+              <Icon name="sun" size={20} />
+              Dimmed
+            </button>
+            <button
+              class="mode-btn"
+              class:active={$lcdStandbyMode === 'hardware'}
+              on:click={() => settingsActions.setLcdStandbyMode('hardware')}
+              data-testid="lcd-standby-mode-hardware"
+            >
+              <Icon name="power" size={20} />
+              Hardware Off
+            </button>
           </div>
         </div>
       </div>

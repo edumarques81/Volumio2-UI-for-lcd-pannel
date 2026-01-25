@@ -139,6 +139,25 @@ The POC uses Socket.io to communicate with Volumio backend. Key events:
 - `pushState` - Player state updates
 - `pushQueue` - Queue updates
 - `pushToastMessage` - Toast notifications
+- `pushLcdStatus` - LCD panel state updates
+
+### LCD Control
+
+The UI includes a complete LCD standby system for touchscreen displays:
+
+**Standby Modes (Settings → Appearance):**
+- **CSS Dimmed (default)** - Dims to 20% brightness via CSS overlay. Instant wake, reliable touch-to-wake.
+- **Hardware Off** - Uses wlr-randr to power off display. Slower wake, touch may be unreliable.
+
+**Browser Console:**
+```javascript
+lcdActions.standby()    // Enter CSS dimmed standby (20% brightness)
+lcdActions.wake()       // Wake from standby (restore brightness)
+lcdActions.toggle()     // Toggle based on current mode setting
+lcdActions.setBrightness(50)  // Set brightness (0-100)
+```
+
+**Note:** The standby overlay only appears on the physical LCD panel (URL with `?layout=lcd`).
 
 ### Streaming Services (Planned)
 

@@ -1,5 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { get } from 'svelte/store';
+import { get, writable } from 'svelte/store';
+
+// Create mock stores using vi.hoisted to ensure they're available during mock setup
+const { mockLcdStandbyMode } = vi.hoisted(() => {
+  const { writable } = require('svelte/store');
+  return {
+    mockLcdStandbyMode: writable('css')
+  };
+});
 
 // Mock socket service
 vi.mock('$lib/services/socket', () => ({
@@ -7,6 +15,11 @@ vi.mock('$lib/services/socket', () => ({
     emit: vi.fn(),
     on: vi.fn(() => () => {})
   }
+}));
+
+// Mock settings store with lcdStandbyMode
+vi.mock('$lib/stores/settings', () => ({
+  lcdStandbyMode: mockLcdStandbyMode
 }));
 
 import {
@@ -17,8 +30,12 @@ import {
   cleanupLcdStore,
   isLcdOn,
   brightness,
+  workingBrightness,
   isStandby,
   isDimmed,
+  isDimmedStandby,
+  STANDBY_BRIGHTNESS,
+  DEFAULT_BRIGHTNESS,
   type LcdState,
   type LCDStatus
 } from '../lcd';
@@ -29,6 +46,8 @@ describe('LCD store (Socket.IO)', () => {
     // Reset stores and mocks
     lcdState.set('unknown');
     lcdLoading.set(false);
+    brightness.set(DEFAULT_BRIGHTNESS);
+    workingBrightness.set(DEFAULT_BRIGHTNESS);
     vi.clearAllMocks();
     cleanupLcdStore();
   });
@@ -92,7 +111,33 @@ describe('LCD store (Socket.IO)', () => {
     });
   });
 
-  describe('lcdActions.toggle', () => {
+  describe('lcdActions.toggle (CSS mode - default)', () => {
+    beforeEach(() => {
+      mockLcdStandbyMode.set('css');
+    });
+
+    it('should call wake() when brightness is at standby level', () => {
+      brightness.set(20); // STANDBY_BRIGHTNESS
+      lcdActions.toggle();
+      // CSS mode uses wake() which doesn't emit socket events
+      expect(socketService.emit).not.toHaveBeenCalled();
+      expect(get(brightness)).toBe(100); // Restored to working brightness
+    });
+
+    it('should call standby() when brightness is above standby level', () => {
+      brightness.set(100);
+      lcdActions.toggle();
+      // CSS mode uses standby() which doesn't emit socket events
+      expect(socketService.emit).not.toHaveBeenCalled();
+      expect(get(brightness)).toBe(20); // Dimmed to STANDBY_BRIGHTNESS
+    });
+  });
+
+  describe('lcdActions.toggle (hardware mode)', () => {
+    beforeEach(() => {
+      mockLcdStandbyMode.set('hardware');
+    });
+
     it('should turn on when currently off', () => {
       lcdState.set('off');
       lcdActions.toggle();
@@ -248,22 +293,25 @@ describe('LCD store (Socket.IO)', () => {
     });
   });
 
-  describe('lcdActions.standby (CSS overlay mode)', () => {
+  describe('lcdActions.standby (dimmed standby mode)', () => {
     it('should NOT emit backend events (CSS-only mode)', () => {
       lcdActions.standby();
       expect(socketService.emit).not.toHaveBeenCalled();
     });
 
-    it('should set state to off', () => {
-      lcdState.set('on');
-      lcdActions.standby();
-      expect(get(lcdState)).toBe('off');
-    });
-
-    it('should set brightness to 0 for full black overlay', () => {
+    it('should dim brightness to STANDBY_BRIGHTNESS (20%)', () => {
       brightness.set(100);
       lcdActions.standby();
-      expect(get(brightness)).toBe(0);
+      expect(get(brightness)).toBe(20); // STANDBY_BRIGHTNESS
+    });
+
+    it('should save working brightness before dimming', () => {
+      brightness.set(80);
+      lcdActions.standby();
+      expect(get(brightness)).toBe(20);
+      // Wake should restore to 80
+      lcdActions.wake();
+      expect(get(brightness)).toBe(80);
     });
 
     it('should not set loading state', () => {
@@ -272,24 +320,26 @@ describe('LCD store (Socket.IO)', () => {
     });
   });
 
-  describe('lcdActions.wake (CSS overlay mode)', () => {
+  describe('lcdActions.wake (restore brightness mode)', () => {
     it('should NOT emit backend events (CSS-only mode)', () => {
-      lcdState.set('off');
       lcdActions.wake();
       expect(socketService.emit).not.toHaveBeenCalled();
     });
 
-    it('should restore brightness to 100 when waking', () => {
-      brightness.set(0);
-      lcdState.set('off');
+    it('should restore brightness to working brightness (default 100)', () => {
+      brightness.set(20);
       lcdActions.wake();
       expect(get(brightness)).toBe(100);
     });
 
-    it('should set state to on', () => {
-      lcdState.set('off');
-      lcdActions.wake();
-      expect(get(lcdState)).toBe('on');
+    it('should restore to saved working brightness', () => {
+      // Set working brightness to 80 via standby
+      brightness.set(80);
+      lcdActions.standby(); // Saves 80 as working brightness, dims to 20
+      expect(get(brightness)).toBe(20);
+
+      lcdActions.wake(); // Should restore to 80
+      expect(get(brightness)).toBe(80);
     });
 
     it('should not set loading state', () => {

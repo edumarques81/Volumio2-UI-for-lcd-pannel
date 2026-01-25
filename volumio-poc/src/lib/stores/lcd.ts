@@ -1,5 +1,6 @@
 import { writable, derived, get } from 'svelte/store';
 import { socketService } from '$lib/services/socket';
+import { lcdStandbyMode } from './settings';
 
 export type LcdState = 'on' | 'off' | 'unknown';
 
@@ -11,8 +12,15 @@ export interface LCDStatus {
 export const lcdState = writable<LcdState>('unknown');
 export const lcdLoading = writable<boolean>(false);
 
+// Brightness constants
+export const STANDBY_BRIGHTNESS = 20;  // Dimmed standby mode (20%)
+export const DEFAULT_BRIGHTNESS = 100; // Full brightness
+
 // Brightness store (0-100, CSS overlay based since no hardware backlight)
-export const brightness = writable<number>(100);
+export const brightness = writable<number>(DEFAULT_BRIGHTNESS);
+
+// Working brightness - the brightness to restore to when waking from standby
+export const workingBrightness = writable<number>(DEFAULT_BRIGHTNESS);
 
 // Derived stores for quick boolean access
 export const isLcdOn = derived(lcdState, ($state) => $state === 'on');
@@ -20,6 +28,11 @@ export const isStandby = derived(lcdState, ($state) => $state === 'off');
 export const isDimmed = derived(
   [lcdState, brightness],
   ([$state, $brightness]) => $state === 'on' && $brightness < 100
+);
+// Dimmed standby mode - screen is dimmed to standby level, touch to wake
+export const isDimmedStandby = derived(
+  brightness,
+  ($brightness) => $brightness <= STANDBY_BRIGHTNESS
 );
 
 /**
@@ -56,14 +69,29 @@ export const lcdActions = {
   },
 
   /**
-   * Toggle LCD state
+   * Toggle LCD state based on the configured standby mode
+   * - 'css' mode: Uses standby()/wake() for instant, reliable touch-to-wake
+   * - 'hardware' mode: Uses turnOff()/turnOn() with wlr-randr backend commands
    */
   toggle(): void {
-    const currentState = get(lcdState);
-    if (currentState === 'off') {
-      this.turnOn();
+    const mode = get(lcdStandbyMode);
+
+    if (mode === 'css') {
+      // CSS dimmed standby mode - check brightness level
+      const currentBrightness = get(brightness);
+      if (currentBrightness <= STANDBY_BRIGHTNESS) {
+        this.wake();
+      } else {
+        this.standby();
+      }
     } else {
-      this.turnOff();
+      // Hardware mode - check lcdState
+      const currentState = get(lcdState);
+      if (currentState === 'off') {
+        this.turnOn();
+      } else {
+        this.turnOff();
+      }
     }
   },
 
@@ -87,25 +115,31 @@ export const lcdActions = {
   },
 
   /**
-   * Put display into standby mode (CSS overlay only - no backend call)
+   * Put display into dimmed standby mode (CSS overlay only - no backend call)
+   * Dims to STANDBY_BRIGHTNESS (20%) instead of fully black.
    * This keeps the browser running so touch-to-wake works reliably.
    * Use turnOff() for actual hardware power off.
    */
   standby(): void {
-    console.log('📺 LCD standby (CSS overlay)');
-    lcdState.set('off');
-    brightness.set(0); // Full black overlay
+    // Save current brightness as working brightness before dimming
+    const currentBrightness = get(brightness);
+    if (currentBrightness > STANDBY_BRIGHTNESS) {
+      workingBrightness.set(currentBrightness);
+    }
+
+    console.log(`📺 LCD standby (dimming to ${STANDBY_BRIGHTNESS}%)`);
+    brightness.set(STANDBY_BRIGHTNESS);
     lcdLoading.set(false);
   },
 
   /**
-   * Wake display from standby and restore full brightness (CSS overlay only)
-   * This is instant since it's just removing the CSS overlay.
+   * Wake display from dimmed standby and restore working brightness (CSS overlay only)
+   * This is instant since it's just adjusting the CSS overlay.
    */
   wake(): void {
-    console.log('📺 LCD wake (CSS overlay)');
-    lcdState.set('on');
-    brightness.set(100); // Restore full brightness
+    const targetBrightness = get(workingBrightness);
+    console.log(`📺 LCD wake (restoring to ${targetBrightness}%)`);
+    brightness.set(targetBrightness);
     lcdLoading.set(false);
   },
 

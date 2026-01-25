@@ -12,11 +12,11 @@ vi.mock('$lib/stores/lcd', () => ({
     subscribe: vi.fn(),
     set: vi.fn()
   },
-  isStandby: {
+  isDimmedStandby: {
     subscribe: vi.fn()
   },
   lcdActions: {
-    turnOn: vi.fn()
+    wake: vi.fn()
   }
 }));
 
@@ -27,7 +27,7 @@ vi.mock('$lib/stores/navigation', () => ({
 }));
 
 import StandbyOverlay from '../StandbyOverlay.svelte';
-import { lcdState, brightness, isStandby, lcdActions } from '$lib/stores/lcd';
+import { lcdState, brightness, isDimmedStandby, lcdActions } from '$lib/stores/lcd';
 import { navigationActions } from '$lib/stores/navigation';
 
 // Helper to mock URL parameter for LCD detection
@@ -52,8 +52,8 @@ describe('StandbyOverlay', () => {
 
   describe('visibility', () => {
     it('should be visible when in standby mode on LCD panel', async () => {
-      // Mock isStandby as true
-      vi.mocked(isStandby.subscribe).mockImplementation((callback) => {
+      // Mock isDimmedStandby as true
+      vi.mocked(isDimmedStandby.subscribe).mockImplementation((callback) => {
         callback(true);
         return () => {};
       });
@@ -69,7 +69,7 @@ describe('StandbyOverlay', () => {
     });
 
     it('should be hidden when not in standby mode', async () => {
-      vi.mocked(isStandby.subscribe).mockImplementation((callback) => {
+      vi.mocked(isDimmedStandby.subscribe).mockImplementation((callback) => {
         callback(false);
         return () => {};
       });
@@ -87,7 +87,7 @@ describe('StandbyOverlay', () => {
 
   describe('brightness dimming', () => {
     it('should apply dimming overlay when brightness < 100', async () => {
-      vi.mocked(isStandby.subscribe).mockImplementation((callback) => {
+      vi.mocked(isDimmedStandby.subscribe).mockImplementation((callback) => {
         callback(false);
         return () => {};
       });
@@ -102,7 +102,7 @@ describe('StandbyOverlay', () => {
     });
 
     it('should not show dimmer at full brightness', async () => {
-      vi.mocked(isStandby.subscribe).mockImplementation((callback) => {
+      vi.mocked(isDimmedStandby.subscribe).mockImplementation((callback) => {
         callback(false);
         return () => {};
       });
@@ -120,7 +120,7 @@ describe('StandbyOverlay', () => {
 
   describe('touch wake behavior', () => {
     it('should wake display on touch when in standby', async () => {
-      vi.mocked(isStandby.subscribe).mockImplementation((callback) => {
+      vi.mocked(isDimmedStandby.subscribe).mockImplementation((callback) => {
         callback(true);
         return () => {};
       });
@@ -134,11 +134,11 @@ describe('StandbyOverlay', () => {
 
       await fireEvent.touchStart(overlay!);
 
-      expect(lcdActions.turnOn).toHaveBeenCalled();
+      expect(lcdActions.wake).toHaveBeenCalled();
     });
 
     it('should navigate to home on wake', async () => {
-      vi.mocked(isStandby.subscribe).mockImplementation((callback) => {
+      vi.mocked(isDimmedStandby.subscribe).mockImplementation((callback) => {
         callback(true);
         return () => {};
       });
@@ -156,7 +156,7 @@ describe('StandbyOverlay', () => {
     });
 
     it('should prevent event propagation (click-through)', async () => {
-      vi.mocked(isStandby.subscribe).mockImplementation((callback) => {
+      vi.mocked(isDimmedStandby.subscribe).mockImplementation((callback) => {
         callback(true);
         return () => {};
       });
@@ -182,7 +182,7 @@ describe('StandbyOverlay', () => {
     });
 
     it('should NOT wake when not in standby mode', async () => {
-      vi.mocked(isStandby.subscribe).mockImplementation((callback) => {
+      vi.mocked(isDimmedStandby.subscribe).mockImplementation((callback) => {
         callback(false); // Not in standby
         return () => {};
       });
@@ -197,12 +197,12 @@ describe('StandbyOverlay', () => {
       await fireEvent.touchStart(overlay!);
 
       // Should not call wake when not in standby
-      expect(lcdActions.turnOn).not.toHaveBeenCalled();
+      expect(lcdActions.wake).not.toHaveBeenCalled();
       expect(navigationActions.goHome).not.toHaveBeenCalled();
     });
 
     it('should debounce rapid successive touches', async () => {
-      vi.mocked(isStandby.subscribe).mockImplementation((callback) => {
+      vi.mocked(isDimmedStandby.subscribe).mockImplementation((callback) => {
         callback(true);
         return () => {};
       });
@@ -220,11 +220,11 @@ describe('StandbyOverlay', () => {
       await fireEvent.touchStart(overlay!);
 
       // Should only call wake once due to debouncing
-      expect(lcdActions.turnOn).toHaveBeenCalledTimes(1);
+      expect(lcdActions.wake).toHaveBeenCalledTimes(1);
     });
 
     it('should wake on mousedown when in standby', async () => {
-      vi.mocked(isStandby.subscribe).mockImplementation((callback) => {
+      vi.mocked(isDimmedStandby.subscribe).mockImplementation((callback) => {
         callback(true);
         return () => {};
       });
@@ -238,14 +238,14 @@ describe('StandbyOverlay', () => {
 
       await fireEvent.mouseDown(overlay!);
 
-      expect(lcdActions.turnOn).toHaveBeenCalled();
+      expect(lcdActions.wake).toHaveBeenCalled();
       expect(navigationActions.goHome).toHaveBeenCalled();
     });
   });
 
   describe('CSS properties for touch handling', () => {
     it('should have active class when in standby (enables touch-action: none)', async () => {
-      vi.mocked(isStandby.subscribe).mockImplementation((callback) => {
+      vi.mocked(isDimmedStandby.subscribe).mockImplementation((callback) => {
         callback(true);
         return () => {};
       });
@@ -262,7 +262,7 @@ describe('StandbyOverlay', () => {
     });
 
     it('should have active class when in standby (enables pointer-events: all)', async () => {
-      vi.mocked(isStandby.subscribe).mockImplementation((callback) => {
+      vi.mocked(isDimmedStandby.subscribe).mockImplementation((callback) => {
         callback(true);
         return () => {};
       });
@@ -279,7 +279,7 @@ describe('StandbyOverlay', () => {
     });
 
     it('should not have active class when not in standby (pointer-events: none)', async () => {
-      vi.mocked(isStandby.subscribe).mockImplementation((callback) => {
+      vi.mocked(isDimmedStandby.subscribe).mockImplementation((callback) => {
         callback(false);
         return () => {};
       });
@@ -298,7 +298,7 @@ describe('StandbyOverlay', () => {
 
   describe('z-index ordering', () => {
     it('should have both overlay elements present', async () => {
-      vi.mocked(isStandby.subscribe).mockImplementation((callback) => {
+      vi.mocked(isDimmedStandby.subscribe).mockImplementation((callback) => {
         callback(true);
         return () => {};
       });
@@ -317,7 +317,7 @@ describe('StandbyOverlay', () => {
     });
 
     it('should have brightness dimmer with opacity based on brightness', async () => {
-      vi.mocked(isStandby.subscribe).mockImplementation((callback) => {
+      vi.mocked(isDimmedStandby.subscribe).mockImplementation((callback) => {
         callback(true);
         return () => {};
       });
@@ -341,7 +341,7 @@ describe('StandbyOverlay', () => {
     });
 
     it('should NOT show standby overlay on non-LCD devices', async () => {
-      vi.mocked(isStandby.subscribe).mockImplementation((callback) => {
+      vi.mocked(isDimmedStandby.subscribe).mockImplementation((callback) => {
         callback(true); // Standby is active
         return () => {};
       });
@@ -358,7 +358,7 @@ describe('StandbyOverlay', () => {
     });
 
     it('should NOT show brightness dimmer on non-LCD devices', async () => {
-      vi.mocked(isStandby.subscribe).mockImplementation((callback) => {
+      vi.mocked(isDimmedStandby.subscribe).mockImplementation((callback) => {
         callback(false);
         return () => {};
       });
@@ -375,7 +375,7 @@ describe('StandbyOverlay', () => {
     });
 
     it('should NOT wake on touch when on non-LCD device', async () => {
-      vi.mocked(isStandby.subscribe).mockImplementation((callback) => {
+      vi.mocked(isDimmedStandby.subscribe).mockImplementation((callback) => {
         callback(true);
         return () => {};
       });
@@ -394,7 +394,7 @@ describe('StandbyOverlay', () => {
       document.dispatchEvent(event);
 
       // Should not call wake on non-LCD devices
-      expect(lcdActions.turnOn).not.toHaveBeenCalled();
+      expect(lcdActions.wake).not.toHaveBeenCalled();
       expect(navigationActions.goHome).not.toHaveBeenCalled();
     });
   });
