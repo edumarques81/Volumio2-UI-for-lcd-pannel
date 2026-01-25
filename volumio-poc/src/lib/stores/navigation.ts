@@ -3,7 +3,7 @@ import { writable, derived } from 'svelte/store';
 /**
  * Available views in the application
  */
-export type ViewType = 'home' | 'player' | 'browse' | 'queue' | 'settings' | 'localMusic';
+export type ViewType = 'home' | 'player' | 'browse' | 'queue' | 'settings' | 'localMusic' | 'audirvana';
 
 /**
  * Layout modes:
@@ -88,6 +88,13 @@ export const navigationActions = {
    */
   goToLocalMusic() {
     currentView.set('localMusic');
+  },
+
+  /**
+   * Navigate to Audirvana view
+   */
+  goToAudirvana() {
+    currentView.set('audirvana');
   },
 
   /**

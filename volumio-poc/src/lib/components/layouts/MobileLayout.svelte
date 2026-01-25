@@ -9,6 +9,7 @@
   import QueueView from '../views/QueueView.svelte';
   import SettingsView from '../views/SettingsView.svelte';
   import LocalMusicView from '../views/LocalMusicView.svelte';
+  import AudirvanaView from '../views/AudirvanaView.svelte';
   import MiniPlayer from '../MiniPlayer.svelte';
 
   type TabId = 'player' | 'browse' | 'queue' | 'settings';
@@ -69,6 +70,8 @@
       <SettingsView />
     {:else if $currentView === 'localMusic'}
       <LocalMusicView />
+    {:else if $currentView === 'audirvana'}
+      <AudirvanaView />
     {/if}
   </div>
 

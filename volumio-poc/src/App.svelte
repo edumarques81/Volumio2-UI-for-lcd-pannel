@@ -11,6 +11,8 @@
   import { initNetworkStore, cleanupNetworkStore } from '$lib/stores/network';
   import { initLcdStore, cleanupLcdStore } from '$lib/stores/lcd';
   import { initAudioStore, cleanupAudioStore } from '$lib/stores/audio';
+  import { initAudirvanaStore, cleanupAudirvanaStore } from '$lib/stores/audirvana';
+  import { initAudioEngineStore, cleanupAudioEngineStore } from '$lib/stores/audioEngine';
   import { initDeviceStore, cleanupDeviceStore, deviceType, isLcdPanel, isDesktop, isMobile } from '$lib/stores/device';
   import { currentView, layoutMode, navigationActions } from '$lib/stores/navigation';
   import { socketService as socket } from '$lib/services/socket';
@@ -52,6 +54,8 @@
     initNetworkStore();
     initLcdStore();
     initAudioStore();
+    initAudirvanaStore();
+    initAudioEngineStore();
 
     // Expose test functions for debugging (can be called from browser console)
     (window as any).testToast = {
@@ -178,6 +182,8 @@
       cleanupNetworkStore();
       cleanupLcdStore();
       cleanupAudioStore();
+      cleanupAudirvanaStore();
+      cleanupAudioEngineStore();
       cleanupDeviceStore();
       socketService.disconnect();
     };

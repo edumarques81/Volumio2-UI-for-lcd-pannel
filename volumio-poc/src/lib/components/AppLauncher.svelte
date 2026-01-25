@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { navigationActions } from '$lib/stores/navigation';
   import { browseActions } from '$lib/stores/browse';
+  import { audirvanaInstalled, audirvanaService, audirvanaInstanceCount } from '$lib/stores/audirvana';
   import Icon from './Icon.svelte';
   import NowPlayingTile from './NowPlayingTile.svelte';
 
@@ -127,6 +128,17 @@
       action: () => {
         browseActions.browse('qobuz');
         navigationActions.goToBrowse('qobuz', 'Qobuz');
+      }
+    },
+    {
+      id: 'audirvana',
+      title: 'Audirvana',
+      subtitle: 'Hi-Fi Player',
+      icon: 'headphones',
+      gradient: 'linear-gradient(180deg, #6b4ea0 0%, #3d2d66 100%)',
+      iconGradient: { from: '#f5f0ff', to: '#d4c8f0' },
+      action: () => {
+        navigationActions.goToAudirvana();
       }
     },
     {
