@@ -111,14 +111,14 @@ sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" ssh "$RASPBERRY_PI_SSH_USERNAME@$RASPBER
 | Service | Port | Description |
 |---------|------|-------------|
 | `stellar-frontend` | 8080 | Python HTTP server serving `~/stellar-volumio` |
-| `stellar-backend` | 3002 | Stellar Go backend |
+| `stellar-backend` | 3000 | Stellar Go backend (Volumio standard port) |
 | `mpd` | 6600 | Music Player Daemon |
 
 ### localhost vs Pi (Important)
 
 - `localhost` = Your macOS development machine
 - Pi IP (from `.env`) = Raspberry Pi target device
-- Dev mode frontend (`localhost:5173`) connects to Pi backend (`PI_IP:3002`)
+- Dev mode frontend (`localhost:5173`) connects to Pi backend (`PI_IP:3000`)
 - Configure Pi IP in `volumio-poc/src/lib/config.ts` (`DEV_VOLUMIO_IP`)
 
 ## Architecture
@@ -210,6 +210,8 @@ initQueueStore();    // Registers pushQueue listener
 | Svelte frontend (POC) | v4 client | Engine.IO v4 |
 
 The Stellar backend enables `allowEIO3: true` to support Socket.IO v2 clients (Volumio Connect apps).
+
+**Note:** The backend now uses port 3000 (Volumio standard port) instead of 3002.
 
 **mDNS Discovery:**
 The device is discoverable via Avahi mDNS with service type `_Volumio._tcp`:
@@ -308,8 +310,39 @@ sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" ssh "$RASPBERRY_PI_SSH_USERNAME@$RASPBER
 
 ## Related Repositories
 
-- **Stellar Backend**: Configured via `STELLAR_BACKEND_FOLDER` in `.env`
-  - GitHub: https://github.com/edumarques81/stellar-volumio-audioplayer-backend
-  - Go backend with Socket.IO, MPD integration
-  - Build: `GOOS=linux GOARCH=arm64 go build -o stellar-arm64 ./cmd/stellar`
-  - Test: `go test ./...`
+### Stellar Backend
+
+Configured via `STELLAR_BACKEND_FOLDER` in `.env`
+- GitHub: https://github.com/edumarques81/stellar-volumio-audioplayer-backend
+
+**Commands:**
+```bash
+cd "$STELLAR_BACKEND_FOLDER"
+go test ./...                                      # Run tests
+GOOS=linux GOARCH=arm64 go build -o stellar-arm64 ./cmd/stellar  # Build for Pi
+```
+
+**Architecture:**
+- Go backend with Socket.IO (zishang520/socket.io library), MPD integration
+- Uses **MPD as Single Source of Truth** - no state machine (unlike Volumio3-backend's 1500+ line statemachine.js)
+- Commands go directly to MPD; state updates come back via MPD idle watcher and broadcast to clients
+- Focus: bit-perfect audio playback, single-device operation, minimal footprint
+
+**Key Services:**
+```
+internal/
+├── domain/           # Business logic
+│   ├── player/       # Player state (cache from MPD, not state machine)
+│   ├── queue/        # Queue management (MPD playlist)
+│   ├── library/      # Music library browsing (MPD database)
+│   └── audio/        # Audio output config (ALSA)
+├── infra/            # Infrastructure
+│   ├── mpd/          # MPD client wrapper
+│   └── alsa/         # ALSA device enumeration
+└── transport/        # Socket.IO server and handlers
+```
+
+**Configuration:** `configs/stellar.yaml` on the Pi
+- Server port: 3000
+- MPD connection: localhost:6600
+- Audio: bit-perfect mode, DoP for DSD
