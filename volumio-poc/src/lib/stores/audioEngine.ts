@@ -7,7 +7,7 @@
 
 import { writable, derived, get } from 'svelte/store';
 import { socketService } from '../services/socket';
-import { audirvanaService, audirvanaAvailable } from './audirvana';
+import { audirvanaService, audirvanaAvailable, type AudiorvanaStatus } from './audirvana';
 
 // ============================================================================
 // Types
@@ -178,10 +178,60 @@ function stopAudirvana(): Promise<void> {
   return new Promise((resolve, reject) => {
     console.log('[AudioEngine] Stopping Audirvana...');
 
+    const timeout = 10000; // 10 second timeout
+    const startTime = Date.now();
+    let resolved = false;
+
+    // Listen for status updates to confirm service stopped
+    const checkStopped = (status: AudiorvanaStatus) => {
+      if (resolved) return;
+
+      console.log('[AudioEngine] Received Audirvana status:', status.service);
+
+      if (!status.service.running) {
+        console.log('[AudioEngine] Audirvana confirmed stopped');
+        resolved = true;
+        socketService.off('pushAudirvanaStatus', checkStopped);
+        resolve();
+      } else if (Date.now() - startTime > timeout) {
+        resolved = true;
+        socketService.off('pushAudirvanaStatus', checkStopped);
+        reject(new Error('Timeout waiting for Audirvana to stop'));
+      }
+    };
+
+    socketService.on('pushAudirvanaStatus', checkStopped);
     socketService.emit('audirvanaStopService');
 
-    // Wait for service to stop
-    setTimeout(resolve, 2000);
+    // Also poll for status in case we missed the push
+    const pollInterval = setInterval(() => {
+      if (resolved) {
+        clearInterval(pollInterval);
+        return;
+      }
+
+      if (Date.now() - startTime > timeout) {
+        clearInterval(pollInterval);
+        if (!resolved) {
+          resolved = true;
+          socketService.off('pushAudirvanaStatus', checkStopped);
+          reject(new Error('Timeout waiting for Audirvana to stop'));
+        }
+        return;
+      }
+
+      // Check current store state
+      const currentService = get(audirvanaService);
+      if (!currentService.running) {
+        clearInterval(pollInterval);
+        if (!resolved) {
+          console.log('[AudioEngine] Audirvana stopped (from store)');
+          resolved = true;
+          socketService.off('pushAudirvanaStatus', checkStopped);
+          resolve();
+        }
+      }
+    }, 500);
   });
 }
 
@@ -189,10 +239,64 @@ function startAudirvana(): Promise<void> {
   return new Promise((resolve, reject) => {
     console.log('[AudioEngine] Starting Audirvana...');
 
+    const timeout = 15000; // 15 second timeout (Audirvana takes longer to start)
+    const startTime = Date.now();
+    let resolved = false;
+
+    // Listen for status updates to confirm service started
+    const checkStarted = (status: AudiorvanaStatus) => {
+      if (resolved) return;
+
+      console.log('[AudioEngine] Received Audirvana status:', status.service);
+
+      if (status.service.running) {
+        console.log('[AudioEngine] Audirvana confirmed started');
+        resolved = true;
+        socketService.off('pushAudirvanaStatus', checkStarted);
+        resolve();
+      } else if (status.error) {
+        resolved = true;
+        socketService.off('pushAudirvanaStatus', checkStarted);
+        reject(new Error(status.error));
+      } else if (Date.now() - startTime > timeout) {
+        resolved = true;
+        socketService.off('pushAudirvanaStatus', checkStarted);
+        reject(new Error('Timeout waiting for Audirvana to start'));
+      }
+    };
+
+    socketService.on('pushAudirvanaStatus', checkStarted);
     socketService.emit('audirvanaStartService');
 
-    // Wait for service to start
-    setTimeout(resolve, 3000);
+    // Also poll for status in case we missed the push
+    const pollInterval = setInterval(() => {
+      if (resolved) {
+        clearInterval(pollInterval);
+        return;
+      }
+
+      if (Date.now() - startTime > timeout) {
+        clearInterval(pollInterval);
+        if (!resolved) {
+          resolved = true;
+          socketService.off('pushAudirvanaStatus', checkStarted);
+          reject(new Error('Timeout waiting for Audirvana to start'));
+        }
+        return;
+      }
+
+      // Check current store state
+      const currentService = get(audirvanaService);
+      if (currentService.running) {
+        clearInterval(pollInterval);
+        if (!resolved) {
+          console.log('[AudioEngine] Audirvana started (from store)');
+          resolved = true;
+          socketService.off('pushAudirvanaStatus', checkStarted);
+          resolve();
+        }
+      }
+    }, 500);
   });
 }
 
