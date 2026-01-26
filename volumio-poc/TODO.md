@@ -48,3 +48,4 @@ Items to implement when moving from POC to production:
 - [x] Improved tile contrast/opacity in sub-screens
 - [x] Go backend (Stellar) with Socket.IO, MPD integration, album art endpoint
 - [x] Network settings page (connection status, type, WiFi/Ethernet details, hostname, access URLs)
+- [x] Audio engine switching with confirmation (prevents race condition between MPD/Audirvana transitions)
