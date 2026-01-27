@@ -10,6 +10,8 @@ This repository contains two projects:
 - **Legacy UI** (root): AngularJS 1.5 application (Node.js 10.22.1 required)
 - **POC** (`volumio-poc/`): Svelte 5 application for CarPlay-style LCD interface (1920x440)
 
+**Current Version**: See `volumio-poc/package.json` for POC version
+
 ## Important: localhost vs Raspberry Pi
 
 > **Key Concept:** Development happens on your Mac, deployment targets the Pi.
@@ -196,6 +198,12 @@ eval "$SSH_CMD 'chmod +x ~/stellar-backend/stellar && sudo systemctl restart ste
 - Tests in `__tests__/` directories adjacent to source files
 - Layouts: `LCDLayout` (1920x440), `MobileLayout`, `DesktopLayout`
 - Force layout via URL: `?layout=lcd` or `?layout=mobile`
+
+**LCD Panel Sizes (1920x440):**
+- App tiles: 179×179px icons, 33px border-radius
+- Album art: 146×146px (Now Playing) or 320×320px (full player)
+- Control buttons: 90×90px, Play button: 98×98px
+- Touch targets: 44×44px minimum
 
 **MPD-Driven Library Views (v1.2.0+):**
 - `AllAlbumsView` - Music Library (all sources)
@@ -388,6 +396,13 @@ sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" ssh "$RASPBERRY_PI_SSH_USERNAME@$RASPBER
 sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" ssh "$RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS" "vcgencmd get_throttled"    # Throttling status
 ```
 
+## Quick Troubleshooting
+
+- **Socket.io version mismatch**: Use Socket.io 2.3.x CDN for Legacy, 4.x for POC
+- **Connection fails with .local hostname**: Use IP address instead
+- **`$lib` path not resolved**: Check `vite.config.ts` alias configuration
+- **POC not connecting**: Verify `DEV_VOLUMIO_IP` in `volumio-poc/src/lib/config.ts`
+
 ## Related Repositories
 
 ### Stellar Backend
@@ -407,22 +422,6 @@ GOOS=linux GOARCH=arm64 go build -o stellar-arm64 ./cmd/stellar  # Build for Pi
 - Uses **MPD as Single Source of Truth** - no state machine (unlike Volumio3-backend's 1500+ line statemachine.js)
 - Commands go directly to MPD; state updates come back via MPD idle watcher and broadcast to clients
 - Focus: bit-perfect audio playback, single-device operation, minimal footprint
+- See repository README for detailed project structure
 
-**Key Services:**
-```
-internal/
-├── domain/           # Business logic
-│   ├── player/       # Player state (cache from MPD, not state machine)
-│   ├── queue/        # Queue management (MPD playlist)
-│   ├── library/      # Music library browsing (MPD database)
-│   └── audio/        # Audio output config (ALSA)
-├── infra/            # Infrastructure
-│   ├── mpd/          # MPD client wrapper
-│   └── alsa/         # ALSA device enumeration
-└── transport/        # Socket.IO server and handlers
-```
-
-**Configuration:** `configs/stellar.yaml` on the Pi
-- Server port: 3000
-- MPD connection: localhost:6600
-- Audio: bit-perfect mode, DoP for DSD
+**Configuration:** `configs/stellar.yaml` on the Pi (port 3000, MPD on localhost:6600)
