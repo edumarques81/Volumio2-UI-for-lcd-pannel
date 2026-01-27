@@ -260,6 +260,29 @@ initQueueStore();    // Registers pushQueue listener
 **Library Scope Values:** `all`, `nas`, `local`, `usb`
 **Sort Orders:** `alphabetical`, `by_artist`, `recently_added`, `year`
 
+**Library Cache Events (v1.3.0+):**
+| Emit | Receive | Description |
+|------|---------|-------------|
+| `library:cache:status` | `pushLibraryCacheStatus` | Get cache statistics |
+| `library:cache:rebuild` | - | Trigger full cache rebuild |
+| - | `library:cache:updated` | Broadcast when cache rebuild completes |
+
+**CacheStatus Payload:**
+```typescript
+interface CacheStatus {
+  lastUpdated: string;      // ISO timestamp
+  albumCount: number;
+  artistCount: number;
+  trackCount: number;
+  artworkCached: number;
+  artworkMissing: number;
+  radioCount: number;
+  isBuilding: boolean;
+  buildProgress: number;    // 0-100
+  schemaVersion: string;
+}
+```
+
 **System Events:**
 | Emit | Receive | Description |
 |------|---------|-------------|
@@ -347,12 +370,42 @@ Current E2E tests have **38% pass rate** (21 passing, 34 failing). Known issues 
 
 **Priority:** Add `data-testid` attributes when modifying components.
 
+### Library Cache System (v1.3.0+)
+
+The backend uses SQLite to cache MPD library metadata for faster browsing:
+
+**Architecture:**
+- SQLite database at `/home/volumio/stellar-backend/data/library.db`
+- Artwork cached at `/home/volumio/stellar-backend/data/cache/artwork/`
+- Cache rebuilds on startup and when MPD database changes (via idle events)
+- Frontend receives `library:cache:updated` event when rebuild completes
+
+**Resolution Order for Artwork:**
+1. Cache (artwork table + file on disk)
+2. MPD `albumart` command (folder-based: cover.jpg, etc.)
+3. MPD `readpicture` command (embedded in audio file)
+4. Placeholder
+
+**Manual Cache Operations:**
+```bash
+# Check cache database
+sqlite3 ~/stellar-backend/data/library.db ".tables"
+sqlite3 ~/stellar-backend/data/library.db "SELECT COUNT(*) FROM albums"
+
+# Trigger cache rebuild via Socket.IO
+# From browser console:
+window.libraryActions.rebuildCache()
+```
+
+For detailed design, see `volumio-poc/docs/LIBRARY-CACHE-DESIGN.md`.
+
 ### Additional Documentation
 
 For detailed setup and architecture, see:
 - `volumio-poc/DEVELOPMENT.md` - Full development guide (kiosk setup, deployment)
 - `volumio-poc/POC_SUMMARY.md` - Project summary with performance metrics
 - `volumio-poc/E2E-TEST-ISSUES.md` - Test failure analysis
+- `volumio-poc/docs/LIBRARY-CACHE-DESIGN.md` - Library cache architecture
 
 ## Browser Console Debugging (POC)
 
