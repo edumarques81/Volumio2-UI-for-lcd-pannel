@@ -117,17 +117,31 @@ SSH_CMD="sshpass -p '$RASPBERRY_PI_SSH_PASSWORD' ssh -o StrictHostKeyChecking=no
 
 ### Deployment
 
-**Frontend (POC):** Use the deploy script or manually:
+**IMPORTANT:** Always stop services before deploying and start them after.
+
+**Step 1: Stop services on Pi**
+```bash
+source .env
+SSH_CMD="sshpass -p '$RASPBERRY_PI_SSH_PASSWORD' ssh -o StrictHostKeyChecking=no $RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS"
+eval "$SSH_CMD 'sudo systemctl stop stellar-frontend stellar-backend'"
+```
+
+**Step 2: Deploy Frontend (POC)**
 ```bash
 cd volumio-poc && npm run deploy    # Uses scripts/deploy.sh
 ```
 
-**Backend (Stellar):**
+**Step 3: Deploy Backend (Stellar)**
 ```bash
 source .env && cd "$STELLAR_BACKEND_FOLDER"
 GOOS=linux GOARCH=arm64 go build -o stellar-arm64 ./cmd/stellar
 sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" scp stellar-arm64 "$RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS:~/stellar-backend/stellar"
-eval "$SSH_CMD 'chmod +x ~/stellar-backend/stellar && sudo systemctl restart stellar-backend'"
+eval "$SSH_CMD 'chmod +x ~/stellar-backend/stellar'"
+```
+
+**Step 4: Start services on Pi**
+```bash
+eval "$SSH_CMD 'sudo systemctl start stellar-backend stellar-frontend'"
 ```
 
 **View logs:** `eval "$SSH_CMD 'journalctl -u stellar-backend -f'"`
