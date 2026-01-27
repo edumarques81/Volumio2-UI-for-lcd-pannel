@@ -134,7 +134,9 @@ cd volumio-poc && npm run deploy    # Uses scripts/deploy.sh
 **Step 3: Deploy Backend (Stellar)**
 ```bash
 source .env && cd "$STELLAR_BACKEND_FOLDER"
-GOOS=linux GOARCH=arm64 go build -o stellar-arm64 ./cmd/stellar
+# CGO required for SQLite cache - use musl cross-compiler (brew install FiloSottile/musl-cross/musl-cross)
+CGO_ENABLED=1 CC=aarch64-linux-musl-gcc GOOS=linux GOARCH=arm64 \
+  go build -ldflags='-linkmode external -extldflags "-static"' -o stellar-arm64 ./cmd/stellar
 sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" scp stellar-arm64 "$RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS:~/stellar-backend/stellar"
 eval "$SSH_CMD 'chmod +x ~/stellar-backend/stellar'"
 ```
