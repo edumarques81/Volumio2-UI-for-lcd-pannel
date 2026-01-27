@@ -2,6 +2,14 @@ import { writable } from 'svelte/store';
 import { getVolumioHost } from '$lib/config';
 import io from 'socket.io-client';
 
+// Global singleton check - prevents multiple instances if module is loaded multiple times
+declare global {
+  interface Window {
+    __stellarSocketInstance?: SocketService;
+    __stellarSocketConnected?: boolean;
+  }
+}
+
 export type ConnectionState = 'connected' | 'disconnected' | 'connecting';
 
 export const connectionState = writable<ConnectionState>('disconnected');
@@ -68,15 +76,37 @@ class SocketService {
   }
 
   connect(): void {
+    // Global singleton check - prevents connection if already connected globally
+    if (typeof window !== 'undefined' && window.__stellarSocketConnected) {
+      console.log('Socket already connected globally, skipping connect()');
+      return;
+    }
+
+    // Prevent duplicate connections
+    if (this.socket?.connected) {
+      console.log('Socket already connected, skipping connect()');
+      return;
+    }
+
+    // Disconnect existing socket if any (orphaned connection)
+    if (this.socket) {
+      console.log('Disconnecting existing socket before reconnecting');
+      this.socket.disconnect();
+      this.socket = null;
+    }
+
     console.log(`Connecting to ${this.host}...`);
     connectionState.set('connecting');
 
     // Socket.io v4 connection
+    // WebSocket only - no polling to ensure single stable connection
     this.socket = io(this.host, {
-      transports: ['polling', 'websocket'],
+      transports: ['websocket'],
       reconnection: true,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000
+      reconnectionDelay: 2000,
+      reconnectionDelayMax: 10000,
+      timeout: 30000,
+      forceNew: false
     });
 
     console.log('Socket instance created, waiting for events...');
@@ -84,6 +114,11 @@ class SocketService {
     this.socket.on('connect', () => {
       console.log(`✓ Socket connected to ${this.host}`);
       connectionState.set('connected');
+
+      // Set global connected flag
+      if (typeof window !== 'undefined') {
+        window.__stellarSocketConnected = true;
+      }
 
       // Register any handlers that were added before socket was connected
       for (const [eventName, handlers] of this.eventHandlers.entries()) {
@@ -99,6 +134,11 @@ class SocketService {
     this.socket.on('disconnect', (reason: string) => {
       console.log('Socket disconnected, reason:', reason);
       connectionState.set('disconnected');
+
+      // Clear global connected flag
+      if (typeof window !== 'undefined') {
+        window.__stellarSocketConnected = false;
+      }
     });
 
     this.socket.on('connect_error', (error: any) => {
@@ -269,5 +309,16 @@ class SocketService {
   }
 }
 
-// Singleton instance - uses config to determine the correct host
-export const socketService = new SocketService(getVolumioHost());
+// Singleton instance - uses global window check to prevent duplicate instances
+function getSocketService(): SocketService {
+  if (typeof window !== 'undefined' && window.__stellarSocketInstance) {
+    return window.__stellarSocketInstance;
+  }
+  const instance = new SocketService(getVolumioHost());
+  if (typeof window !== 'undefined') {
+    window.__stellarSocketInstance = instance;
+  }
+  return instance;
+}
+
+export const socketService = getSocketService();
