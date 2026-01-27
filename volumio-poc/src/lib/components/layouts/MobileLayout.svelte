@@ -10,6 +10,11 @@
   import SettingsView from '../views/SettingsView.svelte';
   import LocalMusicView from '../views/LocalMusicView.svelte';
   import AudirvanaView from '../views/AudirvanaView.svelte';
+  // MPD-driven library views
+  import AllAlbumsView from '../views/AllAlbumsView.svelte';
+  import NASAlbumsView from '../views/NASAlbumsView.svelte';
+  import ArtistsView from '../views/ArtistsView.svelte';
+  import RadioView from '../views/RadioView.svelte';
   import MiniPlayer from '../MiniPlayer.svelte';
 
   type TabId = 'player' | 'browse' | 'queue' | 'settings';
@@ -72,6 +77,14 @@
       <LocalMusicView />
     {:else if $currentView === 'audirvana'}
       <AudirvanaView />
+    {:else if $currentView === 'allAlbums'}
+      <AllAlbumsView />
+    {:else if $currentView === 'nasAlbums'}
+      <NASAlbumsView />
+    {:else if $currentView === 'artists'}
+      <ArtistsView />
+    {:else if $currentView === 'radio'}
+      <RadioView />
     {/if}
   </div>
 

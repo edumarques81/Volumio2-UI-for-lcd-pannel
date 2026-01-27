@@ -12,6 +12,7 @@
   import { initLcdStore, cleanupLcdStore, lcdActions } from '$lib/stores/lcd';
   import { initAudioStore, cleanupAudioStore } from '$lib/stores/audio';
   import { initAudirvanaStore, cleanupAudirvanaStore } from '$lib/stores/audirvana';
+  import { initLibraryStore } from '$lib/stores/library';
   import { initAudioEngineStore, cleanupAudioEngineStore } from '$lib/stores/audioEngine';
   import { initDeviceStore, cleanupDeviceStore, deviceType, isLcdPanel, isDesktop, isMobile } from '$lib/stores/device';
   import { currentView, layoutMode, navigationActions } from '$lib/stores/navigation';
@@ -56,6 +57,7 @@
     initAudioStore();
     initAudirvanaStore();
     initAudioEngineStore();
+    initLibraryStore();
 
     // Expose test functions for debugging (can be called from browser console)
     (window as any).testToast = {
@@ -138,7 +140,12 @@
       goToPlayer: () => navigationActions.goToPlayer(),
       goToBrowse: () => navigationActions.goToBrowse(),
       goToSettings: () => navigationActions.goToSettings(),
-      goHome: () => navigationActions.goHome()
+      goHome: () => navigationActions.goHome(),
+      // MPD-driven library views
+      goToAllAlbums: () => navigationActions.goToAllAlbums(),
+      goToNASAlbums: () => navigationActions.goToNASAlbums(),
+      goToArtists: () => navigationActions.goToArtists(),
+      goToRadio: () => navigationActions.goToRadio()
     };
 
     // Expose LCD actions for E2E testing

@@ -114,8 +114,7 @@
       gradient: 'linear-gradient(180deg, #5ba3e0 0%, #2d7cc4 100%)',
       iconGradient: { from: '#f0f8ff', to: '#c9e4f9' },
       action: () => {
-        browseActions.browse('music-library/NAS');
-        navigationActions.goToBrowse('music-library/NAS', 'NAS Drives');
+        navigationActions.goToNASAlbums();
       }
     },
     {
@@ -149,8 +148,7 @@
       gradient: 'linear-gradient(180deg, #e86a8a 0%, #c94466 100%)',
       iconGradient: { from: '#fff5f7', to: '#ffd6df' },
       action: () => {
-        browseActions.browse('radio');
-        navigationActions.goToBrowse('radio', 'Web Radio');
+        navigationActions.goToRadio();
       }
     },
     {
@@ -161,8 +159,7 @@
       gradient: 'linear-gradient(180deg, #e8576d 0%, #c43550 100%)',
       iconGradient: { from: '#fff5f6', to: '#ffd4db' },
       action: () => {
-        browseActions.browse('');
-        navigationActions.goToBrowse('', 'Music Library');
+        navigationActions.goToAllAlbums();
       }
     },
     {
@@ -173,8 +170,7 @@
       gradient: 'linear-gradient(180deg, #5a9e7c 0%, #3d7a5a 100%)',
       iconGradient: { from: '#f0fff7', to: '#c9f0dc' },
       action: () => {
-        browseActions.browse('artists://');
-        navigationActions.goToBrowse('artists://', 'Artists');
+        navigationActions.goToArtists();
       }
     },
     {
@@ -185,8 +181,7 @@
       gradient: 'linear-gradient(180deg, #d4854a 0%, #b5612a 100%)',
       iconGradient: { from: '#fff8f0', to: '#f5dcc8' },
       action: () => {
-        browseActions.browse('albums://');
-        navigationActions.goToBrowse('albums://', 'Albums');
+        navigationActions.goToAllAlbums();
       }
     },
     {

@@ -3,7 +3,21 @@ import { writable, derived } from 'svelte/store';
 /**
  * Available views in the application
  */
-export type ViewType = 'home' | 'player' | 'browse' | 'queue' | 'settings' | 'localMusic' | 'audirvana';
+export type ViewType =
+  | 'home'
+  | 'player'
+  | 'browse'
+  | 'queue'
+  | 'settings'
+  | 'localMusic'
+  | 'audirvana'
+  // MPD-driven library views
+  | 'allAlbums'
+  | 'nasAlbums'
+  | 'artists'
+  | 'artistAlbums'
+  | 'albumDetail'
+  | 'radio';
 
 /**
  * Layout modes:
@@ -95,6 +109,48 @@ export const navigationActions = {
    */
   goToAudirvana() {
     currentView.set('audirvana');
+  },
+
+  /**
+   * Navigate to all albums view (Music Library - MPD-driven)
+   */
+  goToAllAlbums() {
+    currentView.set('allAlbums');
+  },
+
+  /**
+   * Navigate to NAS albums view (MPD-driven)
+   */
+  goToNASAlbums() {
+    currentView.set('nasAlbums');
+  },
+
+  /**
+   * Navigate to artists view (MPD-driven)
+   */
+  goToArtists() {
+    currentView.set('artists');
+  },
+
+  /**
+   * Navigate to artist albums view (MPD-driven)
+   */
+  goToArtistAlbums() {
+    currentView.set('artistAlbums');
+  },
+
+  /**
+   * Navigate to album detail view (MPD-driven)
+   */
+  goToAlbumDetail() {
+    currentView.set('albumDetail');
+  },
+
+  /**
+   * Navigate to radio view (MPD-driven)
+   */
+  goToRadio() {
+    currentView.set('radio');
   },
 
   /**

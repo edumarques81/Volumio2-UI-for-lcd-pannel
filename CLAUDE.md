@@ -189,12 +189,20 @@ eval "$SSH_CMD 'chmod +x ~/stellar-backend/stellar && sudo systemctl restart ste
 | `version.ts` | Application version info |
 | `qobuz.ts` | Qobuz streaming integration |
 | `localMusic.ts` | Local music library management |
+| `library.ts` | MPD-driven library browsing (albums, artists, radio) |
 
 **Patterns:**
 - Each store exports: `init*Store()` function, writable stores, derived stores, and `*Actions` object
 - Tests in `__tests__/` directories adjacent to source files
 - Layouts: `LCDLayout` (1920x440), `MobileLayout`, `DesktopLayout`
 - Force layout via URL: `?layout=lcd` or `?layout=mobile`
+
+**MPD-Driven Library Views (v1.2.0+):**
+- `AllAlbumsView` - Music Library (all sources)
+- `NASAlbumsView` - NAS albums only
+- `ArtistsView` - Artists → Albums → Tracks hierarchy
+- `RadioView` - Web radio stations
+- `AlbumGrid` - Reusable album grid component
 
 **Store Initialization Pattern:**
 ```typescript
@@ -224,13 +232,25 @@ initQueueStore();    // Registers pushQueue listener
 | Emit | Receive | Description |
 |------|---------|-------------|
 | `getQueue` | `pushQueue` | Queue management |
-| `browseLibrary` | `pushBrowseLibrary` | Library browsing |
+| `browseLibrary` | `pushBrowseLibrary` | Library browsing (folder-based) |
 | `search` | `pushBrowseLibrary` | Search results |
 | `addToPlaylist`, `removeFromPlaylist` | - | Playlist modification |
 | `createPlaylist`, `deletePlaylist` | - | Playlist CRUD |
 | `playPlaylist` | - | Play entire playlist |
 | `addToFavourites`, `removeFromFavourites` | - | Favorites management |
 | `enqueue` | - | Add items to queue |
+
+**MPD-Driven Library Events (v1.2.0+):**
+| Emit | Receive | Description |
+|------|---------|-------------|
+| `library:albums:list` | `pushLibraryAlbums` | List albums with scope/sort/query |
+| `library:artists:list` | `pushLibraryArtists` | List artists |
+| `library:artist:albums` | `pushLibraryArtistAlbums` | Albums by specific artist |
+| `library:album:tracks` | `pushLibraryAlbumTracks` | Tracks for an album |
+| `library:radio:list` | `pushLibraryRadio` | Radio stations from playlists |
+
+**Library Scope Values:** `all`, `nas`, `local`, `usb`
+**Sort Orders:** `alphabetical`, `by_artist`, `recently_added`, `year`
 
 **System Events:**
 | Emit | Receive | Description |
