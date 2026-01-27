@@ -87,6 +87,27 @@ export interface RadioResponse {
   pagination: Pagination;
 }
 
+export interface CacheStatus {
+  lastUpdated: string;
+  albumCount: number;
+  artistCount: number;
+  trackCount: number;
+  artworkCached: number;
+  artworkMissing: number;
+  radioCount: number;
+  isBuilding: boolean;
+  buildProgress: number;
+  schemaVersion: string;
+}
+
+export interface CacheUpdatedEvent {
+  timestamp: string;
+  albumCount: number;
+  artistCount: number;
+  trackCount: number;
+  updateDuration: number;
+}
+
 // Initialize flag
 let initialized = false;
 
@@ -120,6 +141,11 @@ export const radioStations = writable<RadioStation[]>([]);
 export const radioLoading = writable<boolean>(false);
 export const radioError = writable<string | null>(null);
 export const radioPagination = writable<Pagination | null>(null);
+
+// Cache status store state
+export const libraryCacheStatus = writable<CacheStatus | null>(null);
+export const libraryCacheLoading = writable<boolean>(false);
+export const libraryCacheBuilding = writable<boolean>(false);
 
 // Current scope and sort preferences (persisted)
 const storedScope = typeof localStorage !== 'undefined'
@@ -214,6 +240,26 @@ export function initLibraryStore() {
       radioPagination.set(data.pagination);
     }
     radioLoading.set(false);
+  });
+
+  // Cache status response
+  socketService.on<CacheStatus>('pushLibraryCacheStatus', (data) => {
+    console.log('[Library] Received pushLibraryCacheStatus:', data);
+    if (data) {
+      libraryCacheStatus.set(data);
+      libraryCacheBuilding.set(data.isBuilding);
+    }
+    libraryCacheLoading.set(false);
+  });
+
+  // Cache updated event (broadcast when cache rebuild completes)
+  socketService.on<CacheUpdatedEvent>('library:cache:updated', (data) => {
+    console.log('[Library] Cache updated:', data);
+    if (data) {
+      libraryCacheBuilding.set(false);
+      // Refresh the cache status after update
+      libraryActions.getCacheStatus();
+    }
   });
 }
 
@@ -411,6 +457,24 @@ export const libraryActions = {
    */
   setScope(scope: Scope) {
     libraryScope.set(scope);
+  },
+
+  /**
+   * Get cache status
+   */
+  getCacheStatus() {
+    libraryCacheLoading.set(true);
+    console.log('[Library] Fetching cache status');
+    socketService.emit('library:cache:status', {});
+  },
+
+  /**
+   * Trigger cache rebuild
+   */
+  rebuildCache() {
+    libraryCacheBuilding.set(true);
+    console.log('[Library] Triggering cache rebuild');
+    socketService.emit('library:cache:rebuild', {});
   }
 };
 
@@ -433,4 +497,17 @@ export const totalAlbumsCount = derived(libraryAlbumsPagination, ($pagination) =
 
 export const totalArtistsCount = derived(libraryArtistsPagination, ($pagination) =>
   $pagination?.total ?? 0
+);
+
+// Cache status derived stores
+export const cacheAlbumCount = derived(libraryCacheStatus, ($status) =>
+  $status?.albumCount ?? 0
+);
+
+export const cacheArtistCount = derived(libraryCacheStatus, ($status) =>
+  $status?.artistCount ?? 0
+);
+
+export const cacheLastUpdated = derived(libraryCacheStatus, ($status) =>
+  $status?.lastUpdated ?? null
 );
