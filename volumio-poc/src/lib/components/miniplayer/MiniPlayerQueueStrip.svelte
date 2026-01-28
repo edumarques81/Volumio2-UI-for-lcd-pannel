@@ -2,6 +2,7 @@
   import { queue, queueActions } from '$lib/stores/queue';
   import { playerState } from '$lib/stores/player';
   import { navigationActions } from '$lib/stores/navigation';
+  import { fixVolumioAssetUrl } from '$lib/config';
 
   // Get upcoming tracks (after current position)
   $: currentPosition = $playerState?.position ?? 0;
@@ -15,9 +16,20 @@
     queueActions.play(queueIndex);
   }
 
-  // Handle clicking "Up Next" label to go to queue
+  // Handle clicking queue strip area to go to queue
   function goToQueue() {
     navigationActions.goToQueue();
+  }
+
+  // Get track title - try multiple property names for compatibility
+  function getTrackTitle(track: any): string {
+    return track.name || track.title || 'Unknown';
+  }
+
+  // Get fixed artwork URL with cache support
+  function getArtworkUrl(track: any): string | null {
+    if (!track.albumart) return null;
+    return fixVolumioAssetUrl(track.albumart);
   }
 
   // Image error handling
@@ -30,15 +42,6 @@
 </script>
 
 <div class="queue-strip" data-testid="miniplayer-queue-strip">
-  <div class="queue-header">
-    <button class="queue-label" on:click={goToQueue}>
-      <span>Up Next</span>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M9 18l6-6-6-6" />
-      </svg>
-    </button>
-  </div>
-
   {#if hasUpcoming}
     <div class="queue-strip-scroll" data-testid="queue-strip-scroll">
       {#each upcomingTracks as track, i}
@@ -48,10 +51,11 @@
           on:click={() => handleTileClick(i)}
         >
           <div class="tile-art">
-            {#if track.albumart && !imageErrors[i]}
+            {#if getArtworkUrl(track) && !imageErrors[i]}
               <img
-                src={track.albumart}
-                alt={track.name}
+                src={getArtworkUrl(track)}
+                alt={getTrackTitle(track)}
+                loading="lazy"
                 on:error={() => handleImageError(i)}
               />
             {:else}
@@ -63,7 +67,7 @@
             {/if}
           </div>
           <div class="tile-info">
-            <span class="tile-title">{track.name || 'Unknown'}</span>
+            <span class="tile-title">{getTrackTitle(track)}</span>
             <span class="tile-artist">{track.artist || 'Unknown Artist'}</span>
           </div>
         </button>
@@ -80,40 +84,11 @@
   .queue-strip {
     display: flex;
     flex-direction: column;
-    gap: 8px;
     padding-top: 8px;
     border-top: 1px solid rgba(255, 255, 255, 0.06);
     position: relative;
     z-index: 1;
-  }
-
-  .queue-header {
-    display: flex;
-    align-items: center;
-  }
-
-  .queue-label {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: rgba(255, 255, 255, 0.5);
-    background: none;
-    border: none;
-    padding: 4px 0;
-    cursor: pointer;
-    transition: color 0.15s ease;
-  }
-
-  .queue-label:hover {
-    color: rgba(255, 255, 255, 0.8);
-  }
-
-  .queue-label svg {
-    opacity: 0.6;
+    min-height: 72px;
   }
 
   .queue-strip-scroll {

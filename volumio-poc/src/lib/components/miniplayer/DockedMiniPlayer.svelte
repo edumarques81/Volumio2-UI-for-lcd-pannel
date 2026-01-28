@@ -325,13 +325,16 @@
   }
 
   .source-label {
+    height: 44px;
+    display: flex;
+    align-items: center;
     font-size: 11px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    padding: 4px 10px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 4px;
+    padding: 0 14px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
     color: rgba(255, 255, 255, 0.7);
   }
 

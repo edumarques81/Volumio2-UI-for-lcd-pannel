@@ -100,9 +100,10 @@ describe('MiniPlayerQueueStrip', () => {
       expect(container).toBeInTheDocument();
     });
 
-    it('should render Up Next label', () => {
+    it('should render queue strip without Up Next label', () => {
       render(MiniPlayerQueueStrip);
-      expect(screen.getByText('Up Next')).toBeInTheDocument();
+      // Up Next label has been removed to save space
+      expect(screen.queryByText('Up Next')).not.toBeInTheDocument();
     });
 
     it('should render queue tiles for upcoming tracks', () => {
