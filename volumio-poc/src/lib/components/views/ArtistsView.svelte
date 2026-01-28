@@ -218,7 +218,12 @@
                   src={artist.albumArt}
                   alt={artist.name}
                   loading="lazy"
-                  onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                  on:error={(e) => {
+                    const img = e.currentTarget;
+                    img.style.display = 'none';
+                    const fallback = img.nextElementSibling;
+                    if (fallback) fallback.style.display = 'flex';
+                  }}
                 />
                 <div class="artist-placeholder artist-fallback" style="display: none;">
                   <Icon name="artist" size={48} />
