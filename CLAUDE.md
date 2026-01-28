@@ -234,6 +234,7 @@ initQueueStore();    // Registers pushQueue listener
 |------|---------|-------------|
 | `getState` | `pushState` | Get/receive player state |
 | `play`, `pause`, `stop` | - | Playback control |
+| `toggle` | - | Play/pause toggle (Volumio Connect) |
 | `prev`, `next` | - | Track navigation |
 | `volume` | - | Set volume (0-100) |
 | `seek` | - | Seek to position (seconds) |
@@ -314,6 +315,53 @@ interface CacheStatus {
 | `getLcdStatus` | `pushLcdStatus` | LCD panel state |
 | `lcdStandby`, `lcdWake` | `pushLcdStatus` | LCD hardware power control (wlr-randr) |
 | - | `pushToastMessage` | Toast notifications from backend |
+
+**Volumio Connect Events (v1.5.0+):**
+
+These events enable compatibility with Volumio Connect mobile apps (iOS/Android).
+
+| Emit | Receive | Description |
+|------|---------|-------------|
+| `getDeviceInfo` | `pushDeviceInfo` | Get device UUID and name |
+| `getMultiRoomDevices` | `pushMultiRoomDevices` | List devices (single-device mode) |
+| `initSocket` | - | Register connecting device (acknowledgment) |
+| `toggle` | - | Play/pause toggle |
+| `addPlay` | - | Clear queue, add URI, and play |
+| `playNext` | - | Insert URI after current track |
+| `addToQueueNext` | - | Alias for playNext |
+| `moveQueue` | - | Reorder queue (`{ from: int, to: int }`) |
+| `removeFromQueue` | - | Remove item from queue (position or `{ value: int }`) |
+
+**DeviceInfo Payload:**
+```typescript
+interface DeviceInfo {
+  uuid: string;    // Unique device identifier (persisted)
+  name: string;    // Device name (default: hostname)
+}
+```
+
+**MultiRoomDevices Payload:**
+```typescript
+interface MultiRoomDevices {
+  misc: { debug: boolean };
+  list: [{
+    id: string;           // Device UUID
+    name: string;         // Device name
+    host: string;         // HTTP URL
+    isSelf: boolean;      // true for this device
+    type: "device";       // Always "device"
+    volumeAvailable: boolean;
+    state: {
+      status: string;     // "play" | "pause" | "stop"
+      volume: number;
+      mute: boolean;
+      artist: string;
+      track: string;
+      albumart: string;
+    }
+  }]
+}
+```
 
 **LCD Control System:**
 - Two standby modes: CSS Dimmed (default, instant wake) or Hardware (wlr-randr, saves power)
