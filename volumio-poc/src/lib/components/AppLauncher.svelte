@@ -4,7 +4,6 @@
   import { browseActions } from '$lib/stores/browse';
   import { audirvanaInstalled, audirvanaService, audirvanaInstanceCount } from '$lib/stores/audirvana';
   import Icon from './Icon.svelte';
-  import NowPlayingTile from './NowPlayingTile.svelte';
 
   let scrollContainer: HTMLElement;
 
@@ -229,10 +228,7 @@
 
 <div class="app-launcher" bind:this={scrollContainer}>
   <div class="tiles-container">
-    <!-- Now Playing Tile (wider, at the start) -->
-    <NowPlayingTile />
-
-    <!-- App Tiles -->
+    <!-- App Tiles (NowPlayingTile removed - now using DockedMiniPlayer) -->
     {#each apps as app}
       <button class="app-tile" data-testid="tile-{app.id}" on:click={() => handleTileClick(app)}>
         <div class="tile-icon" style="background: {app.gradient}">

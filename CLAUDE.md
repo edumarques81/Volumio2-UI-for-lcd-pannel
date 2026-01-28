@@ -184,6 +184,41 @@ eval "$SSH_CMD 'sudo systemctl start stellar-backend stellar-frontend'"
 - Audirvana uses `BackHeader.svelte` component (unchanged styling)
 - Main screen tiles: Spotify and USB removed (v1.3.1)
 
+**Docked Mini Player (v1.4.0+):**
+
+The home screen features a permanently docked mini player on the left side (~40% width).
+
+**Components** (in `src/lib/components/miniplayer/`):
+- `DockedMiniPlayer.svelte` - Main shell with deep-sunk styling
+- `MiniPlayerQueueStrip.svelte` - Horizontal scroll of upcoming tracks
+
+**Layout:**
+- CSS Grid: 40% mini player | 60% app tiles
+- Square edges, no rounded corners
+- "Deep sunk" effect on right edge (inner shadow + gradient)
+
+**Features:**
+- Large album artwork (200×200px)
+- Track info (title, artist, album) + format badges (FLAC, 96kHz, 24bit)
+- Transport controls (shuffle, prev, play/pause, next, repeat)
+- Seek bar with time display
+- Source label (NAS, USB, LOCAL, QOBUZ, TIDAL, etc.)
+- Expand button → full PlayerView
+- Queue strip showing upcoming tracks (tap to play)
+
+**Source Label Mapping** (`src/lib/utils/sourceClassifier.ts`):
+| URI Pattern | Label |
+|-------------|-------|
+| `NAS/` or `music-library/NAS/` | NAS |
+| `USB/` or `music-library/USB/` | USB |
+| `INTERNAL/` or `music-library/INTERNAL/` | LOCAL |
+| `qobuz://` | QOBUZ |
+| `tidal://` | TIDAL |
+| `spotify://` | SPOTIFY |
+| `webradio/` or `http(s)://` | WEBRADIO |
+| `audirvana:` | AUDIRVANA |
+| Unknown | Hidden (null) |
+
 **Store Initialization:**
 ```typescript
 // In App.svelte onMount():
