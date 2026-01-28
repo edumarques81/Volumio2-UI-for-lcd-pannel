@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 /**
  * E2E tests for UI cleanup changes:
- * 1. Main screen: Spotify and USB tiles removed
+ * 1. Main screen: Spotify, USB, Tidal, Albums tiles removed
  * 2. Internal pages: Slim header (52px height)
  * 3. Audirvana: Header unchanged
  */
@@ -27,6 +27,19 @@ test.describe('UI Cleanup - Main Screen', () => {
     // Also check by text content
     const usbTile = page.locator('.app-tile:has-text("USB")');
     await expect(usbTile).not.toBeVisible();
+  });
+
+  test('should NOT display Tidal tile on main screen', async ({ page }) => {
+    // Tidal tile should not exist
+    await expect(page.locator('[data-testid="tile-tidal"]')).not.toBeVisible();
+    // Also check by text content
+    const tidalTile = page.locator('.app-tile:has-text("Tidal")');
+    await expect(tidalTile).not.toBeVisible();
+  });
+
+  test('should NOT display Albums tile on main screen', async ({ page }) => {
+    // Albums tile should not exist (redundant with Music Library)
+    await expect(page.locator('[data-testid="tile-albums"]')).not.toBeVisible();
   });
 
   test('should display essential tiles on main screen', async ({ page }) => {

@@ -174,17 +174,6 @@
       }
     },
     {
-      id: 'albums',
-      title: 'Albums',
-      subtitle: '',
-      icon: 'album',
-      gradient: 'linear-gradient(180deg, #d4854a 0%, #b5612a 100%)',
-      iconGradient: { from: '#fff8f0', to: '#f5dcc8' },
-      action: () => {
-        navigationActions.goToAllAlbums();
-      }
-    },
-    {
       id: 'playlists',
       title: 'Playlists',
       subtitle: 'Your playlists',
@@ -206,18 +195,6 @@
       action: () => {
         browseActions.browse('favourites');
         navigationActions.goToBrowse('favourites', 'Favorites');
-      }
-    },
-    {
-      id: 'tidal',
-      title: 'Tidal',
-      subtitle: 'Hi-Fi Streaming',
-      icon: 'headphones',
-      gradient: 'linear-gradient(180deg, #000000 0%, #333333 100%)',
-      iconGradient: { from: '#ffffff', to: '#e0e0e0' },
-      action: () => {
-        browseActions.browse('tidal');
-        navigationActions.goToBrowse('tidal', 'Tidal');
       }
     },
     {

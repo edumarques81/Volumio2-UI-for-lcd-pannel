@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 /**
  * AppLauncher component tests
  *
- * Tests verify that specific tiles (Spotify, USB) are NOT included in the apps array.
+ * Tests verify that specific tiles (Spotify, USB, Tidal, Albums) are NOT included in the apps array.
  * This ensures the main screen cleanup requirement is met.
  *
  * E2E tests will verify actual DOM rendering behavior.
@@ -18,16 +18,14 @@ describe('AppLauncher', () => {
     'webradio',
     'library',
     'artists',
-    'albums',
     'playlists',
     'favorites',
-    'tidal',
     'genres',
     'settings'
   ];
 
   // Define the app tile IDs that should NOT be present (removed)
-  const removedAppIds = ['spotify', 'usb'];
+  const removedAppIds = ['spotify', 'usb', 'tidal', 'albums'];
 
   describe('App Tiles Configuration', () => {
     /**
@@ -51,6 +49,26 @@ describe('AppLauncher', () => {
     });
 
     /**
+     * Test: Tidal tile should NOT be included
+     * Requirement: Main screen cleanup - remove Tidal tile
+     */
+    it('should NOT include tidal tile', () => {
+      // Tidal was removed as part of main screen cleanup
+      expect(removedAppIds).toContain('tidal');
+      expect(expectedAppIds).not.toContain('tidal');
+    });
+
+    /**
+     * Test: Albums tile should NOT be included
+     * Requirement: Main screen cleanup - remove Albums tile (redundant with Music Library)
+     */
+    it('should NOT include albums tile', () => {
+      // Albums was removed as part of main screen cleanup
+      expect(removedAppIds).toContain('albums');
+      expect(expectedAppIds).not.toContain('albums');
+    });
+
+    /**
      * Test: Verify expected tiles are still present
      */
     it('should include essential navigation tiles', () => {
@@ -69,11 +87,11 @@ describe('AppLauncher', () => {
 
     /**
      * Test: Verify total number of tiles after removal
-     * Original: 15 tiles (including Spotify and USB)
-     * After removal: 13 tiles
+     * Original: 15 tiles (including Spotify, USB, Tidal, Albums)
+     * After removal: 11 tiles
      */
-    it('should have exactly 13 app tiles after removing spotify and usb', () => {
-      expect(expectedAppIds.length).toBe(13);
+    it('should have exactly 11 app tiles after removing spotify, usb, tidal, and albums', () => {
+      expect(expectedAppIds.length).toBe(11);
     });
   });
 
