@@ -135,21 +135,18 @@
   <!-- Top-right light effect overlay -->
   <div class="light-effect"></div>
 
-  <!-- Header row with source and minimize on the right -->
-  <div class="header-row">
-    <div class="header-left"></div>
-    <div class="header-right">
-      {#if showSource}
-        <span class="source-label">{sourceLabel}</span>
-      {/if}
-      <button
-        class="minimize-btn"
-        on:click={goToHome}
-        aria-label="Minimize player"
-      >
-        <Icon name="collapse" size={24} />
-      </button>
-    </div>
+  <!-- Floating controls in top-right corner (no layout space) -->
+  <div class="floating-controls">
+    {#if showSource}
+      <span class="source-label">{sourceLabel}</span>
+    {/if}
+    <button
+      class="minimize-btn"
+      on:click={goToHome}
+      aria-label="Minimize player"
+    >
+      <Icon name="collapse" size={24} />
+    </button>
   </div>
 
   <!-- Main content -->
@@ -365,26 +362,15 @@
     z-index: 1;
   }
 
-  /* Header row */
-  .header-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
-    position: relative;
-    z-index: 10;
-  }
-
-  .header-left {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .header-right {
+  /* Floating controls - absolutely positioned, no layout impact */
+  .floating-controls {
+    position: absolute;
+    top: 16px;
+    right: 24px;
     display: flex;
     align-items: center;
     gap: 12px;
+    z-index: 10;
   }
 
   .source-label {
@@ -424,7 +410,7 @@
     transform: scale(0.95);
   }
 
-  /* Main content */
+  /* Main content - uses full height since header is floating */
   .player-content {
     flex: 1;
     display: flex;
@@ -433,6 +419,7 @@
     min-height: 0;
     position: relative;
     z-index: 2;
+    padding-left: 24px;
   }
 
   /* Artwork section - large album art, centered vertically */
