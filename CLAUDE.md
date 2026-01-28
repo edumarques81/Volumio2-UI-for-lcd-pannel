@@ -4,22 +4,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Volumio2-UI is a standalone web user interface for Volumio2 audio player. It communicates with the Volumio2 backend via Socket.io WebSocket API. The UI is served via Express static server and resides at `/volumio/http/www` (Classic UI) or `/volumio/http/www3` (Contemporary UI) on Volumio devices.
+Volumio2-UI is a standalone web user interface for Volumio2 audio player. It communicates with the backend via Socket.io WebSocket API. The UI is served via Express static server and resides at `/volumio/http/www` (Classic UI) or `/volumio/http/www3` (Contemporary UI) on Volumio devices.
 
 This repository contains two projects:
 - **Legacy UI** (root): AngularJS 1.5 application (Node.js 10.22.1 required)
 - **POC** (`volumio-poc/`): Svelte 5 application for CarPlay-style LCD interface (1920x440)
 
-**Current Version**: See `volumio-poc/package.json` for POC version
+**Related Workspaces** (additional working directories):
+- `stellar-volumio-audioplayer-backend/` - Go backend with Socket.IO, MPD integration
+- `volumio3-backend/` - Original Volumio3 backend (Node.js)
 
-## Important: localhost vs Raspberry Pi
+## Development Environment
 
 > **Key Concept:** Development happens on your Mac, deployment targets the Pi.
-
-| Term | Refers To | Example |
-|------|-----------|---------|
-| `localhost` | Your macOS development machine | `localhost:5173` (Vite dev server) |
-| Pi IP | Raspberry Pi target device | `192.168.x.x:3000` (Stellar backend) |
 
 - Dev mode frontend (`localhost:5173`) connects to Pi backend (`PI_IP:3000`)
 - Configure Pi IP in `volumio-poc/src/lib/config.ts` (`DEV_VOLUMIO_IP`)
@@ -43,10 +40,8 @@ npm run build:volumio3                          # Production build (Contemporary
 
 # Test
 npm test                                        # Run all tests (Karma + Jasmine)
-# Note: Karma doesn't support single-file testing easily. Run full suite.
 
-# Linting
-# JSHint runs automatically via webpack during `gulp serve`
+# Linting - JSHint runs automatically via webpack during `gulp serve`
 ```
 
 ### POC (Svelte)
@@ -64,18 +59,12 @@ npm run test:run -- --grep "player state"       # Tests matching pattern
 npm run test:e2e                                # E2E tests (Playwright)
 npm run test:e2e:headed                         # E2E in headed browser
 npm run test:e2e:ui                             # Playwright UI mode
-npm run test:e2e:debug                          # Debug mode with inspector
-npm run test:e2e:report                         # View last test report
-npm run test:coverage                           # Tests with coverage
 
 # Build & Type Check
 npm run build                                   # Production build → dist/
 npx tsc --noEmit                                # Type check only
 
-# Linting
-# No ESLint/Prettier configured. TypeScript provides type checking.
-
-# Deploy to Pi (see Environment Variables below)
+# Deploy to Pi
 npm run deploy                                  # Runs scripts/deploy.sh
 ```
 
@@ -89,27 +78,16 @@ cp .env-example .env
 # Edit with your Pi credentials
 ```
 
-**Root .env variables** (for SSH helper and backend deployment):
+**Root .env variables:**
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `RASPBERRY_PI_SSH_USERNAME` | SSH user | `pi` |
-| `RASPBERRY_PI_SSH_PASSWORD` | SSH password | `your_password` |
+| `RASPBERRY_PI_SSH_USERNAME` | SSH user | `volumio` |
+| `RASPBERRY_PI_SSH_PASSWORD` | SSH password | `volumio` |
 | `RASPBERRY_PI_API_ADDRESS` | Pi IP address | `192.168.1.100` |
 | `STELLAR_BACKEND_FOLDER` | Path to Stellar backend repo | `/path/to/stellar-backend` |
 
-**POC deploy script** (`volumio-poc/scripts/deploy.sh`) uses different env vars:
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `VOLUMIO_PI_HOST` | `192.168.86.34` | Pi IP for deployment |
-| `VOLUMIO_PI_USER` | `volumio` | SSH user |
-| `VOLUMIO_PI_PASS` | `volumio` | SSH password |
-
-Optional (NAS music source):
-- `NAS_IP`, `NAS_SHARE`, `NAS_USERNAME`, `NAS_PASSWORD` - Windows NAS config for mounting music shares
-
 ### SSH Helper
 
-All SSH operations use `sshpass` with credentials from `.env`. Define this helper:
 ```bash
 source .env
 SSH_CMD="sshpass -p '$RASPBERRY_PI_SSH_PASSWORD' ssh -o StrictHostKeyChecking=no $RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS"
@@ -119,30 +97,24 @@ SSH_CMD="sshpass -p '$RASPBERRY_PI_SSH_PASSWORD' ssh -o StrictHostKeyChecking=no
 
 **IMPORTANT:** Always stop services before deploying and start them after.
 
-**Step 1: Stop services on Pi**
 ```bash
+# 1. Stop services
 source .env
 SSH_CMD="sshpass -p '$RASPBERRY_PI_SSH_PASSWORD' ssh -o StrictHostKeyChecking=no $RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS"
 eval "$SSH_CMD 'sudo systemctl stop stellar-frontend stellar-backend'"
-```
 
-**Step 2: Deploy Frontend (POC)**
-```bash
-cd volumio-poc && npm run deploy    # Uses scripts/deploy.sh
-```
+# 2. Deploy Frontend (POC)
+cd volumio-poc && npm run deploy
 
-**Step 3: Deploy Backend (Stellar)**
-```bash
+# 3. Deploy Backend (Stellar) - CGO required for SQLite
+# Install cross-compiler: brew install FiloSottile/musl-cross/musl-cross
 source .env && cd "$STELLAR_BACKEND_FOLDER"
-# CGO required for SQLite cache - use musl cross-compiler (brew install FiloSottile/musl-cross/musl-cross)
 CGO_ENABLED=1 CC=aarch64-linux-musl-gcc GOOS=linux GOARCH=arm64 \
   go build -ldflags='-linkmode external -extldflags "-static"' -o stellar-arm64 ./cmd/stellar
 sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" scp stellar-arm64 "$RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS:~/stellar-backend/stellar"
 eval "$SSH_CMD 'chmod +x ~/stellar-backend/stellar'"
-```
 
-**Step 4: Start services on Pi**
-```bash
+# 4. Start services
 eval "$SSH_CMD 'sudo systemctl start stellar-backend stellar-frontend'"
 ```
 
@@ -184,30 +156,14 @@ eval "$SSH_CMD 'sudo systemctl start stellar-backend stellar-frontend'"
 - `src/lib/stores/` - Svelte stores (see below)
 - `src/App.svelte` - Root component with layout switching
 
-**Stores (21 total):**
-| Store | Purpose |
-|-------|---------|
-| `player.ts` | Playback state, volume, seek, track info |
-| `queue.ts` | Play queue management |
-| `browse.ts` | Library browsing, navigation history |
-| `navigation.ts` | View routing, layout mode |
-| `audioEngine.ts` | Audio engine selection (Stellar/Audirvana) |
-| `audirvana.ts` | Audirvana Studio integration and discovery |
-| `audio.ts` | Audio output settings, bit-perfect config |
-| `audioDevices.ts` | DAC/output device enumeration |
-| `lcd.ts` | LCD standby modes (CSS dimmed / hardware), brightness |
-| `network.ts` | Network status |
-| `favorites.ts`, `playlist.ts` | User collections |
-| `settings.ts` | UI preferences |
-| `issues.ts` | System issue notifications |
-| `device.ts` | Device detection/information |
-| `performance.ts` | FPS monitoring, performance metrics |
-| `sources.ts` | Music source configuration |
-| `ui.ts` | UI state (drawers, modals) |
-| `version.ts` | Application version info |
-| `qobuz.ts` | Qobuz streaming integration |
-| `localMusic.ts` | Local music library management |
-| `library.ts` | MPD-driven library browsing (albums, artists, radio) |
+**Key Stores** (in `src/lib/stores/`):
+- `player.ts` - Playback state, volume, seek, track info
+- `queue.ts` - Play queue management
+- `browse.ts` - Library browsing, navigation history
+- `library.ts` - MPD-driven library browsing (albums, artists, radio)
+- `navigation.ts` - View routing, layout mode
+- `lcd.ts` - LCD standby modes (CSS dimmed / hardware), brightness
+- `settings.ts` - UI preferences
 
 **Patterns:**
 - Each store exports: `init*Store()` function, writable stores, derived stores, and `*Actions` object
@@ -215,26 +171,17 @@ eval "$SSH_CMD 'sudo systemctl start stellar-backend stellar-frontend'"
 - Layouts: `LCDLayout` (1920x440), `MobileLayout`, `DesktopLayout`
 - Force layout via URL: `?layout=lcd` or `?layout=mobile`
 
-**LCD Panel Sizes (1920x440):**
-- App tiles: 179×179px icons, 33px border-radius
-- Album art: 146×146px (Now Playing) or 320×320px (full player)
-- Control buttons: 90×90px, Play button: 98×98px
+**LCD Panel Design (1920x440):**
 - Touch targets: 44×44px minimum
+- App tiles: 179×179px icons
+- Control buttons: 90×90px, Play button: 98×98px
 
-**MPD-Driven Library Views (v1.2.0+):**
-- `AllAlbumsView` - Music Library (all sources)
-- `NASAlbumsView` - NAS albums only
-- `ArtistsView` - Artists → Albums → Tracks hierarchy
-- `RadioView` - Web radio stations
-- `AlbumGrid` - Reusable album grid component
-
-**Store Initialization Pattern:**
+**Store Initialization:**
 ```typescript
 // In App.svelte onMount():
 initPlayerStore();   // Registers pushState listener, requests initial state
 initBrowseStore();   // Registers pushBrowseLibrary listener
 initQueueStore();    // Registers pushQueue listener
-// ... etc
 ```
 
 ### Socket.IO Events (Stellar Backend)
@@ -283,6 +230,24 @@ initQueueStore();    // Registers pushQueue listener
 | `library:cache:rebuild` | - | Trigger full cache rebuild |
 | - | `library:cache:updated` | Broadcast when cache rebuild completes |
 
+**Artwork Enrichment Events (v1.4.0+):**
+| Emit | Receive | Description |
+|------|---------|-------------|
+| `enrichment:status` | `pushEnrichmentStatus` | Get enrichment worker status |
+| `enrichment:queue` | `pushEnrichmentQueueResult` | Trigger missing artwork queue |
+
+**EnrichmentStatus Payload:**
+```typescript
+interface EnrichmentStatus {
+  workerRunning: boolean;   // Worker processing jobs
+  pending: number;          // Jobs waiting to process
+  running: number;          // Jobs currently processing
+  completed: number;        // Successfully completed jobs
+  failed: number;           // Failed jobs
+  queueRunning: boolean;    // Coordinator scanning for missing artwork
+}
+```
+
 **CacheStatus Payload:**
 ```typescript
 interface CacheStatus {
@@ -308,82 +273,32 @@ interface CacheStatus {
 | - | `pushToastMessage` | Toast notifications from backend |
 
 **LCD Control System:**
+- Two standby modes: CSS Dimmed (default, instant wake) or Hardware (wlr-randr, saves power)
+- Key files: `lcd.ts` (store), `StandbyOverlay.svelte` (overlay + touch handling)
+- State: ON → DIMMED → STANDBY
+- Force layout via URL: `?layout=lcd` or `?layout=mobile`
 
-Two standby modes configurable in Settings → Appearance:
-- **CSS Dimmed (default)**: Dims to 20% via overlay. Instant wake, reliable touch-to-wake.
-- **Hardware**: Uses `wlr-randr` to power off display. Saves power, slower wake.
+### Socket.IO Compatibility
 
-**Key Files:** `lcd.ts` (store), `settings.ts` (mode persistence), `StandbyOverlay.svelte` (overlay + touch handling)
+| Component | Socket.IO Version |
+|-----------|-------------------|
+| Volumio Connect apps | v2.x client |
+| Stellar Go backend | v3 server (EIO3 compat enabled) |
+| Svelte frontend (POC) | v4 client |
 
-**State Model:** ON (100%) → DIMMED (<100%) → DIMMED STANDBY (≤20%) or HARDWARE STANDBY (`lcdState='off'`)
-
-**LCD Actions:** `standby()`, `wake()`, `toggle()`, `turnOff()`, `turnOn()`, `setBrightness(n)`
-
-**Touch Handling:** Non-passive listeners for Pi/Wayland, 500ms debounce, StandbyOverlay only on `?layout=lcd`
-
-**Audirvana Integration:**
-| Emit | Receive | Description |
-|------|---------|-------------|
-| `getAudirvanaStatus` | `pushAudirvanaStatus` | Get Audirvana detection/discovery status |
-| `audirvanaStartService` | - | Start Audirvana systemd service |
-| `audirvanaStopService` | - | Stop Audirvana systemd service |
-
-The audio engine store manages mutual exclusion between MPD and Audirvana for bit-perfect playback.
-
-### Socket.IO Compatibility & mDNS Discovery
-
-**Version Matrix:**
-| Component | Socket.IO Version | Protocol |
-|-----------|-------------------|----------|
-| Volumio Connect apps (iOS/Android) | v2.x client | Engine.IO v3 |
-| Stellar Go backend | v3 server | Engine.IO v4 + EIO3 compat |
-| Svelte frontend (POC) | v4 client | Engine.IO v4 |
-
-The Stellar backend enables `allowEIO3: true` to support Socket.IO v2 clients (Volumio Connect apps).
-
-**Note:** The backend now uses port 3000 (Volumio standard port) instead of 3002.
-
-**mDNS Discovery:**
-The device is discoverable via Avahi mDNS with service type `_Volumio._tcp`:
-```bash
-# Verify discovery from Mac
-dns-sd -B _Volumio._tcp local.
-
-# Service details
-dns-sd -L raspberrypi _Volumio._tcp local.
-```
-
-The Avahi service file is at `/etc/avahi/services/stellar.service` on the Pi.
-
-**Test Socket.IO v2 Compatibility:**
-```bash
-cd volumio-poc/tests/socketio-compat
-npm run test:v2    # Test v2 client can connect to Stellar backend
-npm run verify:discovery  # Verify mDNS discovery
-```
+**mDNS Discovery:** Service type `_Volumio._tcp` via Avahi (`/etc/avahi/services/stellar.service`)
 
 ## Development Workflow
 
 ### Conventional Commits
 
-Commits follow `<type>(<scope>): <description>` format:
-- `feat`, `fix`, `docs`, `refactor`, `test`, `chore`
+Format: `<type>(<scope>): <description>`
+- Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`
+- Example: `git commit -m "feat(audio): add bit-perfect audio status indicator"`
 
-Example: `git commit -m "feat(audio): add bit-perfect audio status indicator"`
+### E2E Tests
 
-### Development Checklist
-
-- [ ] Tests written and passing
-- [ ] Code deployed to Pi and verified on hardware
-- [ ] Logs checked for errors (`journalctl -u stellar-backend -f`)
-
-### E2E Test Status
-
-Current E2E tests have **38% pass rate** (21 passing, 34 failing). Known issues documented in `volumio-poc/E2E-TEST-ISSUES.md`:
-- Navigation selectors don't match actual component structure
-- Player control `data-testid` attributes missing
-- Status drawer rendering issues
-
+Current pass rate: 38%. Known issues documented in `volumio-poc/E2E-TEST-ISSUES.md`.
 **Priority:** Add `data-testid` attributes when modifying components.
 
 ### Library Cache System (v1.3.0+)
@@ -415,82 +330,87 @@ window.libraryActions.rebuildCache()
 
 For detailed design, see `volumio-poc/docs/LIBRARY-CACHE-DESIGN.md`.
 
+### Artwork Enrichment System (v1.4.0+)
+
+When albums lack embedded artwork or folder-based cover images, the backend automatically fetches artwork from the Cover Art Archive using MusicBrainz lookups.
+
+**How It Works:**
+1. After cache rebuild completes, coordinator scans for albums without artwork
+2. MusicBrainz API is queried to find release MBIDs by artist/album name
+3. Jobs are queued in SQLite for albums with valid MBIDs
+4. Background worker fetches artwork from Cover Art Archive
+5. Downloaded artwork is saved to cache directory and linked to albums
+
+**Key Components:**
+- `internal/infra/enrichment/musicbrainz.go` - MusicBrainz release search client
+- `internal/infra/enrichment/caa.go` - Cover Art Archive client
+- `internal/infra/enrichment/coordinator.go` - Orchestrates enrichment workflow
+- `internal/infra/enrichment/worker.go` - Background job processor
+- `internal/transport/socketio/enrichment_handlers.go` - Socket.IO handlers
+
+**Rate Limiting:** MusicBrainz API is rate-limited to 1 request/second per their guidelines.
+
+**Manual Enrichment Operations:**
+```bash
+# Check enrichment job queue
+sqlite3 ~/stellar-backend/data/library.db "SELECT status, COUNT(*) FROM enrichment_jobs GROUP BY status"
+
+# Trigger enrichment scan via Socket.IO
+# From browser console:
+socket.emit('enrichment:queue')
+```
+
 ### Additional Documentation
 
-For detailed setup and architecture, see:
 - `volumio-poc/DEVELOPMENT.md` - Full development guide (kiosk setup, deployment)
-- `volumio-poc/POC_SUMMARY.md` - Project summary with performance metrics
 - `volumio-poc/E2E-TEST-ISSUES.md` - Test failure analysis
 - `volumio-poc/docs/LIBRARY-CACHE-DESIGN.md` - Library cache architecture
+- `volumio-poc/docs/ARCHITECTURE.md` - Full backend architecture plan
 
 ## Browser Console Debugging (POC)
 
-The POC exposes several debugging helpers on `window`:
-
 ```javascript
-// Performance monitoring
-__performance.start()   // Show FPS overlay
-__performance.stop()    // Hide overlay
-__performance.toggle()  // Toggle overlay
+// Performance
+__performance.toggle()              // FPS overlay
+__latency.getStats('pushState')    // Event latency
 
-// Latency metrics
-__latency.getStats('pushState')  // Latency for specific event
-__latency.getAllStats()          // All event latencies
-__latency.clear()                // Reset metrics
+// Navigation (E2E testing)
+__navigation.goToQueue() / goToPlayer() / goToBrowse() / goToSettings()
 
-// Navigation (for E2E testing)
-__navigation.goToQueue()
-__navigation.goToPlayer()
-__navigation.goToBrowse()
-__navigation.goToSettings()
-__navigation.goHome()
-
-// Test toast notifications
+// Test helpers
 testToast.error('Title', 'Message')
-testToast.warning('Title', 'Message')
-testToast.success('Title', 'Message')
-
-// Test issue system
 testIssue.mpdError()
-testIssue.networkError()
-testIssue.clear()
+window.libraryActions.rebuildCache()  // Trigger cache rebuild
 ```
 
 ## Performance Debugging
 
-**Pi Hardware:**
 ```bash
-source .env
-sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" ssh "$RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS" "vcgencmd measure_temp"      # GPU temp
-sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" ssh "$RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS" "vcgencmd get_throttled"    # Throttling status
+# Pi hardware status
+source .env && eval "$SSH_CMD 'vcgencmd measure_temp && vcgencmd get_throttled'"
 ```
 
-## Quick Troubleshooting
+## Troubleshooting
 
 - **Socket.io version mismatch**: Use Socket.io 2.3.x CDN for Legacy, 4.x for POC
 - **Connection fails with .local hostname**: Use IP address instead
 - **`$lib` path not resolved**: Check `vite.config.ts` alias configuration
 - **POC not connecting**: Verify `DEV_VOLUMIO_IP` in `volumio-poc/src/lib/config.ts`
 
-## Related Repositories
+## Stellar Backend
 
-### Stellar Backend
+Configured via `STELLAR_BACKEND_FOLDER` in `.env`. GitHub: https://github.com/edumarques81/stellar-volumio-audioplayer-backend
 
-Configured via `STELLAR_BACKEND_FOLDER` in `.env`
-- GitHub: https://github.com/edumarques81/stellar-volumio-audioplayer-backend
-
-**Commands:**
 ```bash
 cd "$STELLAR_BACKEND_FOLDER"
 go test ./...                                      # Run tests
-GOOS=linux GOARCH=arm64 go build -o stellar-arm64 ./cmd/stellar  # Build for Pi
+# Build for Pi (CGO required for SQLite)
+CGO_ENABLED=1 CC=aarch64-linux-musl-gcc GOOS=linux GOARCH=arm64 \
+  go build -ldflags='-linkmode external -extldflags "-static"' -o stellar-arm64 ./cmd/stellar
 ```
 
 **Architecture:**
-- Go backend with Socket.IO (zishang520/socket.io library), MPD integration
-- Uses **MPD as Single Source of Truth** - no state machine (unlike Volumio3-backend's 1500+ line statemachine.js)
-- Commands go directly to MPD; state updates come back via MPD idle watcher and broadcast to clients
-- Focus: bit-perfect audio playback, single-device operation, minimal footprint
-- See repository README for detailed project structure
-
-**Configuration:** `configs/stellar.yaml` on the Pi (port 3000, MPD on localhost:6600)
+- Go backend with Socket.IO, MPD integration via idle watcher
+- **MPD as Single Source of Truth** - no state machine
+- SQLite cache for library metadata at `/home/volumio/stellar-backend/data/library.db`
+- Configuration: `configs/stellar.yaml` on the Pi
