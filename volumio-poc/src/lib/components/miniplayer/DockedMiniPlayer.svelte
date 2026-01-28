@@ -97,29 +97,35 @@
 </script>
 
 <div class="docked-mini-player" data-testid="docked-mini-player">
+  <!-- Top-right light effect overlay -->
+  <div class="light-effect"></div>
+
   <!-- Deep sunk effect overlay on right edge -->
   <div class="sunk-edge"></div>
 
-  <!-- Header row with expand and source -->
+  <!-- Header row with source and expand on the right -->
   <div class="header-row">
     <div class="header-left">
+      <!-- Empty for balance -->
+    </div>
+    <div class="header-right">
       {#if showSource}
         <span class="source-label" data-testid="miniplayer-source">{sourceLabel}</span>
       {/if}
+      <button
+        class="expand-btn"
+        data-testid="miniplayer-expand"
+        on:click={goToFullPlayer}
+        aria-label="Expand player"
+      >
+        <Icon name="expand" size={24} />
+      </button>
     </div>
-    <button
-      class="expand-btn"
-      data-testid="miniplayer-expand"
-      on:click={goToFullPlayer}
-      aria-label="Expand player"
-    >
-      <Icon name="expand" size={24} />
-    </button>
   </div>
 
   <!-- Main content area -->
   <div class="main-content">
-    <!-- Large album art -->
+    <!-- Large album art - now bigger and positioned to align with UP NEXT -->
     <div class="artwork-section" data-testid="miniplayer-artwork">
       {#if !showPlaceholder}
         <img
@@ -198,25 +204,28 @@
           <Icon name={$repeat === 'one' ? 'repeat-1' : 'repeat'} size={24} />
         </button>
       </div>
-    </div>
-  </div>
 
-  <!-- Progress bar -->
-  <div class="progress-section" data-testid="miniplayer-progress">
-    <span class="time current-time">{formatTime(isSeeking ? seekValue : $seek)}</span>
-    <input
-      type="range"
-      class="seek-slider"
-      min="0"
-      max={$duration || 100}
-      value={isSeeking ? seekValue : $seek}
-      on:mousedown={handleSeekStart}
-      on:touchstart={handleSeekStart}
-      on:mouseup={handleSeekEnd}
-      on:touchend={handleSeekEnd}
-      on:input={handleSeekInput}
-    />
-    <span class="time duration-time">{formatTime($duration)}</span>
+      <!-- Progress bar - aligned with controls, squared and thicker -->
+      <div class="progress-section" data-testid="miniplayer-progress">
+        <span class="time current-time">{formatTime(isSeeking ? seekValue : $seek)}</span>
+        <div class="seek-track">
+          <div class="seek-progress" style="width: {$duration > 0 ? ((isSeeking ? seekValue : $seek) / $duration) * 100 : 0}%"></div>
+          <input
+            type="range"
+            class="seek-slider"
+            min="0"
+            max={$duration || 100}
+            value={isSeeking ? seekValue : $seek}
+            on:mousedown={handleSeekStart}
+            on:touchstart={handleSeekStart}
+            on:mouseup={handleSeekEnd}
+            on:touchend={handleSeekEnd}
+            on:input={handleSeekInput}
+          />
+        </div>
+        <span class="time duration-time">{formatTime($duration)}</span>
+      </div>
+    </div>
   </div>
 
   <!-- Queue strip -->
@@ -230,10 +239,29 @@
     height: 100%;
     display: flex;
     flex-direction: column;
-    padding: 16px 20px 12px;
-    background: linear-gradient(135deg, rgba(28, 28, 32, 0.95) 0%, rgba(22, 22, 26, 0.98) 100%);
+    padding: 12px 20px 12px;
+    background: linear-gradient(165deg, rgba(38, 38, 44, 0.97) 0%, rgba(22, 22, 26, 0.99) 60%, rgba(18, 18, 22, 1) 100%);
     box-sizing: border-box;
     overflow: hidden;
+  }
+
+  /* Top-right light effect - like light coming from top-right */
+  .light-effect {
+    position: absolute;
+    top: -50%;
+    right: -30%;
+    width: 80%;
+    height: 120%;
+    pointer-events: none;
+    background: radial-gradient(
+      ellipse at center,
+      rgba(255, 255, 255, 0.08) 0%,
+      rgba(255, 255, 255, 0.04) 25%,
+      rgba(255, 255, 255, 0.01) 50%,
+      transparent 70%
+    );
+    transform: rotate(-15deg);
+    z-index: 0;
   }
 
   /* Deep sunk effect on right edge */
@@ -242,17 +270,18 @@
     top: 0;
     right: 0;
     bottom: 0;
-    width: 40px;
+    width: 50px;
     pointer-events: none;
     background: linear-gradient(
       90deg,
       transparent 0%,
-      rgba(0, 0, 0, 0.08) 30%,
-      rgba(0, 0, 0, 0.2) 70%,
-      rgba(0, 0, 0, 0.35) 100%
+      rgba(0, 0, 0, 0.1) 20%,
+      rgba(0, 0, 0, 0.25) 60%,
+      rgba(0, 0, 0, 0.45) 100%
     );
     /* Inner shadow for depth */
-    box-shadow: inset -15px 0 25px -10px rgba(0, 0, 0, 0.4);
+    box-shadow: inset -20px 0 35px -15px rgba(0, 0, 0, 0.5);
+    z-index: 2;
   }
 
   /* Subtle inner glow on left side for contrast */
@@ -262,14 +291,15 @@
     top: 0;
     left: 0;
     bottom: 0;
-    width: 2px;
+    width: 3px;
     background: linear-gradient(
       180deg,
-      rgba(255, 255, 255, 0.06) 0%,
-      rgba(255, 255, 255, 0.02) 50%,
-      rgba(255, 255, 255, 0.04) 100%
+      rgba(255, 255, 255, 0.08) 0%,
+      rgba(255, 255, 255, 0.03) 50%,
+      rgba(255, 255, 255, 0.05) 100%
     );
     pointer-events: none;
+    z-index: 1;
   }
 
   /* Header row */
@@ -277,7 +307,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 12px;
+    margin-bottom: 8px;
     position: relative;
     z-index: 1;
   }
@@ -286,6 +316,12 @@
     display: flex;
     align-items: center;
     gap: 8px;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
   }
 
   .source-label {
@@ -325,24 +361,26 @@
   /* Main content layout */
   .main-content {
     display: flex;
-    gap: 20px;
+    gap: 24px;
     flex: 1;
     min-height: 0;
     position: relative;
     z-index: 1;
   }
 
-  /* Artwork section */
+  /* Artwork section - larger, extending close to UP NEXT */
   .artwork-section {
-    width: 200px;
-    height: 200px;
+    width: 280px;
+    height: 280px;
     flex-shrink: 0;
     border-radius: 12px;
     overflow: hidden;
     background: rgba(40, 40, 45, 0.5);
     box-shadow:
-      0 4px 20px rgba(0, 0, 0, 0.4),
+      0 6px 30px rgba(0, 0, 0, 0.5),
       inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    align-self: flex-end;
+    margin-bottom: 8px;
   }
 
   .album-art {
@@ -361,8 +399,8 @@
   }
 
   .vinyl-icon {
-    width: 140px;
-    height: 140px;
+    width: 180px;
+    height: 180px;
     position: relative;
     border-radius: 50%;
     background: linear-gradient(135deg, #1a1a1c 0%, #2d2d30 100%);
@@ -384,10 +422,10 @@
 
   .vinyl-grooves {
     position: absolute;
-    top: 20px;
-    left: 20px;
-    right: 20px;
-    bottom: 20px;
+    top: 25px;
+    left: 25px;
+    right: 25px;
+    bottom: 25px;
     border-radius: 50%;
     background: repeating-radial-gradient(
       circle at center,
@@ -403,8 +441,8 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 50px;
-    height: 50px;
+    width: 60px;
+    height: 60px;
     border-radius: 50%;
     background: linear-gradient(145deg, #e86a8a 0%, #c94466 100%);
     box-shadow:
@@ -417,8 +455,8 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 14px;
-    height: 14px;
+    width: 16px;
+    height: 16px;
     border-radius: 50%;
     background: #1a1a1c;
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
@@ -429,9 +467,10 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: flex-end;
     min-width: 0;
-    gap: 16px;
+    gap: 12px;
+    padding-bottom: 8px;
   }
 
   /* Track info */
@@ -442,7 +481,7 @@
   }
 
   .track-title {
-    font-size: 24px;
+    font-size: 26px;
     font-weight: 600;
     color: white;
     white-space: nowrap;
@@ -539,12 +578,12 @@
     color: var(--color-accent, #e86a8a);
   }
 
-  /* Progress section */
+  /* Progress section - aligned with controls */
   .progress-section {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 8px 0;
+    padding: 4px 0;
     position: relative;
     z-index: 1;
   }
@@ -565,33 +604,67 @@
     text-align: left;
   }
 
-  .seek-slider {
+  /* Custom squared progress bar track */
+  .seek-track {
     flex: 1;
-    height: 4px;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 0;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Progress fill - warm coral/orange color */
+  .seek-progress {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    background: linear-gradient(90deg, #e07850 0%, #d86040 100%);
+    border-radius: 0;
+    pointer-events: none;
+  }
+
+  .seek-slider {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
     -webkit-appearance: none;
     appearance: none;
-    background: rgba(255, 255, 255, 0.15);
-    border-radius: 2px;
+    background: transparent;
     cursor: pointer;
+    margin: 0;
   }
 
   .seek-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
+    width: 4px;
+    height: 16px;
     background: white;
     cursor: pointer;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+    border-radius: 0;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+    margin-top: -4px;
   }
 
   .seek-slider::-moz-range-thumb {
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
+    width: 4px;
+    height: 16px;
     background: white;
     cursor: pointer;
     border: none;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+    border-radius: 0;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  }
+
+  .seek-slider::-webkit-slider-runnable-track {
+    height: 8px;
+  }
+
+  .seek-slider::-moz-range-track {
+    height: 8px;
+    background: transparent;
   }
 </style>
