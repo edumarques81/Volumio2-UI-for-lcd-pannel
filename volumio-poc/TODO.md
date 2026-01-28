@@ -5,7 +5,7 @@
 Items to implement when moving from POC to production:
 
 - [~] **Volumio Integration Setup and use** Backend complete (device service, Socket.IO events). PENDING: iOS Volumio app can't discover device via mDNS (service IS advertised correctly as `_Volumio._tcp`, visible from Mac). Need to investigate: network isolation, router mDNS blocking, or add WiFi hotspot "Setup Mode" for initial pairing. Consider adding Settings UI for device name/UUID.
-- [ ] **Artists main screen item** Grab official images of the artits using the services already integrated, save them and add to the app DB if needed
+- [x] **Artists main screen item** Artist images fetched from Fanart.tv (primary, using MusicBrainz Artist IDs) or Deezer (fallback, hotlink). Saved to SQLite cache and served via /artistart endpoint. Frontend updated with fallback to placeholder on image error.
 - [ ] **Completely review the mobile layout** The mobile interface is not great. It should not start in the miniplayer, it needs to display the mainscreen items using all the screen, it cannot use the same horizontal layout we use for the LCD panel. Buttons need to be visible in the miniplayer and not deform if the screen orientation changes
 - [ ] **Playlist menu from the main screen** Implement the playlist screen (accessed via playlist button from the main screen)
 - [ ] **Album Tile** when presenting an album tile, anywhere in the app we need a button (in some places this button exist -- Music Library -- that will let the user add the album to a playlist and another to add the album to the playing queue. Or maybe a submenu with those options along with the Option "Play Next")

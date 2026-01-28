@@ -278,7 +278,8 @@ initQueueStore();    // Registers pushQueue listener
 | Emit | Receive | Description |
 |------|---------|-------------|
 | `enrichment:status` | `pushEnrichmentStatus` | Get enrichment worker status |
-| `enrichment:queue` | `pushEnrichmentQueueResult` | Trigger missing artwork queue |
+| `enrichment:queue` | `pushEnrichmentQueueResult` | Trigger missing album artwork queue |
+| `enrichment:artists:queue` | `pushEnrichmentQueueResult` | Trigger missing artist artwork queue (v1.5.0+) |
 
 **EnrichmentStatus Payload:**
 ```typescript
@@ -450,6 +451,55 @@ sqlite3 ~/stellar-backend/data/library.db "SELECT status, COUNT(*) FROM enrichme
 # Trigger enrichment scan via Socket.IO
 # From browser console:
 socket.emit('enrichment:queue')
+```
+
+### Artist Artwork Enrichment (v1.5.0+)
+
+The backend fetches official artist images from external services when artists lack artwork.
+
+**External Services:**
+| Service | Use Case | Notes |
+|---------|----------|-------|
+| Fanart.tv | Primary source | Requires API key, uses MusicBrainz Artist IDs, images cached locally |
+| Deezer | Fallback | No auth needed, hotlink only (cannot cache per ToS) |
+| First Album | Final fallback | Uses the artist's first album artwork |
+
+**Fallback Chain:**
+1. Fanart.tv (if `FANART_API_KEY` configured) - high quality, cacheable
+2. Deezer search - returns URL only (hotlink)
+3. First album artwork from cache
+
+**Environment Variables:**
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `FANART_API_KEY` | Fanart.tv API key | Optional (get free key at fanart.tv) |
+
+**Socket.IO Events:**
+| Emit | Receive | Description |
+|------|---------|-------------|
+| `enrichment:artists:queue` | `pushEnrichmentQueueResult` | Trigger artist image enrichment scan |
+
+**HTTP Endpoint:**
+```
+GET /artistart?id={artistID}    # By artist ID (preferred)
+GET /artistart?name={artistName} # By artist name (fallback search)
+```
+- Returns image data directly, or redirects to external URL (Deezer hotlinks)
+- Returns 404 if no artwork found
+
+**Key Components:**
+- `internal/infra/enrichment/fanarttv.go` - Fanart.tv client (downloads highest-liked artistthumb)
+- `internal/infra/enrichment/deezer.go` - Deezer client (returns picture_xl URL)
+- `internal/infra/enrichment/musicbrainz.go` - SearchArtist method for MBID lookup
+
+**Manual Operations:**
+```bash
+# Check artist artwork status
+sqlite3 ~/stellar-backend/data/library.db "SELECT name, artwork_id FROM artists WHERE artwork_id != ''"
+
+# Trigger artist enrichment via Socket.IO
+# From browser console:
+socket.emit('enrichment:artists:queue')
 ```
 
 ### Additional Documentation

@@ -214,7 +214,15 @@
           >
             <div class="artist-avatar">
               {#if artist.albumArt}
-                <img src={artist.albumArt} alt={artist.name} loading="lazy" />
+                <img
+                  src={artist.albumArt}
+                  alt={artist.name}
+                  loading="lazy"
+                  onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                />
+                <div class="artist-placeholder artist-fallback" style="display: none;">
+                  <Icon name="artist" size={48} />
+                </div>
               {:else}
                 <div class="artist-placeholder">
                   <Icon name="artist" size={48} />
@@ -417,6 +425,7 @@
     border-radius: 50%;
     overflow: hidden;
     background: rgba(0, 0, 0, 0.2);
+    position: relative;
   }
 
   .artist-avatar img {
@@ -432,6 +441,13 @@
     align-items: center;
     justify-content: center;
     color: var(--color-text-tertiary);
+  }
+
+  .artist-fallback {
+    position: absolute;
+    top: 0;
+    left: 0;
+    background: rgba(0, 0, 0, 0.2);
   }
 
   .artist-info {
