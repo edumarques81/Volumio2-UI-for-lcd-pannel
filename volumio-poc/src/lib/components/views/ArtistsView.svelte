@@ -413,6 +413,8 @@
     cursor: pointer;
     transition: all 0.2s;
     text-align: center;
+    overflow: hidden; /* Prevent children from overflowing */
+    min-width: 0; /* Allow grid item to shrink */
   }
 
   .artist-card:hover {
@@ -459,6 +461,9 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
+    width: 100%;
+    min-width: 0; /* Allow flex child to shrink below content size */
+    overflow: hidden;
   }
 
   .artist-name {
@@ -468,6 +473,7 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    max-width: 100%;
   }
 
   .artist-albums {
