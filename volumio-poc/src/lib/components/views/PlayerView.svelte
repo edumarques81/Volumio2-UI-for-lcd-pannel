@@ -428,16 +428,17 @@
   .player-content {
     flex: 1;
     display: flex;
+    align-items: center;
     gap: 40px;
     min-height: 0;
     position: relative;
     z-index: 2;
   }
 
-  /* Artwork section - large album art */
+  /* Artwork section - large album art, centered vertically */
   .artwork-section {
-    width: 340px;
-    height: 340px;
+    width: 380px;
+    height: 380px;
     flex-shrink: 0;
     border-radius: 16px;
     overflow: hidden;
@@ -445,7 +446,6 @@
     box-shadow:
       0 8px 40px rgba(0, 0, 0, 0.5),
       inset 0 1px 0 rgba(255, 255, 255, 0.05);
-    align-self: center;
   }
 
   .album-art {
