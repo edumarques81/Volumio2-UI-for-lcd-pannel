@@ -209,18 +209,6 @@
       }
     },
     {
-      id: 'spotify',
-      title: 'Spotify',
-      subtitle: 'Streaming',
-      icon: 'music-note',
-      gradient: 'linear-gradient(180deg, #1db954 0%, #158a3d 100%)',
-      iconGradient: { from: '#f0fff5', to: '#c9f5d9' },
-      action: () => {
-        browseActions.browse('spotify');
-        navigationActions.goToBrowse('spotify', 'Spotify');
-      }
-    },
-    {
       id: 'tidal',
       title: 'Tidal',
       subtitle: 'Hi-Fi Streaming',
@@ -230,18 +218,6 @@
       action: () => {
         browseActions.browse('tidal');
         navigationActions.goToBrowse('tidal', 'Tidal');
-      }
-    },
-    {
-      id: 'usb',
-      title: 'USB',
-      subtitle: 'USB Drives',
-      icon: 'storage',
-      gradient: 'linear-gradient(180deg, #9b59b6 0%, #7d3c98 100%)',
-      iconGradient: { from: '#faf5ff', to: '#e8d4f5' },
-      action: () => {
-        browseActions.browse('music-library/USB');
-        navigationActions.goToBrowse('music-library/USB', 'USB');
       }
     },
     {

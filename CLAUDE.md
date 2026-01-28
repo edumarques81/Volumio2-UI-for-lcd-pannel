@@ -54,11 +54,13 @@ npm run dev                                     # Dev server (localhost:5173)
 # Testing
 npm test                                        # Unit tests (watch mode)
 npm run test:run                                # Unit tests (once)
+npm run test:coverage                           # Unit tests with coverage
 npm run test:run src/lib/stores/__tests__/player.test.ts  # Single test file
 npm run test:run -- --grep "player state"       # Tests matching pattern
 npm run test:e2e                                # E2E tests (Playwright)
 npm run test:e2e:headed                         # E2E in headed browser
 npm run test:e2e:ui                             # Playwright UI mode
+npm run test:e2e:debug                          # E2E debug mode
 
 # Build & Type Check
 npm run build                                   # Production build → dist/
@@ -176,6 +178,12 @@ eval "$SSH_CMD 'sudo systemctl start stellar-backend stellar-frontend'"
 - App tiles: 179×179px icons
 - Control buttons: 90×90px, Play button: 98×98px
 
+**Header Tokens (v1.3.1+):**
+- CSS var `--header-height-slim: 52px` defined in `app.css`
+- Internal pages use slim header: 52px height, 44px back button
+- Audirvana uses `BackHeader.svelte` component (unchanged styling)
+- Main screen tiles: Spotify and USB removed (v1.3.1)
+
 **Store Initialization:**
 ```typescript
 // In App.svelte onMount():
@@ -284,7 +292,8 @@ interface CacheStatus {
 |-----------|-------------------|
 | Volumio Connect apps | v2.x client |
 | Stellar Go backend | v3 server (EIO3 compat enabled) |
-| Svelte frontend (POC) | v4 client |
+| Svelte frontend (POC) | v4.x client (npm package) |
+| Legacy UI | v2.3.x (CDN) |
 
 **mDNS Discovery:** Service type `_Volumio._tcp` via Avahi (`/etc/avahi/services/stellar.service`)
 
@@ -392,7 +401,7 @@ source .env && eval "$SSH_CMD 'vcgencmd measure_temp && vcgencmd get_throttled'"
 
 ## Troubleshooting
 
-- **Socket.io version mismatch**: Use Socket.io 2.3.x CDN for Legacy, 4.x for POC
+- **Socket.io version mismatch**: Legacy UI uses Socket.io 2.3.x CDN; POC uses 4.x npm package; Stellar backend runs v3 server with EIO3 compat for both
 - **Connection fails with .local hostname**: Use IP address instead
 - **`$lib` path not resolved**: Check `vite.config.ts` alias configuration
 - **POC not connecting**: Verify `DEV_VOLUMIO_IP` in `volumio-poc/src/lib/config.ts`

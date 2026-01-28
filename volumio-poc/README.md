@@ -5,7 +5,7 @@ Proof-of-concept for Volumio2-UI using Svelte, optimized for 1920x440 LCD touchs
 ## Features
 
 - ⚡ **Svelte 5** - Lightning-fast reactive framework
-- 🎨 **iOS 26-Inspired Design** - Modern, clean interface
+- 🎨 **iOS 26-Inspired Design** - Modern, clean interface with slim headers (52px)
 - 📐 **1920x440 Layout** - Single horizontal bar optimized for LCD panels
 - 👆 **Touch-Optimized** - 44x44px minimum touch targets
 - 🔌 **Socket.io Integration** - Real-time communication with Volumio backend

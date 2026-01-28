@@ -292,7 +292,7 @@
   <header class="settings-header">
     <div class="header-left">
       <button class="back-btn" on:click={$currentSettingsCategory ? handleBack : navigationActions.goHome} aria-label={$currentSettingsCategory ? 'Go back to categories' : 'Back to home'} data-testid={$currentSettingsCategory ? 'settings-back' : 'home-back'}>
-        <Icon name="chevron-left" size={32} />
+        <Icon name="chevron-left" size={28} />
       </button>
       <h1 class="title">
         {$currentSettingsCategory
@@ -1375,7 +1375,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: var(--spacing-lg) var(--spacing-xl);
+    height: var(--header-height-slim);
+    padding: var(--spacing-sm) var(--spacing-xl);
     /* Frosted glass - 30% more blur/saturation than tiles */
     background: rgba(45, 45, 50, 0.7);
     backdrop-filter: blur(1.5px) saturate(135%);
@@ -1395,8 +1396,8 @@
   }
 
   .back-btn {
-    width: 56px;
-    height: 56px;
+    width: 44px;
+    height: 44px;
     display: flex;
     align-items: center;
     justify-content: center;

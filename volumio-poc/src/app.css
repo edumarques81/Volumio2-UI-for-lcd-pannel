@@ -49,6 +49,9 @@
   /* Touch Target */
   --touch-target-min: 44px;
 
+  /* Header Heights */
+  --header-height-slim: 52px;
+
   /* Layout mode (default: lcd) */
   --display-mode: lcd;
 

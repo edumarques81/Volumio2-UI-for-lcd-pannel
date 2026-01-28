@@ -93,7 +93,7 @@
   <header class="view-header">
     <div class="header-left">
       <button class="back-btn" data-testid="back-button" on:click={handleBack} aria-label="Go back">
-        <Icon name="chevron-left" size={32} />
+        <Icon name="chevron-left" size={28} />
       </button>
       <h1 class="title">{getTitle()}</h1>
       {#if $selectedLibraryAlbum}
@@ -245,7 +245,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: var(--spacing-lg) var(--spacing-xl);
+    height: var(--header-height-slim);
+    padding: var(--spacing-sm) var(--spacing-xl);
     background: rgba(45, 45, 50, 0.7);
     backdrop-filter: blur(1.5px) saturate(135%);
     -webkit-backdrop-filter: blur(1.5px) saturate(135%);
@@ -269,8 +270,8 @@
   }
 
   .back-btn {
-    width: 56px;
-    height: 56px;
+    width: 44px;
+    height: 44px;
     display: flex;
     align-items: center;
     justify-content: center;
