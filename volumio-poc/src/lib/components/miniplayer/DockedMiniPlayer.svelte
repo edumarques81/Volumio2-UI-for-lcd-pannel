@@ -607,14 +607,14 @@
     text-align: left;
   }
 
-  /* Custom squared progress bar track */
+  /* Custom progress bar track - thicker with slight roundness */
   .seek-track {
     flex: 1;
-    height: 8px;
+    height: 16px;
     background: rgba(255, 255, 255, 0.12);
-    border-radius: 0;
+    border-radius: 3px;
     position: relative;
-    overflow: hidden;
+    overflow: visible;
   }
 
   /* Progress fill - warm coral/orange color */
@@ -624,7 +624,7 @@
     left: 0;
     height: 100%;
     background: linear-gradient(90deg, #e07850 0%, #d86040 100%);
-    border-radius: 0;
+    border-radius: 3px 0 0 3px;
     pointer-events: none;
   }
 
@@ -643,31 +643,31 @@
 
   .seek-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
-    width: 4px;
-    height: 16px;
+    width: 24px;
+    height: 24px;
     background: white;
     cursor: pointer;
-    border-radius: 0;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+    border-radius: 6px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
     margin-top: -4px;
   }
 
   .seek-slider::-moz-range-thumb {
-    width: 4px;
-    height: 16px;
+    width: 24px;
+    height: 24px;
     background: white;
     cursor: pointer;
     border: none;
-    border-radius: 0;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+    border-radius: 6px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
   }
 
   .seek-slider::-webkit-slider-runnable-track {
-    height: 8px;
+    height: 16px;
   }
 
   .seek-slider::-moz-range-track {
-    height: 8px;
+    height: 16px;
     background: transparent;
   }
 </style>
