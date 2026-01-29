@@ -4,23 +4,12 @@
   import Icon from './Icon.svelte';
 
   export let albums: Album[] = [];
-  export let showSource = false;
 
   const dispatch = createEventDispatcher<{
     albumClick: Album;
     albumPlay: Album;
     albumMore: { album: Album; position: { x: number; y: number } };
   }>();
-
-  function getSourceIcon(source: string): string {
-    switch (source) {
-      case 'usb': return 'storage';
-      case 'nas': return 'storage';
-      case 'local': return 'folder';
-      case 'streaming': return 'cloud';
-      default: return 'music-note';
-    }
-  }
 
   function handleAlbumClick(album: Album) {
     dispatch('albumClick', album);
@@ -78,13 +67,8 @@
           on:click={() => handleAlbumClick(album)}
           aria-label="View songs in {album.title}"
         >
-          <Icon name="list" size={24} />
+          <Icon name="list" size={20} />
         </button>
-        {#if showSource}
-          <div class="source-badge">
-            <Icon name={getSourceIcon(album.source)} size={14} />
-          </div>
-        {/if}
       </div>
       <div class="album-info">
         <span class="album-title">{album.title}</span>
@@ -224,8 +208,8 @@
     position: absolute;
     bottom: 8px;
     right: 8px;
-    width: 56px;
-    height: 56px;
+    width: 48px;
+    height: 48px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -245,20 +229,6 @@
 
   .view-songs-btn:active {
     transform: scale(0.95);
-  }
-
-  .source-badge {
-    position: absolute;
-    bottom: 8px;
-    left: 8px;
-    width: 28px;
-    height: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(0, 0, 0, 0.6);
-    border-radius: var(--radius-full);
-    color: var(--color-text-primary);
   }
 
   .album-info {
@@ -309,14 +279,10 @@
       height: 56px;
     }
 
-    .more-btn {
+    .more-btn,
+    .view-songs-btn {
       width: 44px;
       height: 44px;
-    }
-
-    .view-songs-btn {
-      width: 52px;
-      height: 52px;
     }
   }
 </style>

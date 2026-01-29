@@ -15,6 +15,26 @@ vi.mock('$lib/stores/library', () => ({
   }
 }));
 
+vi.mock('$lib/stores/browse', () => ({
+  browseActions: {
+    play: vi.fn(),
+    addToQueue: vi.fn()
+  }
+}));
+
+vi.mock('$lib/stores/queue', () => ({
+  queueActions: {
+    play: vi.fn(),
+    remove: vi.fn()
+  }
+}));
+
+vi.mock('$lib/stores/favorites', () => ({
+  favoritesActions: {
+    addToFavorites: vi.fn()
+  }
+}));
+
 vi.mock('$lib/stores/ui', async () => {
   const { writable, derived } = await import('svelte/store');
 
@@ -22,7 +42,8 @@ vi.mock('$lib/stores/ui', async () => {
     isOpen: false,
     item: null,
     itemType: null,
-    position: { x: 0, y: 0 }
+    position: { x: 0, y: 0 },
+    itemIndex: undefined
   });
 
   return {
@@ -63,7 +84,7 @@ const mockTrack: Track = {
   source: 'nas'
 };
 
-describe('LibraryContextMenu component', () => {
+describe('LibraryContextMenu component (unified)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     // Reset context menu state
@@ -71,7 +92,8 @@ describe('LibraryContextMenu component', () => {
       isOpen: false,
       item: null,
       itemType: null,
-      position: { x: 0, y: 0 }
+      position: { x: 0, y: 0 },
+      itemIndex: undefined
     });
   });
 
@@ -83,7 +105,7 @@ describe('LibraryContextMenu component', () => {
     it('should not render when isOpen is false', () => {
       render(LibraryContextMenu);
 
-      expect(screen.queryByTestId('library-context-menu')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('context-menu')).not.toBeInTheDocument();
     });
   });
 
@@ -93,7 +115,8 @@ describe('LibraryContextMenu component', () => {
         isOpen: true,
         item: mockAlbum,
         itemType: 'album',
-        position: { x: 100, y: 100 }
+        position: { x: 100, y: 100 },
+        itemIndex: undefined
       });
     });
 
@@ -101,7 +124,7 @@ describe('LibraryContextMenu component', () => {
       render(LibraryContextMenu);
 
       await waitFor(() => {
-        expect(screen.getByTestId('library-context-menu')).toBeInTheDocument();
+        expect(screen.getByTestId('context-menu')).toBeInTheDocument();
       });
     });
 
@@ -168,7 +191,8 @@ describe('LibraryContextMenu component', () => {
         isOpen: true,
         item: mockTrack,
         itemType: 'track',
-        position: { x: 100, y: 100 }
+        position: { x: 100, y: 100 },
+        itemIndex: undefined
       });
     });
 
@@ -176,7 +200,7 @@ describe('LibraryContextMenu component', () => {
       render(LibraryContextMenu);
 
       await waitFor(() => {
-        expect(screen.getByTestId('library-context-menu')).toBeInTheDocument();
+        expect(screen.getByTestId('context-menu')).toBeInTheDocument();
       });
     });
 
@@ -216,13 +240,78 @@ describe('LibraryContextMenu component', () => {
     });
   });
 
+  describe('for browse items', () => {
+    beforeEach(() => {
+      contextMenu.set({
+        isOpen: true,
+        item: { uri: 'test', service: 'mpd', type: 'song', title: 'Test Song', artist: 'Test Artist' } as any,
+        itemType: 'browse',
+        position: { x: 100, y: 100 },
+        itemIndex: undefined
+      });
+    });
+
+    it('should render for browse items', async () => {
+      render(LibraryContextMenu);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('context-menu')).toBeInTheDocument();
+      });
+    });
+
+    it('should show Play Now option', async () => {
+      render(LibraryContextMenu);
+
+      await waitFor(() => {
+        expect(screen.getByText('Play Now')).toBeInTheDocument();
+      });
+    });
+
+    it('should show Add to Queue option', async () => {
+      render(LibraryContextMenu);
+
+      await waitFor(() => {
+        expect(screen.getByText('Add to Queue')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('for queue items', () => {
+    beforeEach(() => {
+      contextMenu.set({
+        isOpen: true,
+        item: { uri: 'test', service: 'mpd', name: 'Test Queue Item' } as any,
+        itemType: 'queue',
+        position: { x: 100, y: 100 },
+        itemIndex: 0
+      });
+    });
+
+    it('should render for queue items', async () => {
+      render(LibraryContextMenu);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('context-menu')).toBeInTheDocument();
+      });
+    });
+
+    it('should show Remove from Queue option', async () => {
+      render(LibraryContextMenu);
+
+      await waitFor(() => {
+        expect(screen.getByText('Remove from Queue')).toBeInTheDocument();
+      });
+    });
+  });
+
   describe('close behavior', () => {
     beforeEach(() => {
       contextMenu.set({
         isOpen: true,
         item: mockAlbum,
         itemType: 'album',
-        position: { x: 100, y: 100 }
+        position: { x: 100, y: 100 },
+        itemIndex: undefined
       });
     });
 
@@ -239,43 +328,13 @@ describe('LibraryContextMenu component', () => {
       render(LibraryContextMenu);
 
       await waitFor(() => {
-        expect(screen.getByTestId('library-context-menu')).toBeInTheDocument();
+        expect(screen.getByTestId('context-menu')).toBeInTheDocument();
       });
 
       const closeButton = screen.getByLabelText(/close/i);
       await fireEvent.click(closeButton);
 
       expect(uiActions.closeContextMenu).toHaveBeenCalled();
-    });
-  });
-
-  describe('non-library items', () => {
-    it('should not render for browse items', async () => {
-      contextMenu.set({
-        isOpen: true,
-        item: { uri: 'test', service: 'mpd', type: 'song', title: 'Test' } as any,
-        itemType: 'browse',
-        position: { x: 100, y: 100 }
-      });
-
-      render(LibraryContextMenu);
-
-      // Should not render for non-library items
-      expect(screen.queryByTestId('library-context-menu')).not.toBeInTheDocument();
-    });
-
-    it('should not render for queue items', async () => {
-      contextMenu.set({
-        isOpen: true,
-        item: { uri: 'test', service: 'mpd', name: 'Test' } as any,
-        itemType: 'queue',
-        position: { x: 100, y: 100 }
-      });
-
-      render(LibraryContextMenu);
-
-      // Should not render for non-library items
-      expect(screen.queryByTestId('library-context-menu')).not.toBeInTheDocument();
     });
   });
 });

@@ -1,43 +1,83 @@
 <script lang="ts">
-  import { contextMenu, uiActions } from '$lib/stores/ui';
+  import { contextMenu, uiActions, type ContextMenuItem } from '$lib/stores/ui';
   import { libraryActions, type Album, type Track } from '$lib/stores/library';
+  import { browseActions, type BrowseItem } from '$lib/stores/browse';
+  import { queueActions } from '$lib/stores/queue';
+  import { favoritesActions } from '$lib/stores/favorites';
   import Icon from './Icon.svelte';
 
   // Reactive state from store
   $: isOpen = $contextMenu.isOpen;
   $: item = $contextMenu.item;
   $: itemType = $contextMenu.itemType;
-
-  // Only show for library items (album or track)
-  $: isLibraryItem = itemType === 'album' || itemType === 'track';
+  $: itemIndex = $contextMenu.itemIndex;
 
   // Type guards
   function isAlbum(item: unknown): item is Album {
-    return itemType === 'album' && item !== null && typeof item === 'object' && 'trackCount' in item;
+    return itemType === 'album' && item !== null && typeof item === 'object' && 'title' in item;
   }
 
   function isTrack(item: unknown): item is Track {
     return itemType === 'track' && item !== null && typeof item === 'object' && 'trackNumber' in item;
   }
 
+  function isBrowseItem(item: unknown): item is BrowseItem {
+    return itemType === 'browse' && item !== null && typeof item === 'object';
+  }
+
+  function isQueueItem(): boolean {
+    return itemType === 'queue';
+  }
+
   // Get item properties safely
   function getTitle(): string {
-    if (isAlbum(item)) return item.title;
-    if (isTrack(item)) return item.title;
+    if (!item) return '';
+    if ('title' in item) return item.title as string;
+    if ('name' in item) return item.name as string;
     return '';
   }
 
   function getArtist(): string {
-    if (isAlbum(item)) return item.artist;
-    if (isTrack(item)) return item.artist;
+    if (!item) return '';
+    if ('artist' in item) return item.artist as string;
     return '';
   }
 
   function getAlbumArt(): string {
-    if (isAlbum(item)) return item.albumArt;
-    if (isTrack(item)) return item.albumArt;
+    if (!item) return '';
+    if ('albumArt' in item) return item.albumArt as string;
+    if ('albumart' in item) return item.albumart as string;
     return '';
   }
+
+  function getIcon(): string {
+    if (itemType === 'album') return 'album';
+    if (itemType === 'track') return 'music-note';
+    if (itemType === 'queue') return 'queue';
+    if (isBrowseItem(item) && item.type) {
+      switch (item.type) {
+        case 'folder': return 'folder';
+        case 'playlist': return 'playlist';
+        case 'album': return 'album';
+        case 'artist': return 'artist';
+        case 'radio':
+        case 'webradio': return 'radio';
+        default: return 'music-note';
+      }
+    }
+    return 'music-note';
+  }
+
+  // Determine available actions based on item type
+  $: canPlay = itemType === 'album' || itemType === 'track' || itemType === 'browse' || itemType === 'queue';
+  $: canPlayNext = itemType === 'album' || itemType === 'track';
+  $: canAddToQueue = itemType === 'album' || itemType === 'track' || itemType === 'browse';
+  $: canAddToPlaylist = itemType === 'album' || itemType === 'track' ||
+    (isBrowseItem(item) && (item.type === 'song' || item.type === 'webradio'));
+  $: canAddToFavorites = itemType === 'album' || itemType === 'track' ||
+    (isBrowseItem(item) && (item.type === 'song' || item.type === 'webradio'));
+  $: canViewInfo = itemType === 'track' || itemType === 'browse';
+  $: canRemoveFromQueue = itemType === 'queue';
 
   // Action handlers
   function handlePlayNow() {
@@ -45,6 +85,10 @@
       libraryActions.playAlbum(item);
     } else if (isTrack(item)) {
       libraryActions.playTrack(item);
+    } else if (isBrowseItem(item)) {
+      browseActions.play(item);
+    } else if (isQueueItem() && itemIndex !== undefined) {
+      queueActions.play(itemIndex);
     }
     uiActions.closeContextMenu();
   }
@@ -63,6 +107,8 @@
       libraryActions.addAlbumToQueue(item);
     } else if (isTrack(item)) {
       libraryActions.addTrackToQueue(item);
+    } else if (isBrowseItem(item)) {
+      browseActions.addToQueue(item);
     }
     uiActions.closeContextMenu();
   }
@@ -73,10 +119,28 @@
     }
   }
 
+  function handleAddToFavorites() {
+    if (isAlbum(item)) {
+      favoritesActions.addToFavorites('mpd', item.uri, getTitle());
+    } else if (isTrack(item)) {
+      favoritesActions.addToFavorites('mpd', item.uri, getTitle());
+    } else if (isBrowseItem(item)) {
+      favoritesActions.addToFavorites(item.service || '', item.uri, getTitle());
+    }
+    uiActions.closeContextMenu();
+  }
+
   function handleViewInfo() {
     if (item) {
       uiActions.openTrackInfoModal(item);
     }
+  }
+
+  function handleRemoveFromQueue() {
+    if (itemIndex !== undefined) {
+      queueActions.remove(itemIndex);
+    }
+    uiActions.closeContextMenu();
   }
 
   function handleClose() {
@@ -90,18 +154,18 @@
   }
 </script>
 
-{#if isOpen && item && isLibraryItem}
+{#if isOpen && item}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="context-menu-backdrop" data-testid="library-context-menu-backdrop" on:click={handleBackdropClick}>
-    <div class="context-menu" data-testid="library-context-menu">
+  <div class="context-menu-backdrop" data-testid="context-menu-backdrop" on:click={handleBackdropClick}>
+    <div class="context-menu" data-testid="context-menu">
       <!-- Header with item info -->
       <div class="context-menu-header">
         {#if getAlbumArt()}
           <img src={getAlbumArt()} alt="" class="context-menu-art" />
         {:else}
           <div class="context-menu-art-placeholder">
-            <Icon name={itemType === 'album' ? 'album' : 'music'} size={24} />
+            <Icon name={getIcon()} size={24} />
           </div>
         {/if}
         <div class="context-menu-info">
@@ -117,30 +181,52 @@
 
       <!-- Menu options -->
       <div class="context-menu-options">
-        <button class="context-menu-option" data-testid="library-menu-play" on:click={handlePlayNow}>
-          <Icon name="play" size={20} />
-          <span>Play Now</span>
-        </button>
+        {#if canPlay}
+          <button class="context-menu-option" data-testid="context-menu-play" on:click={handlePlayNow}>
+            <Icon name="play" size={20} />
+            <span>Play Now</span>
+          </button>
+        {/if}
 
-        <button class="context-menu-option" data-testid="library-menu-play-next" on:click={handlePlayNext}>
-          <Icon name="skip-forward" size={20} />
-          <span>Play Next</span>
-        </button>
+        {#if canPlayNext}
+          <button class="context-menu-option" data-testid="context-menu-play-next" on:click={handlePlayNext}>
+            <Icon name="skip-forward" size={20} />
+            <span>Play Next</span>
+          </button>
+        {/if}
 
-        <button class="context-menu-option" data-testid="library-menu-add-queue" on:click={handleAddToQueue}>
-          <Icon name="queue" size={20} />
-          <span>Add to Queue</span>
-        </button>
+        {#if canAddToQueue}
+          <button class="context-menu-option" data-testid="context-menu-add-queue" on:click={handleAddToQueue}>
+            <Icon name="queue" size={20} />
+            <span>Add to Queue</span>
+          </button>
+        {/if}
 
-        <button class="context-menu-option" data-testid="library-menu-add-playlist" on:click={handleAddToPlaylist}>
-          <Icon name="playlist" size={20} />
-          <span>Add to Playlist</span>
-        </button>
+        {#if canAddToPlaylist}
+          <button class="context-menu-option" data-testid="context-menu-add-playlist" on:click={handleAddToPlaylist}>
+            <Icon name="playlist" size={20} />
+            <span>Add to Playlist</span>
+          </button>
+        {/if}
 
-        {#if itemType === 'track'}
-          <button class="context-menu-option" data-testid="library-menu-view-info" on:click={handleViewInfo}>
+        {#if canAddToFavorites}
+          <button class="context-menu-option" data-testid="context-menu-add-favorites" on:click={handleAddToFavorites}>
+            <Icon name="heart" size={20} />
+            <span>Add to Favorites</span>
+          </button>
+        {/if}
+
+        {#if canViewInfo}
+          <button class="context-menu-option" data-testid="context-menu-view-info" on:click={handleViewInfo}>
             <Icon name="info" size={20} />
             <span>View Info</span>
+          </button>
+        {/if}
+
+        {#if canRemoveFromQueue}
+          <button class="context-menu-option context-menu-option--danger" data-testid="context-menu-remove" on:click={handleRemoveFromQueue}>
+            <Icon name="trash" size={20} />
+            <span>Remove from Queue</span>
           </button>
         {/if}
       </div>
@@ -275,6 +361,10 @@
 
   .context-menu-option:active {
     background: rgba(255, 255, 255, 0.15);
+  }
+
+  .context-menu-option--danger {
+    color: var(--color-error, #ef4444);
   }
 
   /* Desktop styling */

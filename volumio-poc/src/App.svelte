@@ -27,7 +27,7 @@
   import MobileLayout from '$lib/components/layouts/MobileLayout.svelte';
 
   // Components (global modals)
-  import ContextMenu from '$lib/components/ContextMenu.svelte';
+  import LibraryContextMenu from '$lib/components/LibraryContextMenu.svelte';
   import PlaylistSelector from '$lib/components/PlaylistSelector.svelte';
   import TrackInfoModal from '$lib/components/TrackInfoModal.svelte';
   import StatusDrawer from '$lib/components/StatusDrawer.svelte';
@@ -333,7 +333,7 @@
   {/if}
 
   <!-- Global modals -->
-  <ContextMenu />
+  <LibraryContextMenu />
   <PlaylistSelector />
   <TrackInfoModal />
   <StatusDrawer />

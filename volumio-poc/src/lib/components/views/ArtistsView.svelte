@@ -23,7 +23,6 @@
   import Icon from '../Icon.svelte';
   import AlbumGrid from '../AlbumGrid.svelte';
   import TrackItem from '../TrackItem.svelte';
-  import LibraryContextMenu from '../LibraryContextMenu.svelte';
   import SkeletonList from '../SkeletonList.svelte';
 
   function handleBack() {
@@ -84,9 +83,6 @@
   }
 
   function getTitle(): string {
-    if ($selectedLibraryAlbum) {
-      return $selectedLibraryAlbum.title;
-    }
     if ($selectedArtist) {
       return $selectedArtist;
     }
@@ -107,9 +103,7 @@
         <Icon name="chevron-left" size={28} />
       </button>
       <h1 class="title">{getTitle()}</h1>
-      {#if $selectedLibraryAlbum}
-        <span class="subtitle">{$selectedLibraryAlbum.artist}</span>
-      {:else if $selectedArtist}
+      {#if $selectedArtist && !$selectedLibraryAlbum}
         <span class="subtitle">{$artistAlbums.length} albums</span>
       {/if}
     </div>
@@ -156,9 +150,14 @@
                 </div>
               {/if}
             </div>
-            <div class="album-meta">
-              <span class="track-count">{$libraryAlbumTracks.length} tracks</span>
-              <span class="total-duration">{formatTotalDuration($libraryAlbumTotalDuration)}</span>
+            <div class="album-info">
+              <h2 class="album-title">{$selectedLibraryAlbum.title}</h2>
+              <span class="album-artist">{$selectedLibraryAlbum.artist}</span>
+              <div class="album-meta">
+                <span class="track-count">{$libraryAlbumTracks.length} tracks</span>
+                <span class="separator">•</span>
+                <span class="total-duration">{formatTotalDuration($libraryAlbumTotalDuration)}</span>
+              </div>
             </div>
           </div>
           <div class="album-tracks-list">
@@ -194,7 +193,6 @@
       {:else}
         <AlbumGrid
           albums={$artistAlbums}
-          showSource={false}
           on:albumClick={handleAlbumClick}
           on:albumPlay={handleAlbumPlay}
           on:albumMore={handleAlbumMore}
@@ -249,8 +247,6 @@
     {/if}
   </div>
 
-  <!-- Context Menu -->
-  <LibraryContextMenu />
 </div>
 
 <style>
@@ -498,8 +494,8 @@
 
   .album-header {
     display: flex;
-    align-items: flex-end;
-    gap: var(--spacing-lg);
+    align-items: center;
+    gap: var(--spacing-xl);
   }
 
   .album-cover {
@@ -526,16 +522,46 @@
     color: var(--color-text-tertiary);
   }
 
-  .album-meta {
+  .album-info {
     display: flex;
     flex-direction: column;
+    gap: var(--spacing-xs);
+    min-width: 0;
+  }
+
+  .album-info .album-title {
+    font-size: var(--font-size-2xl);
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .album-info .album-artist {
+    font-size: var(--font-size-lg);
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .album-meta {
+    display: flex;
+    align-items: center;
     gap: var(--spacing-sm);
+    margin-top: var(--spacing-sm);
   }
 
   .album-meta .track-count,
   .album-meta .total-duration {
     font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
+    color: var(--color-text-tertiary);
+  }
+
+  .album-meta .separator {
+    color: var(--color-text-tertiary);
   }
 
   /* Album Tracks List */

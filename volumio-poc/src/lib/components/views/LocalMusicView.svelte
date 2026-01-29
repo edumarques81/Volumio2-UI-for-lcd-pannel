@@ -23,7 +23,6 @@
   import type { Album } from '$lib/stores/library';
   import Icon from '../Icon.svelte';
   import AlbumGrid from '../AlbumGrid.svelte';
-  import LibraryContextMenu from '../LibraryContextMenu.svelte';
   import SkeletonList from '../SkeletonList.svelte';
 
   type TabType = 'albums' | 'lastPlayed';
@@ -140,6 +139,19 @@
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   }
 
+  function formatTotalDuration(seconds: number): string {
+    if (!seconds) return '';
+    const hours = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    if (hours > 0) {
+      return `${hours}h ${mins}m`;
+    }
+    return `${mins} min`;
+  }
+
+  // Calculate total duration of album tracks
+  $: albumTotalDuration = $albumTracks.reduce((total, track) => total + (track.duration || 0), 0);
+
   function getSourceIcon(source: string): string {
     switch (source) {
       case 'usb': return 'storage';
@@ -161,10 +173,7 @@
       <button class="back-btn" data-testid="back-button" on:click={handleBack} aria-label="Go back">
         <Icon name="chevron-left" size={28} />
       </button>
-      <h1 class="title">{$selectedAlbum ? $selectedAlbum.title : 'Local Music'}</h1>
-      {#if $selectedAlbum}
-        <span class="subtitle">{$selectedAlbum.artist}</span>
-      {/if}
+      <h1 class="title">Local Music</h1>
     </div>
 
     <div class="header-right">
@@ -250,8 +259,14 @@
                 </div>
               {/if}
             </div>
-            <div class="album-meta">
-              <span class="track-count">{$albumTracks.length} tracks</span>
+            <div class="album-info">
+              <h2 class="album-title">{$selectedAlbum.title}</h2>
+              <span class="album-artist">{$selectedAlbum.artist}</span>
+              <div class="album-meta">
+                <span class="track-count">{$albumTracks.length} tracks</span>
+                <span class="separator">•</span>
+                <span class="total-duration">{formatTotalDuration(albumTotalDuration)}</span>
+              </div>
             </div>
           </div>
           <div class="album-tracks-list">
@@ -286,7 +301,6 @@
       {:else}
         <AlbumGrid
           albums={$localAlbums.map(toAlbum)}
-          showSource={true}
           on:albumClick={handleAlbumClick}
           on:albumPlay={handleAlbumPlay}
           on:albumMore={handleAlbumMore}
@@ -333,8 +347,6 @@
     {/if}
   </div>
 
-  <!-- Context Menu -->
-  <LibraryContextMenu />
 </div>
 
 <style>
@@ -637,8 +649,8 @@
 
   .album-header {
     display: flex;
-    align-items: flex-end;
-    gap: var(--spacing-lg);
+    align-items: center;
+    gap: var(--spacing-xl);
   }
 
   .album-cover {
@@ -656,15 +668,55 @@
     object-fit: cover;
   }
 
-  .album-meta {
+  .album-placeholder {
+    width: 100%;
+    height: 100%;
     display: flex;
-    flex-direction: column;
-    gap: var(--spacing-sm);
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-tertiary);
   }
 
-  .album-meta .track-count {
-    font-size: var(--font-size-sm);
+  .album-info {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    min-width: 0;
+  }
+
+  .album-info .album-title {
+    font-size: var(--font-size-2xl);
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .album-info .album-artist {
+    font-size: var(--font-size-lg);
     color: var(--color-text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .album-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-sm);
+  }
+
+  .album-meta .track-count,
+  .album-meta .total-duration {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-tertiary);
+  }
+
+  .album-meta .separator {
+    color: var(--color-text-tertiary);
   }
 
   /* Album Tracks List */

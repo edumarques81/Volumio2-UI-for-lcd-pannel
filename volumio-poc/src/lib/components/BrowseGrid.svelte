@@ -198,13 +198,12 @@
     transform: scale(0.95);
   }
 
-  /* More and View buttons for albums */
-  .more-btn {
+  /* More and View buttons for albums - matching AlbumGrid sizes */
+  .more-btn,
+  .view-btn {
     position: absolute;
-    top: 6px;
-    right: 6px;
-    width: 40px;
-    height: 40px;
+    width: 48px;
+    height: 48px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -215,6 +214,11 @@
     cursor: pointer;
     transition: all 0.2s;
     z-index: 1;
+  }
+
+  .more-btn {
+    top: 8px;
+    right: 8px;
   }
 
   .more-btn:hover {
@@ -227,21 +231,8 @@
   }
 
   .view-btn {
-    position: absolute;
-    bottom: 6px;
-    right: 6px;
-    width: 44px;
-    height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(0, 0, 0, 0.7);
-    border: none;
-    border-radius: var(--radius-full);
-    color: white;
-    cursor: pointer;
-    transition: all 0.2s;
-    z-index: 1;
+    bottom: 8px;
+    right: 8px;
   }
 
   .view-btn:hover {
@@ -297,6 +288,12 @@
 
     .grid-item-artist {
       font-size: var(--font-size-xs);
+    }
+
+    .more-btn,
+    .view-btn {
+      width: 44px;
+      height: 44px;
     }
   }
 

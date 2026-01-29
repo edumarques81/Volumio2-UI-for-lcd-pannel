@@ -90,11 +90,6 @@ describe('AlbumGrid', () => {
       expect(mockAlbums.length).toBeGreaterThan(0);
     });
 
-    it('should have optional showSource prop', () => {
-      // The component has showSource: boolean (default false)
-      const showSource = true;
-      expect(typeof showSource).toBe('boolean');
-    });
   });
 
   describe('event dispatchers', () => {
