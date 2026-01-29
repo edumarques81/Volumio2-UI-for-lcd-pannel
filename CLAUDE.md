@@ -390,6 +390,30 @@ interface MultiRoomDevices {
 - State: ON -> DIMMED -> STANDBY
 - Force layout via URL: `?layout=lcd` or `?layout=mobile`
 
+**Connection Grace Period (v2.0.1+):**
+
+Prevents UI flicker during brief network disconnections. Instead of immediately showing the "Connection Failed" screen, the UI remains stable during a 3-second grace period.
+
+**Implementation:**
+- `src/lib/services/socket.ts` - Grace period timer and `isReconnecting` store
+- `src/lib/components/ReconnectingOverlay.svelte` - Subtle overlay during reconnection
+
+**Behavior:**
+| Event | Before Grace Period | After Grace Period |
+|-------|--------------------|--------------------|
+| Disconnect | UI stays visible, overlay shows | Full disconnect screen |
+| Reconnect during grace | Overlay disappears, normal operation | Normal operation |
+| Connect (first time) | Immediate (no grace period) | N/A |
+
+**Stores:**
+- `connectionState` - Debounced state: only transitions to `'disconnected'` after grace period
+- `isReconnecting` - `true` during grace period when attempting to reconnect
+
+**Configuration:**
+```typescript
+const DISCONNECT_GRACE_PERIOD_MS = 3000; // 3 seconds
+```
+
 ### Socket.IO Compatibility
 
 | Component | Socket.IO Version |

@@ -236,6 +236,188 @@ describe('SocketService', () => {
   });
 });
 
+describe('SocketService - connection grace period', () => {
+  let socketService: any;
+  let mockIo: any;
+  let mockSocket: any;
+  let connectionState: any;
+  let isReconnecting: any;
+  let get: any;
+
+  beforeEach(async () => {
+    vi.useFakeTimers();
+    vi.resetModules();
+
+    // Clear global singleton
+    if (typeof window !== 'undefined') {
+      delete (window as any).__stellarSocketInstance;
+      delete (window as any).__stellarSocketConnected;
+    }
+
+    const ioModule = await import('socket.io-client');
+    mockIo = ioModule.default;
+    mockSocket = (ioModule as any).__mockSocket;
+
+    // Reset mock socket state
+    mockSocket.connected = false;
+    mockSocket.on.mockClear();
+    mockSocket.off.mockClear();
+    mockSocket.emit.mockClear();
+    mockSocket.disconnect.mockClear();
+    mockIo.mockClear();
+
+    // Import fresh socket service and stores
+    const module = await import('../socket');
+    socketService = module.socketService;
+    connectionState = module.connectionState;
+    isReconnecting = module.isReconnecting;
+
+    const svelteStore = await import('svelte/store');
+    get = svelteStore.get;
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.clearAllMocks();
+  });
+
+  it('should immediately set connected state on connect', () => {
+    socketService.connect();
+
+    // Get the connect handler
+    const connectHandler = mockSocket.on.mock.calls.find(
+      (call: any[]) => call[0] === 'connect'
+    )?.[1];
+
+    expect(connectHandler).toBeDefined();
+    connectHandler();
+
+    expect(get(connectionState)).toBe('connected');
+    expect(get(isReconnecting)).toBe(false);
+  });
+
+  it('should not immediately set disconnected state on disconnect', () => {
+    socketService.connect();
+
+    // Simulate connect first
+    const connectHandler = mockSocket.on.mock.calls.find(
+      (call: any[]) => call[0] === 'connect'
+    )?.[1];
+    connectHandler();
+
+    expect(get(connectionState)).toBe('connected');
+
+    // Now simulate disconnect
+    const disconnectHandler = mockSocket.on.mock.calls.find(
+      (call: any[]) => call[0] === 'disconnect'
+    )?.[1];
+    disconnectHandler('transport close');
+
+    // Connection state should still show 'connected' during grace period
+    // But isReconnecting should be true
+    expect(get(connectionState)).toBe('connected');
+    expect(get(isReconnecting)).toBe(true);
+  });
+
+  it('should set disconnected state after grace period expires', () => {
+    socketService.connect();
+
+    // Simulate connect first
+    const connectHandler = mockSocket.on.mock.calls.find(
+      (call: any[]) => call[0] === 'connect'
+    )?.[1];
+    connectHandler();
+
+    // Simulate disconnect
+    const disconnectHandler = mockSocket.on.mock.calls.find(
+      (call: any[]) => call[0] === 'disconnect'
+    )?.[1];
+    disconnectHandler('transport close');
+
+    // During grace period
+    expect(get(connectionState)).toBe('connected');
+    expect(get(isReconnecting)).toBe(true);
+
+    // Advance timers past grace period (3 seconds)
+    vi.advanceTimersByTime(3100);
+
+    // Now should be disconnected
+    expect(get(connectionState)).toBe('disconnected');
+    expect(get(isReconnecting)).toBe(false);
+  });
+
+  it('should cancel grace period if reconnected before expiry', () => {
+    socketService.connect();
+
+    // Simulate connect
+    const connectHandler = mockSocket.on.mock.calls.find(
+      (call: any[]) => call[0] === 'connect'
+    )?.[1];
+    connectHandler();
+
+    // Simulate disconnect
+    const disconnectHandler = mockSocket.on.mock.calls.find(
+      (call: any[]) => call[0] === 'disconnect'
+    )?.[1];
+    disconnectHandler('transport close');
+
+    expect(get(isReconnecting)).toBe(true);
+
+    // Advance timers partially (1 second - within grace period)
+    vi.advanceTimersByTime(1000);
+
+    // Reconnect before grace period expires
+    connectHandler();
+
+    expect(get(connectionState)).toBe('connected');
+    expect(get(isReconnecting)).toBe(false);
+
+    // Advance timers past original grace period
+    vi.advanceTimersByTime(3000);
+
+    // Should still be connected (timer was cancelled)
+    expect(get(connectionState)).toBe('connected');
+    expect(get(isReconnecting)).toBe(false);
+  });
+
+  it('should handle rapid connect/disconnect cycles', () => {
+    socketService.connect();
+
+    const connectHandler = mockSocket.on.mock.calls.find(
+      (call: any[]) => call[0] === 'connect'
+    )?.[1];
+    const disconnectHandler = mockSocket.on.mock.calls.find(
+      (call: any[]) => call[0] === 'disconnect'
+    )?.[1];
+
+    // Initial connect
+    connectHandler();
+    expect(get(connectionState)).toBe('connected');
+
+    // Rapid disconnect/connect cycles (simulating network flapping)
+    for (let i = 0; i < 5; i++) {
+      disconnectHandler('transport close');
+      vi.advanceTimersByTime(500); // Brief disconnect
+      connectHandler();
+    }
+
+    // Should remain connected throughout
+    expect(get(connectionState)).toBe('connected');
+    expect(get(isReconnecting)).toBe(false);
+  });
+
+  it('should not apply grace period to initial connection', () => {
+    // When connecting for the first time, should go straight to 'connecting'
+    expect(get(connectionState)).toBe('disconnected');
+
+    socketService.connect();
+
+    // Should immediately show 'connecting' (no grace period for initial connection)
+    expect(get(connectionState)).toBe('connecting');
+    expect(get(isReconnecting)).toBe(false);
+  });
+});
+
 describe('SocketService - reconnection loop prevention', () => {
   it('should not create more than one socket per page load', async () => {
     vi.resetModules();

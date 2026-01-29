@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { socketService, connectionState } from '$lib/services/socket';
+  import { socketService, connectionState, isReconnecting } from '$lib/services/socket';
   import { initPlayerStore } from '$lib/stores/player';
   import { initBrowseStore } from '$lib/stores/browse';
   import { initQueueStore } from '$lib/stores/queue';
@@ -33,6 +33,7 @@
   import StatusDrawer from '$lib/components/StatusDrawer.svelte';
   import Toast from '$lib/components/Toast.svelte';
   import PerformanceOverlay from '$lib/components/PerformanceOverlay.svelte';
+  import ReconnectingOverlay from '$lib/components/ReconnectingOverlay.svelte';
 
   const volumioHost = getVolumioHost();
 
@@ -301,7 +302,8 @@
 </script>
 
 <main class={deviceClass}>
-  {#if $connectionState === 'connected'}
+  {#if $connectionState === 'connected' || $isReconnecting}
+    <!-- Show UI even during reconnection grace period -->
     <div class="app-container">
       <!-- Choose layout based on device type -->
       {#if $isLcdPanel}
@@ -312,19 +314,17 @@
         <MobileLayout />
       {/if}
     </div>
+
+    <!-- Subtle reconnecting indicator overlay -->
+    <ReconnectingOverlay />
   {:else if $connectionState === 'connecting'}
     <div class="status">
       <div class="spinner"></div>
       <p>Connecting to Stellar Volumio...</p>
       <p class="detail">Backend: {volumioHost}</p>
     </div>
-  {:else if $connectionState === 'reconnecting'}
-    <div class="status reconnecting">
-      <div class="spinner"></div>
-      <p>Reconnecting...</p>
-      <p class="detail">Re-establishing connection to {volumioHost}</p>
-    </div>
   {:else}
+    <!-- Only show after grace period expires -->
     <div class="status error">
       <p>Connection Failed</p>
       <p class="detail">Could not connect to Stellar backend at {volumioHost}</p>
