@@ -3,21 +3,20 @@
   import { currentTrack, isPlaying } from '$lib/stores/player';
   import { deviceType } from '$lib/stores/device';
   import Icon from '../Icon.svelte';
-  import StatusBar from '../StatusBar.svelte';
-  import PlayerView from '../views/PlayerView.svelte';
+  import MobileHomeScreen from '../MobileHomeScreen.svelte';
+  import MobilePlayerView from '../MobilePlayerView.svelte';
   import BrowseView from '../views/BrowseView.svelte';
   import QueueView from '../views/QueueView.svelte';
   import SettingsView from '../views/SettingsView.svelte';
   import LocalMusicView from '../views/LocalMusicView.svelte';
   import AudirvanaView from '../views/AudirvanaView.svelte';
-  // MPD-driven library views
   import AllAlbumsView from '../views/AllAlbumsView.svelte';
   import NASAlbumsView from '../views/NASAlbumsView.svelte';
   import ArtistsView from '../views/ArtistsView.svelte';
   import RadioView from '../views/RadioView.svelte';
-  import MiniPlayer from '../MiniPlayer.svelte';
+  import MobileMiniPlayer from '../MobileMiniPlayer.svelte';
 
-  type TabId = 'player' | 'browse' | 'queue' | 'settings';
+  type TabId = 'home' | 'player' | 'queue' | 'settings';
 
   interface Tab {
     id: TabId;
@@ -26,19 +25,19 @@
   }
 
   const tabs: Tab[] = [
-    { id: 'browse', label: 'Browse', icon: 'music-library' },
-    { id: 'player', label: 'Now Playing', icon: 'play-circle' },
+    { id: 'home', label: 'Home', icon: 'home' },
+    { id: 'player', label: 'Playing', icon: 'play-circle' },
     { id: 'queue', label: 'Queue', icon: 'queue' },
     { id: 'settings', label: 'Settings', icon: 'settings' }
   ];
 
   function handleTabClick(tab: Tab) {
     switch (tab.id) {
+      case 'home':
+        navigationActions.goHome();
+        break;
       case 'player':
         navigationActions.goToPlayer();
-        break;
-      case 'browse':
-        navigationActions.goToBrowse();
         break;
       case 'queue':
         navigationActions.goToQueue();
@@ -49,24 +48,34 @@
     }
   }
 
-  // Map currentView to tab id
-  $: activeTab = $currentView === 'home' ? 'browse' : $currentView as TabId;
+  // Map currentView to active tab
+  // Views like browse, localMusic, allAlbums etc. are accessed via Home
+  $: activeTab = getActiveTab($currentView);
 
-  // Show mini player when not on player view
-  $: showMiniPlayer = $currentView !== 'player';
+  function getActiveTab(view: string): TabId {
+    if (view === 'player') return 'player';
+    if (view === 'queue') return 'queue';
+    if (view === 'settings') return 'settings';
+    return 'home'; // home, browse, localMusic, allAlbums, nasAlbums, artists, radio, etc.
+  }
 
-  // Check if we have a track playing
+  // Show mini player when:
+  // - Not on full player view
+  // - Has an active track
   $: hasActiveTrack = $currentTrack.title !== 'No track playing';
+  $: showMiniPlayer = $currentView !== 'player' && hasActiveTrack;
 
   // Adjust icon size based on device
-  $: iconSize = $deviceType === 'phone' ? 24 : 28;
+  $: iconSize = $deviceType === 'phone' ? 22 : 26;
 </script>
 
 <div class="mobile-layout">
   <!-- Main content area -->
   <div class="main-content">
-    {#if $currentView === 'player' || $currentView === 'home'}
-      <PlayerView />
+    {#if $currentView === 'home'}
+      <MobileHomeScreen />
+    {:else if $currentView === 'player'}
+      <MobilePlayerView />
     {:else if $currentView === 'browse'}
       <BrowseView />
     {:else if $currentView === 'queue'}
@@ -85,13 +94,16 @@
       <ArtistsView />
     {:else if $currentView === 'radio'}
       <RadioView />
+    {:else}
+      <!-- Fallback to home for unknown views -->
+      <MobileHomeScreen />
     {/if}
   </div>
 
-  <!-- Mini player bar (when not on player view and has track) -->
-  {#if showMiniPlayer && hasActiveTrack}
+  <!-- Mini player bar (when not on player/home view and has track) -->
+  {#if showMiniPlayer}
     <div class="mini-player-container">
-      <MiniPlayer />
+      <MobileMiniPlayer />
     </div>
   {/if}
 
@@ -118,30 +130,30 @@
     width: 100%;
     height: 100%;
     background: var(--color-background);
+    overflow: hidden;
   }
 
   .main-content {
     flex: 1;
     overflow: hidden;
     position: relative;
+    min-height: 0;
   }
 
   .mini-player-container {
     flex-shrink: 0;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
   }
 
   .bottom-nav {
     display: flex;
     justify-content: space-around;
-    align-items: center;
-    padding: 8px 0;
-    padding-bottom: max(8px, env(safe-area-inset-bottom));
-    background: rgba(30, 30, 35, 0.95);
+    align-items: stretch;
+    background: rgba(20, 20, 24, 0.98);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
     flex-shrink: 0;
+    padding-bottom: env(safe-area-inset-bottom);
   }
 
   .nav-tab {
@@ -149,41 +161,46 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 4px;
-    padding: 8px 16px;
+    gap: 3px;
+    flex: 1;
+    padding: 10px 8px 8px;
     background: none;
     border: none;
-    color: var(--color-text-tertiary);
+    color: rgba(255, 255, 255, 0.4);
     cursor: pointer;
-    transition: all 0.2s;
+    transition: color 0.15s ease;
     -webkit-tap-highlight-color: transparent;
-    min-width: 64px;
-    min-height: 48px;
+    min-height: 52px;
   }
 
   .nav-tab:hover {
-    color: var(--color-text-secondary);
+    color: rgba(255, 255, 255, 0.6);
   }
 
   .nav-tab:active {
-    transform: scale(0.95);
+    color: rgba(255, 255, 255, 0.8);
   }
 
   .nav-tab.active {
-    color: var(--color-accent);
+    color: var(--color-accent, #e86a8a);
   }
 
   .tab-label {
     font-size: 10px;
     font-weight: 500;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.01em;
   }
 
-  /* Phone-specific adjustments */
-  @media (max-width: 767px) {
+  /* Landscape phone adjustments */
+  @media (orientation: landscape) and (max-height: 500px) {
+    .bottom-nav {
+      padding: 0 env(safe-area-inset-right) 0 env(safe-area-inset-left);
+    }
+
     .nav-tab {
       padding: 6px 12px;
-      min-width: 56px;
+      gap: 2px;
+      min-height: 44px;
     }
 
     .tab-label {
@@ -191,19 +208,15 @@
     }
   }
 
-  /* Tablet landscape - larger touch targets */
-  @media (min-width: 768px) and (orientation: landscape) {
-    .bottom-nav {
-      padding: 12px 0;
-    }
-
+  /* Tablet adjustments */
+  @media (min-width: 600px) {
     .nav-tab {
-      padding: 10px 24px;
-      gap: 6px;
+      padding: 12px 16px 10px;
+      gap: 4px;
     }
 
     .tab-label {
-      font-size: 12px;
+      font-size: 11px;
     }
   }
 </style>

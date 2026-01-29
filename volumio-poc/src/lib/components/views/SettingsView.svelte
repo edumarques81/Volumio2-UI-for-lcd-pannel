@@ -2805,4 +2805,86 @@
     color: var(--color-text-primary);
     font-variant-numeric: tabular-nums;
   }
+
+  /* Mobile responsive adjustments */
+  @media (max-width: 600px) {
+    .settings-header {
+      padding: var(--spacing-xs) var(--spacing-md);
+    }
+
+    .title {
+      font-size: var(--font-size-lg);
+    }
+
+    .back-btn {
+      width: 40px;
+      height: 40px;
+    }
+
+    .settings-content {
+      flex-direction: column;
+      padding: 0;
+    }
+
+    .category-nav {
+      width: 100%;
+      flex-shrink: 0;
+      overflow-x: auto;
+      overflow-y: hidden;
+      -webkit-overflow-scrolling: touch;
+      flex-direction: row;
+      gap: var(--spacing-xs);
+      padding: var(--spacing-sm) var(--spacing-md);
+      border-right: none;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .category-btn {
+      flex-shrink: 0;
+      padding: var(--spacing-sm) var(--spacing-md);
+      white-space: nowrap;
+      font-size: var(--font-size-sm);
+    }
+
+    .category-icon {
+      display: none;
+    }
+
+    .settings-panel {
+      padding: var(--spacing-md);
+    }
+
+    .setting-group-header {
+      font-size: var(--font-size-base);
+    }
+
+    .setting-item {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: var(--spacing-sm);
+    }
+
+    .setting-item-label {
+      width: 100%;
+    }
+
+    .setting-item-control {
+      width: 100%;
+    }
+  }
+
+  /* Landscape mobile */
+  @media (orientation: landscape) and (max-height: 500px) {
+    .settings-header {
+      height: auto;
+      min-height: 44px;
+      padding: var(--spacing-xs) var(--spacing-lg);
+    }
+
+    .category-nav {
+      flex-direction: row;
+      overflow-x: auto;
+      padding: var(--spacing-xs) var(--spacing-md);
+    }
+  }
 </style>

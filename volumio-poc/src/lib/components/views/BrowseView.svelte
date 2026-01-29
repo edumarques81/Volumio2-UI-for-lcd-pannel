@@ -272,4 +272,58 @@
     gap: var(--spacing-md);
     color: var(--color-text-secondary);
   }
+
+  /* Mobile responsive adjustments */
+  @media (max-width: 600px) {
+    .browse-header {
+      padding: var(--spacing-xs) var(--spacing-md);
+    }
+
+    .title {
+      font-size: var(--font-size-lg);
+      max-width: 120px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .search-box {
+      min-width: 0;
+      flex: 1;
+      max-width: 160px;
+      padding: var(--spacing-xs) var(--spacing-md);
+    }
+
+    .search-box input {
+      font-size: var(--font-size-sm);
+      width: 100%;
+    }
+
+    .view-toggle-btn {
+      width: 40px;
+      height: 40px;
+    }
+
+    .back-btn {
+      width: 40px;
+      height: 40px;
+    }
+
+    .browse-content {
+      padding: var(--spacing-md);
+    }
+  }
+
+  /* Landscape mobile */
+  @media (orientation: landscape) and (max-height: 500px) {
+    .browse-header {
+      height: auto;
+      min-height: 44px;
+      padding: var(--spacing-xs) var(--spacing-lg);
+    }
+
+    .search-box {
+      max-width: 200px;
+    }
+  }
 </style>

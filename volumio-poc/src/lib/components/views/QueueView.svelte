@@ -729,4 +729,69 @@
     opacity: 0.5;
     cursor: not-allowed;
   }
+
+  /* Mobile responsive adjustments */
+  @media (max-width: 600px) {
+    .queue-header {
+      padding: var(--spacing-xs) var(--spacing-md);
+    }
+
+    .header-title {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0;
+    }
+
+    .title {
+      font-size: var(--font-size-lg);
+    }
+
+    .queue-info {
+      font-size: var(--font-size-xs);
+    }
+
+    .back-btn {
+      width: 40px;
+      height: 40px;
+    }
+
+    .action-btn {
+      padding: var(--spacing-xs) var(--spacing-sm);
+    }
+
+    .action-btn span {
+      display: none;
+    }
+
+    .queue-content {
+      padding: var(--spacing-md);
+    }
+
+    .queue-item {
+      padding: var(--spacing-sm);
+      gap: var(--spacing-sm);
+    }
+
+    .item-art {
+      width: 48px;
+      height: 48px;
+    }
+
+    .item-title {
+      font-size: var(--font-size-sm);
+    }
+
+    .item-artist {
+      font-size: var(--font-size-xs);
+    }
+  }
+
+  /* Landscape mobile */
+  @media (orientation: landscape) and (max-height: 500px) {
+    .queue-header {
+      height: auto;
+      min-height: 44px;
+      padding: var(--spacing-xs) var(--spacing-lg);
+    }
+  }
 </style>

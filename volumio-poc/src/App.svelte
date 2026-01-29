@@ -36,6 +36,11 @@
 
   const volumioHost = getVolumioHost();
 
+  // Track when app was last visible for connection health check
+  let lastVisibleTime = Date.now();
+  let mobileReconnectCleanup: (() => void) | null = null;
+  let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+
   onMount(() => {
     console.log('App mounted, initializing...');
 
@@ -58,6 +63,96 @@
     initAudirvanaStore();
     initAudioEngineStore();
     initLibraryStore();
+
+    // ====================================================================
+    // MOBILE RECONNECTION HANDLING
+    // Mobile browsers (especially iOS Safari) are aggressive about killing
+    // WebSocket connections when backgrounded. We use multiple strategies:
+    // 1. visibilitychange - standard API, but not always reliable on mobile
+    // 2. pageshow - fired when page returns from bfcache (iOS)
+    // 3. focus - window focus event as fallback
+    // 4. heartbeat - periodic check to detect dead connections proactively
+    // ====================================================================
+
+    const checkAndReconnect = (source: string) => {
+      const hiddenDuration = Date.now() - lastVisibleTime;
+      console.log(`[${source}] Checking connection (hidden for ${Math.round(hiddenDuration / 1000)}s)`);
+
+      // On mobile, don't trust socket.connected - it can lie
+      // Instead, check if we've received data recently
+      const connectionHealthy = socketService.isConnectionHealthy(15000);
+
+      if (!connectionHealthy) {
+        console.log(`[${source}] Connection unhealthy, forcing reconnect`);
+        socketService.forceReconnect();
+      } else {
+        // Connection seems OK, but request fresh state to verify
+        console.log(`[${source}] Pinging server for fresh state`);
+        socketService.emit('getState');
+      }
+    };
+
+    // 1. Visibility change handler
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        console.log('[Visibility] App going to background');
+        lastVisibleTime = Date.now();
+      } else {
+        console.log('[Visibility] App returning to foreground');
+        // Small delay to let the browser stabilize
+        setTimeout(() => checkAndReconnect('Visibility'), 100);
+      }
+    };
+
+    // 2. Pageshow handler - important for iOS bfcache
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        // Page was restored from bfcache - connection is definitely dead
+        console.log('[PageShow] Page restored from bfcache, forcing reconnect');
+        socketService.forceReconnect();
+      } else if (!document.hidden) {
+        // Normal page show
+        setTimeout(() => checkAndReconnect('PageShow'), 100);
+      }
+    };
+
+    // 3. Window focus handler - fallback for mobile
+    const handleWindowFocus = () => {
+      if (!document.hidden) {
+        console.log('[Focus] Window focused');
+        setTimeout(() => checkAndReconnect('Focus'), 200);
+      }
+    };
+
+    // 4. Heartbeat - detect dead connections proactively
+    // Check every 30 seconds if connection is healthy
+    const startHeartbeat = () => {
+      if (heartbeatInterval) clearInterval(heartbeatInterval);
+
+      heartbeatInterval = setInterval(() => {
+        // Only check if page is visible
+        if (document.hidden) return;
+
+        const healthy = socketService.isConnectionHealthy(30000);
+        if (!healthy) {
+          console.log('[Heartbeat] Connection appears dead, forcing reconnect');
+          socketService.forceReconnect();
+        }
+      }, 30000);
+    };
+
+    // Register all event listeners
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pageshow', handlePageShow);
+    window.addEventListener('focus', handleWindowFocus);
+    startHeartbeat();
+
+    mobileReconnectCleanup = () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pageshow', handlePageShow);
+      window.removeEventListener('focus', handleWindowFocus);
+      if (heartbeatInterval) clearInterval(heartbeatInterval);
+    };
 
     // Expose test functions for debugging (can be called from browser console)
     (window as any).testToast = {
@@ -189,6 +284,7 @@
 
     // Cleanup on unmount
     return () => {
+      mobileReconnectCleanup?.();
       cleanupNetworkStore();
       cleanupLcdStore();
       cleanupAudioStore();
@@ -221,11 +317,17 @@
       <p>Connecting to Stellar Volumio...</p>
       <p class="detail">Backend: {volumioHost}</p>
     </div>
+  {:else if $connectionState === 'reconnecting'}
+    <div class="status reconnecting">
+      <div class="spinner"></div>
+      <p>Reconnecting...</p>
+      <p class="detail">Re-establishing connection to {volumioHost}</p>
+    </div>
   {:else}
     <div class="status error">
       <p>Connection Failed</p>
       <p class="detail">Could not connect to Stellar backend at {volumioHost}</p>
-      <button on:click={() => socketService.connect()}>Retry Connection</button>
+      <button on:click={() => socketService.forceReconnect()}>Retry Connection</button>
     </div>
   {/if}
 
@@ -243,7 +345,10 @@
 <style>
   main {
     width: 100vw;
+    /* Use dvh (dynamic viewport height) for mobile browsers with toolbars */
+    /* Fallback to vh for older browsers */
     height: 100vh;
+    height: 100dvh;
     display: flex;
     align-items: stretch;
     justify-content: stretch;
@@ -339,5 +444,14 @@
     padding: 16px 32px;
     font-size: var(--font-size-lg);
     min-height: 56px;
+  }
+
+  /* Reconnecting state - subtle difference from initial connecting */
+  .status.reconnecting {
+    opacity: 0.95;
+  }
+
+  .status.reconnecting .spinner {
+    border-top-color: var(--color-warning, #f5a623);
   }
 </style>

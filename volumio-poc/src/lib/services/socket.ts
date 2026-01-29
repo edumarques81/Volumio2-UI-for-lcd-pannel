@@ -10,10 +10,13 @@ declare global {
   }
 }
 
-export type ConnectionState = 'connected' | 'disconnected' | 'connecting';
+export type ConnectionState = 'connected' | 'disconnected' | 'connecting' | 'reconnecting';
 
 export const connectionState = writable<ConnectionState>('disconnected');
 export const loadingState = writable<boolean>(false);
+
+// Track last successful data received time for connection health monitoring
+let lastDataReceivedTime = 0;
 
 // Latency metrics store - records recent latency measurements
 export interface LatencyMetric {
@@ -76,13 +79,20 @@ class SocketService {
   }
 
   connect(): void {
-    // Global singleton check - prevents connection if already connected globally
+    // Check if we think we're connected globally
     if (typeof window !== 'undefined' && window.__stellarSocketConnected) {
-      console.log('Socket already connected globally, skipping connect()');
-      return;
+      // Verify the socket is actually connected and healthy
+      if (this.socket?.connected && this.isConnectionHealthy(30000)) {
+        console.log('Socket already connected and healthy, skipping connect()');
+        return;
+      } else {
+        // Global flag says connected, but socket is dead - clear flag and reconnect
+        console.log('Socket marked as connected but appears dead, clearing flag and reconnecting');
+        window.__stellarSocketConnected = false;
+      }
     }
 
-    // Prevent duplicate connections
+    // Prevent duplicate connections only if socket is truly connected
     if (this.socket?.connected) {
       console.log('Socket already connected, skipping connect()');
       return;
@@ -129,6 +139,24 @@ class SocketService {
 
       // Request initial state
       this.emit('getState');
+
+      // Mobile connection verification: if we don't receive data within 10s,
+      // the connection might be a zombie - force reconnect
+      setTimeout(() => {
+        if (lastDataReceivedTime === 0 && this.socket?.connected) {
+          console.log('[Connect] No data received within 10s after connect - connection may be zombie');
+          // Try requesting state again
+          this.emit('getState');
+
+          // If still no data after another 5 seconds, force reconnect
+          setTimeout(() => {
+            if (lastDataReceivedTime === 0) {
+              console.log('[Connect] Still no data after 15s - forcing reconnect');
+              this.forceReconnect();
+            }
+          }, 5000);
+        }
+      }, 10000);
     });
 
     this.socket.on('disconnect', (reason: string) => {
@@ -157,6 +185,20 @@ class SocketService {
 
     this.socket.on('reconnect_attempt', (attemptNumber: number) => {
       console.log('Reconnect attempt:', attemptNumber);
+      // If we're in reconnecting state and this is taking multiple attempts, keep showing reconnecting
+      if (attemptNumber > 1) {
+        connectionState.set('reconnecting');
+      }
+    });
+
+    this.socket.on('reconnect_failed', () => {
+      console.error('Socket reconnect_failed - all attempts exhausted');
+      connectionState.set('disconnected');
+    });
+
+    this.socket.on('reconnect', (attemptNumber: number) => {
+      console.log(`✓ Socket reconnected after ${attemptNumber} attempts`);
+      connectionState.set('connected');
     });
   }
 
@@ -186,6 +228,9 @@ class SocketService {
 
   on<T = any>(eventName: string, callback: (data: T) => void): () => void {
     const handler = (data: T) => {
+      // Update last data received time for connection health monitoring
+      this.updateLastDataTime();
+
       // Check for pending latency timer
       const startTime = this.pendingLatencyTimers.get(eventName);
       if (startTime !== undefined) {
@@ -228,6 +273,67 @@ class SocketService {
     this.socket?.disconnect();
     this.socket = null;
     connectionState.set('disconnected');
+    if (typeof window !== 'undefined') {
+      window.__stellarSocketConnected = false;
+    }
+  }
+
+  /**
+   * Force an immediate reconnection - useful when returning from background
+   * This bypasses Socket.IO's exponential backoff
+   */
+  forceReconnect(): void {
+    console.log('Force reconnecting socket...');
+    connectionState.set('reconnecting');
+
+    // Clear global flag to allow reconnection
+    if (typeof window !== 'undefined') {
+      window.__stellarSocketConnected = false;
+    }
+
+    // Disconnect existing socket completely
+    if (this.socket) {
+      this.socket.disconnect();
+      this.socket = null;
+    }
+
+    // Reconnect immediately
+    this.connect();
+  }
+
+  /**
+   * Check if connection appears healthy (received data recently)
+   * @param maxAgeMs Maximum age of last received data in milliseconds
+   */
+  isConnectionHealthy(maxAgeMs: number = 30000): boolean {
+    // If socket object says disconnected, definitely unhealthy
+    if (!this.socket?.connected) {
+      return false;
+    }
+
+    // If we've never received data and connection is "fresh" (< 5 seconds), give it a chance
+    if (lastDataReceivedTime === 0) {
+      // Check how long ago we "connected" - if socket.connected is true but
+      // we've never received data for a while, it's likely dead
+      return true; // Trust initial connection briefly
+    }
+
+    // Check if we've received data within the timeout window
+    const dataAge = Date.now() - lastDataReceivedTime;
+    const isHealthy = dataAge < maxAgeMs;
+
+    if (!isHealthy) {
+      console.log(`[HealthCheck] Last data received ${Math.round(dataAge / 1000)}s ago (max: ${maxAgeMs / 1000}s) - UNHEALTHY`);
+    }
+
+    return isHealthy;
+  }
+
+  /**
+   * Update last data received timestamp
+   */
+  private updateLastDataTime(): void {
+    lastDataReceivedTime = Date.now();
   }
 
   get isConnected(): boolean {
