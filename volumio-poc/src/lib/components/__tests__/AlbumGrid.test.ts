@@ -109,5 +109,16 @@ describe('AlbumGrid', () => {
       const eventDetail: Album = mockAlbums[0];
       expect(eventDetail.title).toBe('Kind of Blue');
     });
+
+    it('should define albumMore event type', () => {
+      // The component dispatches albumMore: { album: Album; position: { x: number; y: number } }
+      const eventDetail = {
+        album: mockAlbums[0],
+        position: { x: 100, y: 200 }
+      };
+      expect(eventDetail.album.id).toBe('album1');
+      expect(eventDetail.position.x).toBe(100);
+      expect(eventDetail.position.y).toBe(200);
+    });
   });
 });

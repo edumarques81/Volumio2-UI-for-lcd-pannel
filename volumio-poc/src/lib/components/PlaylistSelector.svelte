@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { playlistSelector, uiActions, type ContextMenuItem } from '$lib/stores/ui';
+  import { playlistSelector, uiActions, type ContextMenuItem, type ContextItemType } from '$lib/stores/ui';
   import { playlists, playlistActions, initPlaylistStore } from '$lib/stores/playlist';
+  import type { Album, Track } from '$lib/stores/library';
   import Icon from './Icon.svelte';
 
   // Reactive state from store
@@ -26,11 +27,63 @@
     newPlaylistName = '';
   }
 
+  // Type guards for library items
+  function isAlbum(item: ContextMenuItem | null, type: ContextItemType | null): item is Album {
+    return type === 'album' && item !== null && 'trackCount' in item;
+  }
+
+  function isTrack(item: ContextMenuItem | null, type: ContextItemType | null): item is Track {
+    return type === 'track' && item !== null && 'trackNumber' in item;
+  }
+
+  // Get playlist-compatible properties from any item type
+  function getItemForPlaylist(item: ContextMenuItem, type: ContextItemType | null): { service: string; uri: string; title: string } {
+    if (isAlbum(item, type)) {
+      return {
+        service: 'mpd',
+        uri: item.uri,
+        title: item.title
+      };
+    }
+    if (isTrack(item, type)) {
+      return {
+        service: 'mpd',
+        uri: item.uri,
+        title: item.title
+      };
+    }
+    // Browse or Queue items (legacy handling)
+    return {
+      service: (item as any).service || 'mpd',
+      uri: (item as any).uri || '',
+      title: getItemTitle(item)
+    };
+  }
+
+  // Get album art URL from any item type
+  function getItemAlbumArt(item: ContextMenuItem | null, type: ContextItemType | null): string | undefined {
+    if (!item) return undefined;
+    if (isAlbum(item, type) || isTrack(item, type)) {
+      return item.albumArt;
+    }
+    // Browse or Queue items use 'albumart' (lowercase)
+    return (item as any).albumart;
+  }
+
+  // Get artist from any item type
+  function getItemArtist(item: ContextMenuItem | null, type: ContextItemType | null): string | undefined {
+    if (!item) return undefined;
+    if (isAlbum(item, type) || isTrack(item, type)) {
+      return item.artist;
+    }
+    return (item as any).artist;
+  }
+
   function handleSelectPlaylist(playlistName: string) {
     if (!item) return;
 
-    const title = getItemTitle(item);
-    playlistActions.addToPlaylist(playlistName, item.service, item.uri, title);
+    const { service, uri, title } = getItemForPlaylist(item, itemType);
+    playlistActions.addToPlaylist(playlistName, service, uri, title);
     uiActions.closePlaylistSelector();
   }
 
@@ -48,9 +101,9 @@
     playlistActions.createPlaylist(name);
 
     // Add to the new playlist (backend handles creation first)
-    const title = getItemTitle(item);
+    const { service, uri, title } = getItemForPlaylist(item, itemType);
     setTimeout(() => {
-      playlistActions.addToPlaylist(name, item!.service, item!.uri, title);
+      playlistActions.addToPlaylist(name, service, uri, title);
     }, 100);
 
     uiActions.closePlaylistSelector();
@@ -75,7 +128,15 @@
   }
 
   function getItemTitle(item: ContextMenuItem): string {
-    return 'name' in item ? item.name : item.title;
+    // Library items (Album/Track) use 'title'
+    if ('title' in item && typeof item.title === 'string') {
+      return item.title;
+    }
+    // Queue items use 'name'
+    if ('name' in item && typeof item.name === 'string') {
+      return item.name;
+    }
+    return '';
   }
 </script>
 
@@ -94,17 +155,17 @@
 
       <!-- Item being added -->
       <div class="playlist-selector-item">
-        {#if item.albumart}
-          <img src={item.albumart} alt="" class="playlist-selector-art" />
+        {#if getItemAlbumArt(item, itemType)}
+          <img src={getItemAlbumArt(item, itemType)} alt="" class="playlist-selector-art" />
         {:else}
           <div class="playlist-selector-art-placeholder">
-            <Icon name="music" size={20} />
+            <Icon name={itemType === 'album' ? 'album' : 'music'} size={20} />
           </div>
         {/if}
         <div class="playlist-selector-item-info">
           <div class="playlist-selector-item-title">{getItemTitle(item)}</div>
-          {#if item.artist}
-            <div class="playlist-selector-item-artist">{item.artist}</div>
+          {#if getItemArtist(item, itemType)}
+            <div class="playlist-selector-item-artist">{getItemArtist(item, itemType)}</div>
           {/if}
         </div>
       </div>

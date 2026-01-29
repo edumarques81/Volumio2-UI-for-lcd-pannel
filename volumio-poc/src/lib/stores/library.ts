@@ -416,11 +416,50 @@ export const libraryActions = {
   },
 
   /**
+   * Play album next (insert after current track)
+   */
+  playAlbumNext(album: Album) {
+    console.log('[Library] Playing album next:', album.title);
+    socketService.emit('playNext', {
+      service: 'mpd',
+      type: 'folder',
+      title: album.title,
+      uri: album.uri
+    });
+  },
+
+  /**
    * Play a track from an album
    */
   playTrack(track: Track) {
     console.log('[Library] Playing track:', track.title);
     socketService.emit('replaceAndPlay', {
+      service: 'mpd',
+      type: 'song',
+      title: track.title,
+      uri: track.uri
+    });
+  },
+
+  /**
+   * Add track to queue (at end)
+   */
+  addTrackToQueue(track: Track) {
+    console.log('[Library] Adding track to queue:', track.title);
+    socketService.emit('addToQueue', {
+      service: 'mpd',
+      type: 'song',
+      title: track.title,
+      uri: track.uri
+    });
+  },
+
+  /**
+   * Play track next (insert after current track)
+   */
+  playTrackNext(track: Track) {
+    console.log('[Library] Playing track next:', track.title);
+    socketService.emit('playNext', {
       service: 'mpd',
       type: 'song',
       title: track.title,

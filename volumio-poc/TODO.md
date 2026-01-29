@@ -8,8 +8,8 @@ Items to implement when moving from POC to production:
 - [x] **Artists main screen item** Artist images fetched from Fanart.tv (primary, using MusicBrainz Artist IDs) or Deezer (fallback, hotlink). Saved to SQLite cache and served via /artistart endpoint. Frontend updated with fallback to placeholder on image error.
 - [x] **Completely review the mobile layout** Mobile UI redesigned with: MobileHomeScreen (2-column grid of app tiles), MobilePlayerView (portrait-first with large artwork), MobileMiniPlayer (fixed-height with non-deforming controls), bottom tab navigation (Home/Playing/Queue/Settings). Responsive CSS added to BrowseView, QueueView, SettingsView. Test at `?layout=mobile`
 - [x] **Playlists menu from the main screen** Dedicated PlaylistsView with search bar below header, create/delete functionality with confirmation modals. Accessed via Playlists tile from home screen. Navigation action: `goToPlaylists()`.
-- [ ] **Album Tile** when presenting an album tile, anywhere in the app we need a button (in some places this button exist -- Music Library -- that will let the user add the album to a playlist and another to add the album to the playing queue. Or maybe a submenu with those options along with the Option "Play Next")
-- [ ] **Song Tile** when presenting a song tile, anywhere in the app we need a button (in some places this button exist -- Music Library -- that will let the user add the album to a playlist and another to add the album to the playing queue. Or maybe a submenu with those options along with the Option "Play Next")
+- [x] **Album Tile** AlbumGrid component updated with more button (3-dots) overlay, larger touch targets (64px play button, 220px grid min-width). LibraryContextMenu component provides options: Play Now, Play Next, Add to Queue, Add to Playlist. Integrated in AllAlbumsView, ArtistsView, NASAlbumsView.
+- [x] **Song Tile** TrackItem component created for reusable track rows with more button. LibraryContextMenu supports both Album and Track types with context-aware options (View Info for tracks only). PlaylistSelector updated to handle Album/Track types.
 - [ ] **Screen timeout settings** - Add configurable auto-standby timeout in settings
 - [ ] **Wake on touch** - Implement touch-to-wake when display is in standby
 - [ ] **Music booklet** Use some 3rd party service or online free service or AI or available booklet in the album dir to get information about the album that is playing. You are going to show that information on the right side of the LCD. Put an icon in the miniplayer control indicating that there is a booklet available, and bring that information to the screen if the icon is clicked.
@@ -35,14 +35,14 @@ Service output (stdout/stderr) is captured by journald.
 
 Commands:
 
-# Identify the unit name
+#### Identify the unit name
 sudo systemctl list-units --type=service --all | grep -i audirvana
 sudo systemctl list-unit-files | grep -i audirvana
 
-# Status + recent logs
+#### Status + recent logs
 sudo systemctl status <UNIT> --no-pager -l
 
-# Follow logs live
+#### Follow logs live
 sudo journalctl -u <UNIT> -f
 sudo journalctl -u <UNIT> -n 500 --no-pager
 sudo journalctl -u <UNIT> -b --no-pager

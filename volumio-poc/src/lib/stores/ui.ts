@@ -1,11 +1,22 @@
 import { writable, derived } from 'svelte/store';
 import type { BrowseItem } from '$lib/stores/browse';
 import type { QueueItem } from '$lib/stores/queue';
+import type { Album, Track } from '$lib/stores/library';
 
 /**
- * Context menu item type
+ * Library context item type (albums and tracks from library store)
  */
-export type ContextMenuItem = BrowseItem | QueueItem;
+export type LibraryContextItem = Album | Track;
+
+/**
+ * Context menu item type - supports browse items, queue items, and library items
+ */
+export type ContextMenuItem = BrowseItem | QueueItem | LibraryContextItem;
+
+/**
+ * Context menu item source type
+ */
+export type ContextItemType = 'browse' | 'queue' | 'album' | 'track';
 
 /**
  * Context menu state
@@ -13,7 +24,7 @@ export type ContextMenuItem = BrowseItem | QueueItem;
 export interface ContextMenuState {
   isOpen: boolean;
   item: ContextMenuItem | null;
-  itemType: 'browse' | 'queue' | null;
+  itemType: ContextItemType | null;
   itemIndex?: number; // For queue items
   position: { x: number; y: number };
 }
@@ -24,7 +35,7 @@ export interface ContextMenuState {
 export interface PlaylistSelectorState {
   isOpen: boolean;
   item: ContextMenuItem | null;
-  itemType: 'browse' | 'queue' | null;
+  itemType: ContextItemType | null;
 }
 
 /**
@@ -75,7 +86,7 @@ export const uiActions = {
    */
   openContextMenu(
     item: ContextMenuItem,
-    itemType: 'browse' | 'queue',
+    itemType: ContextItemType,
     position: { x: number; y: number },
     itemIndex?: number
   ) {
@@ -101,7 +112,7 @@ export const uiActions = {
   /**
    * Open playlist selector for an item
    */
-  openPlaylistSelector(item: ContextMenuItem, itemType: 'browse' | 'queue') {
+  openPlaylistSelector(item: ContextMenuItem, itemType: ContextItemType) {
     // Close context menu first
     this.closeContextMenu();
 

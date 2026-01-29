@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { navigationActions } from '$lib/stores/navigation';
+  import { uiActions } from '$lib/stores/ui';
   import {
     libraryAlbums,
     libraryAlbumsLoading,
@@ -18,6 +19,8 @@
   } from '$lib/stores/library';
   import Icon from '../Icon.svelte';
   import AlbumGrid from '../AlbumGrid.svelte';
+  import TrackItem from '../TrackItem.svelte';
+  import LibraryContextMenu from '../LibraryContextMenu.svelte';
   import SkeletonList from '../SkeletonList.svelte';
 
   // Sort options
@@ -52,6 +55,14 @@
 
   function handleTrackClick(track: Track) {
     libraryActions.playTrack(track);
+  }
+
+  function handleAlbumMore(event: CustomEvent<{ album: Album; position: { x: number; y: number } }>) {
+    uiActions.openContextMenu(event.detail.album, 'album', event.detail.position);
+  }
+
+  function handleTrackMore(event: CustomEvent<{ track: Track; position: { x: number; y: number } }>) {
+    uiActions.openContextMenu(event.detail.track, 'track', event.detail.position);
   }
 
   function handleSortChange(event: Event) {
@@ -158,20 +169,13 @@
           </div>
           <div class="album-tracks-list">
             {#each $libraryAlbumTracks as track, index}
-              <button
-                class="album-track-item"
-                on:click={() => handleTrackClick(track)}
-                data-testid="track-item-{track.id}"
-              >
-                <span class="track-number">{track.trackNumber || index + 1}</span>
-                <div class="track-info">
-                  <span class="track-title">{track.title}</span>
-                  {#if track.artist && track.artist !== $selectedLibraryAlbum?.artist}
-                    <span class="track-artist">{track.artist}</span>
-                  {/if}
-                </div>
-                <span class="track-duration">{formatDuration(track.duration)}</span>
-              </button>
+              <TrackItem
+                {track}
+                {index}
+                albumArtist={$selectedLibraryAlbum?.artist || ''}
+                on:play={() => handleTrackClick(track)}
+                on:more={handleTrackMore}
+              />
             {/each}
           </div>
         </div>
@@ -190,9 +194,13 @@
         showSource={true}
         on:albumClick={handleAlbumClick}
         on:albumPlay={handleAlbumPlay}
+        on:albumMore={handleAlbumMore}
       />
     {/if}
   </div>
+
+  <!-- Context Menu -->
+  <LibraryContextMenu />
 </div>
 
 <style>
@@ -412,75 +420,5 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
-  }
-
-  .album-track-item {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-md);
-    padding: var(--spacing-md) var(--spacing-lg);
-    background: rgba(45, 45, 50, 0.4);
-    border: none;
-    cursor: pointer;
-    transition: all 0.15s;
-    text-align: left;
-  }
-
-  .album-track-item:first-child {
-    border-radius: var(--radius-md) var(--radius-md) 0 0;
-  }
-
-  .album-track-item:last-child {
-    border-radius: 0 0 var(--radius-md) var(--radius-md);
-  }
-
-  .album-track-item:only-child {
-    border-radius: var(--radius-md);
-  }
-
-  .album-track-item:hover {
-    background: rgba(55, 55, 60, 0.6);
-  }
-
-  .album-track-item:active {
-    background: rgba(65, 65, 70, 0.7);
-  }
-
-  .track-number {
-    width: 32px;
-    font-size: var(--font-size-sm);
-    color: var(--color-text-tertiary);
-    text-align: center;
-    flex-shrink: 0;
-  }
-
-  .album-track-item .track-info {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .album-track-item .track-title {
-    font-size: var(--font-size-base);
-    color: var(--color-text-primary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .album-track-item .track-artist {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .track-duration {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-tertiary);
-    flex-shrink: 0;
   }
 </style>

@@ -9,6 +9,7 @@
   const dispatch = createEventDispatcher<{
     albumClick: Album;
     albumPlay: Album;
+    albumMore: { album: Album; position: { x: number; y: number } };
   }>();
 
   function getSourceIcon(source: string): string {
@@ -28,6 +29,15 @@
   function handlePlayClick(event: MouseEvent, album: Album) {
     event.stopPropagation();
     dispatch('albumPlay', album);
+  }
+
+  function handleMoreClick(event: MouseEvent, album: Album) {
+    event.stopPropagation();
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    dispatch('albumMore', {
+      album,
+      position: { x: rect.left, y: rect.bottom }
+    });
   }
 </script>
 
@@ -56,9 +66,16 @@
             on:click={(e) => handlePlayClick(e, album)}
             aria-label="Play {album.title}"
           >
-            <Icon name="play-filled" size={32} />
+            <Icon name="play-filled" size={36} />
           </button>
         </div>
+        <button
+          class="more-btn"
+          on:click={(e) => handleMoreClick(e, album)}
+          aria-label="More options for {album.title}"
+        >
+          <Icon name="more-vertical" size={20} />
+        </button>
         {#if showSource}
           <div class="source-badge">
             <Icon name={getSourceIcon(album.source)} size={14} />
@@ -79,7 +96,7 @@
 <style>
   .album-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
     gap: var(--spacing-lg);
   }
 
@@ -151,8 +168,8 @@
   }
 
   .play-btn {
-    width: 56px;
-    height: 56px;
+    width: 64px;
+    height: 64px;
     border-radius: 50%;
     background: var(--color-primary);
     border: none;
@@ -169,6 +186,38 @@
   }
 
   .play-btn:active {
+    transform: scale(0.95);
+  }
+
+  .more-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.6);
+    border: none;
+    border-radius: var(--radius-full);
+    color: white;
+    cursor: pointer;
+    opacity: 0;
+    transition: all 0.2s;
+    z-index: 1;
+  }
+
+  .album-card:hover .more-btn {
+    opacity: 1;
+  }
+
+  .more-btn:hover {
+    background: rgba(0, 0, 0, 0.8);
+    transform: scale(1.1);
+  }
+
+  .more-btn:active {
     transform: scale(0.95);
   }
 
@@ -217,7 +266,7 @@
   /* LCD panel optimization */
   @media (max-height: 500px) {
     .album-grid {
-      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
       gap: var(--spacing-md);
     }
 
@@ -230,8 +279,13 @@
     }
 
     .play-btn {
-      width: 44px;
-      height: 44px;
+      width: 56px;
+      height: 56px;
+    }
+
+    /* Always show more button on LCD for touch accessibility */
+    .more-btn {
+      opacity: 1;
     }
   }
 </style>

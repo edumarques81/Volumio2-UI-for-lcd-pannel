@@ -270,4 +270,100 @@ describe('Library Store', () => {
       expect(get(libraryAlbumTracks)).toEqual([]);
     });
   });
+
+  describe('libraryActions.addAlbumToQueue', () => {
+    it('should emit addToQueue for album', () => {
+      const album: Album = {
+        id: 'album1',
+        title: 'Kind of Blue',
+        artist: 'Miles Davis',
+        uri: 'NAS/Jazz/Kind of Blue',
+        albumArt: '/albumart?path=...',
+        trackCount: 5,
+        source: 'nas'
+      };
+
+      libraryActions.addAlbumToQueue(album);
+
+      expect(socketService.emit).toHaveBeenCalledWith('addToQueue', {
+        service: 'mpd',
+        type: 'folder',
+        title: 'Kind of Blue',
+        uri: 'NAS/Jazz/Kind of Blue'
+      });
+    });
+  });
+
+  describe('libraryActions.playAlbumNext', () => {
+    it('should emit playNext with album URI', () => {
+      const album: Album = {
+        id: 'album1',
+        title: 'Kind of Blue',
+        artist: 'Miles Davis',
+        uri: 'NAS/Jazz/Kind of Blue',
+        albumArt: '/albumart?path=...',
+        trackCount: 5,
+        source: 'nas'
+      };
+
+      libraryActions.playAlbumNext(album);
+
+      expect(socketService.emit).toHaveBeenCalledWith('playNext', {
+        service: 'mpd',
+        type: 'folder',
+        title: 'Kind of Blue',
+        uri: 'NAS/Jazz/Kind of Blue'
+      });
+    });
+  });
+
+  describe('libraryActions.addTrackToQueue', () => {
+    it('should emit addToQueue for track', () => {
+      const track: Track = {
+        id: 'track1',
+        title: 'So What',
+        artist: 'Miles Davis',
+        album: 'Kind of Blue',
+        uri: 'NAS/Jazz/Kind of Blue/01 - So What.flac',
+        trackNumber: 1,
+        duration: 564,
+        albumArt: '/albumart?path=...',
+        source: 'nas'
+      };
+
+      libraryActions.addTrackToQueue(track);
+
+      expect(socketService.emit).toHaveBeenCalledWith('addToQueue', {
+        service: 'mpd',
+        type: 'song',
+        title: 'So What',
+        uri: 'NAS/Jazz/Kind of Blue/01 - So What.flac'
+      });
+    });
+  });
+
+  describe('libraryActions.playTrackNext', () => {
+    it('should emit playNext with track URI', () => {
+      const track: Track = {
+        id: 'track1',
+        title: 'So What',
+        artist: 'Miles Davis',
+        album: 'Kind of Blue',
+        uri: 'NAS/Jazz/Kind of Blue/01 - So What.flac',
+        trackNumber: 1,
+        duration: 564,
+        albumArt: '/albumart?path=...',
+        source: 'nas'
+      };
+
+      libraryActions.playTrackNext(track);
+
+      expect(socketService.emit).toHaveBeenCalledWith('playNext', {
+        service: 'mpd',
+        type: 'song',
+        title: 'So What',
+        uri: 'NAS/Jazz/Kind of Blue/01 - So What.flac'
+      });
+    });
+  });
 });

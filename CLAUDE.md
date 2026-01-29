@@ -244,6 +244,46 @@ The home screen features a permanently docked mini player on the left side (~40%
 | `audirvana:` | AUDIRVANA |
 | Unknown | Hidden (null) |
 
+**Library Context Menu (v1.7.0+):**
+
+Context menu system for Album and Track items throughout the library views.
+
+**Components:**
+- `TrackItem.svelte` - Reusable track row with play and more buttons (48px min height)
+- `LibraryContextMenu.svelte` - Context menu with library-specific actions
+
+**TrackItem Features:**
+- Track number (1-indexed from array position)
+- Title and artist display with text ellipsis
+- Duration formatting (M:SS)
+- Play button on click
+- More button (3-dots) for context menu
+
+**LibraryContextMenu Options:**
+| Option | Album | Track | Description |
+|--------|-------|-------|-------------|
+| Play Now | Yes | Yes | Start playback immediately |
+| Play Next | Yes | Yes | Insert after current track |
+| Add to Queue | Yes | Yes | Append to end of queue |
+| Add to Playlist | Yes | Yes | Opens PlaylistSelector modal |
+| View Info | No | Yes | Opens track info modal |
+
+**Touch Targets (optimized for LCD):**
+- AlbumGrid play button: 64×64px (up from 56px)
+- AlbumGrid more button: 40×40px
+- AlbumGrid tile min-width: 220px (up from 200px)
+- TrackItem row: 48px min height
+
+**Store Actions** (in `libraryActions`):
+- `playAlbumNext(album)` - Insert album after current track
+- `addTrackToQueue(track)` - Add single track to queue
+- `playTrackNext(track)` - Insert track after current track
+
+**UI Store Types** (in `src/lib/stores/ui.ts`):
+- `ContextItemType`: `'browse' | 'queue' | 'album' | 'track'`
+- `LibraryContextItem`: `Album | Track`
+- `ContextMenuItem`: Union of all item types
+
 **Store Initialization:**
 ```typescript
 // In App.svelte onMount():
