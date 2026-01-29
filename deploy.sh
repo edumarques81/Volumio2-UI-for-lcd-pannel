@@ -1,61 +1,28 @@
 #!/bin/bash
-set -e # exit with nonzero exit code if anything fails
 
-# VOLUMIO THEME
-# clear and re-create the dist directory
-rm -rf dist || exit 0;
-mkdir dist;
+# Stellar Volumio Deploy Script
+# Usage: ./deploy.sh [pi-ip-address]
 
-# Build Volumio UI
-echo "Building Volumio UI"
-gulp build --theme="volumio" --env="production"
+PI_IP="${1:-192.168.86.22}"
+PI_USER="volumio"
+PI_PASS="volumio"
+REMOTE_DIR="/home/volumio/stellar-volumio"
 
-# Fallback to 127.0.0.1 (for Ui on non-networked systems)
-echo "Writing local-config.json"
-echo '{"localhost": "http://127.0.0.1:3000"}' > dist/app/local-config.json
+echo "Building Stellar Volumio..."
+npm run build
 
-# go to the dist directory and create a *new* Git repo
-echo "Initializing Git Repo"
-cd dist
-git init
+if [ $? -ne 0 ]; then
+    echo "❌ Build failed"
+    exit 1
+fi
 
-# inside this git repo we'll pretend to be a new user
-echo "Writing Git Config"
-git config user.name "Volumio"
-git config user.email "info@volumio.org"
+echo "📦 Deploying to $PI_USER@$PI_IP:$REMOTE_DIR..."
+sshpass -p "$PI_PASS" scp -o StrictHostKeyChecking=no -r dist/* "$PI_USER@$PI_IP:$REMOTE_DIR/"
 
-# Deploy
-echo "Deploying to Dist Branch"
-git add .
-git commit -m "Deploy to Dist Branch"
-
-# Force push from the current repo's master branch to the dist branch for deployment
-echo "Pushing to Dist Branch"
-git push --force --quiet "https://${GH_TOKEN}@${GH_REF}" master:dist > /dev/null 2>&1
-
-cd ..
-# VOLUMIO3 THEME
-# clear and re-create the dist directory
-rm -rf dist || exit 0;
-mkdir dist;
-
-# Build Volumio UI
-gulp build --theme="volumio3" --env="production"
-
-# Fallback to 127.0.0.1 (for Ui on non-networked systems)
-echo '{"localhost": "http://127.0.0.1:3000"}' > dist/app/local-config.json
-
-# go to the dist directory and create a *new* Git repo
-cd dist
-git init
-
-# inside this git repo we'll pretend to be a new user
-git config user.name "Volumio"
-git config user.email "info@volumio.org"
-
-# Deploy
-git add .
-git commit -m "Deploy to Dist3 Branch"
-
-# Force push from the current repo's master branch to the dist branch for deployment
-git push --force --quiet "https://${GH_TOKEN}@${GH_REF}" master:dist3 > /dev/null 2>&1
+if [ $? -eq 0 ]; then
+    echo "✅ Deployed successfully!"
+    echo "🌐 Access at: http://$PI_IP:8080"
+else
+    echo "❌ Deploy failed"
+    exit 1
+fi

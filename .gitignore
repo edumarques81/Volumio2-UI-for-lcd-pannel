@@ -1,29 +1,26 @@
-src/app/ngConstants.js
-src/app/volumio.constant.js
-src/app/local-config.json
-dist/
-dist-volumio/
-dist-volumio3/
-firebase-hosting/
+# Dependencies
 node_modules/
-bower_components/
-.sass-cache/
+
+# Build output
+dist/
+
+# IDE
 .idea/
-.tmp/
-.~
-load-variant.scss
-/nbproject/
+.vscode/
+
+# OS
 .DS_Store
-src/app/volumio.constant.js
-package-lock.json
-credits.html
-load-variant.scss
-src/app/themes/volumio3/assets/static-pages/credits.html
-src/app/themes/volumio/assets/static-pages/credits.html
-src/app/themes/volumio3/assets/variants/load-variant.scss
-src/app/components/myvolumio/templates/terms-and-conditions.html
+
+# Environment
 .env
 
 # Playwright test artifacts
-volumio-poc/playwright-report/
-volumio-poc/test-results/
+playwright-report/
+test-results/
+
+# Vitest coverage
+coverage/
+
+# Temporary files
+.tmp/
+*.log

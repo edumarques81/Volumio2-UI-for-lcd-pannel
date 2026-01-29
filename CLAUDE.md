@@ -4,11 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Volumio2-UI is a standalone web user interface for Volumio2 audio player. It communicates with the backend via Socket.io WebSocket API. The UI is served via Express static server and resides at `/volumio/http/www` (Classic UI) or `/volumio/http/www3` (Contemporary UI) on Volumio devices.
-
-This repository contains two projects:
-- **Legacy UI** (root): AngularJS 1.5 application (Node.js 10.22.1 required)
-- **POC** (`volumio-poc/`): Svelte 5 application for CarPlay-style LCD interface (1920x440)
+Stellar Volumio is a modern Svelte 5 web application for controlling Volumio-compatible audio players. It features a CarPlay-style interface optimized for LCD displays (1920x440) and communicates with the backend via Socket.IO WebSocket API.
 
 **Related Workspaces** (additional working directories):
 - `stellar-volumio-audioplayer-backend/` - Go backend with Socket.IO, MPD integration
@@ -19,35 +15,12 @@ This repository contains two projects:
 > **Key Concept:** Development happens on your Mac, deployment targets the Pi.
 
 - Dev mode frontend (`localhost:5173`) connects to Pi backend (`PI_IP:3000`)
-- Configure Pi IP in `volumio-poc/src/lib/config.ts` (`DEV_VOLUMIO_IP`)
+- Configure Pi IP in `src/lib/config.ts` (`DEV_VOLUMIO_IP`)
 - Production: Frontend and backend both run on the Pi
 
 ## Quick Reference
 
-### Legacy UI (AngularJS)
 ```bash
-# Initial setup (Node 10.22.1 required via NVM)
-npm install bower -g && npm install && bower install
-
-# Development
-gulp serve --theme="volumio"                    # Dev server (Classic UI)
-gulp serve --theme="volumio3"                   # Dev server (Contemporary UI)
-gulp serve --theme="volumio" --debug            # With debug console logs
-
-# Build
-npm run build:volumio                           # Production build (Classic)
-npm run build:volumio3                          # Production build (Contemporary)
-
-# Test
-npm test                                        # Run all tests (Karma + Jasmine)
-
-# Linting - JSHint runs automatically via webpack during `gulp serve`
-```
-
-### POC (Svelte)
-```bash
-cd volumio-poc
-
 # Development
 npm run dev                                     # Dev server (localhost:5173)
 
@@ -74,7 +47,7 @@ npm run deploy                                  # Runs scripts/deploy.sh
 
 ### Environment Setup
 
-Create `.env` in the **project root** (not volumio-poc/):
+Create `.env` in the **project root**:
 ```bash
 cp .env-example .env
 # Edit with your Pi credentials
@@ -105,8 +78,8 @@ source .env
 SSH_CMD="sshpass -p '$RASPBERRY_PI_SSH_PASSWORD' ssh -o StrictHostKeyChecking=no $RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS"
 eval "$SSH_CMD 'sudo systemctl stop stellar-frontend stellar-backend'"
 
-# 2. Deploy Frontend (POC)
-cd volumio-poc && npm run deploy
+# 2. Deploy Frontend (Stellar Volumio)
+npm run deploy
 
 # 3. Deploy Backend (Stellar) - CGO required for SQLite
 # Install cross-compiler: brew install FiloSottile/musl-cross/musl-cross
@@ -131,24 +104,6 @@ eval "$SSH_CMD 'sudo systemctl start stellar-backend stellar-frontend'"
 | `mpd` | 6600 | Music Player Daemon |
 
 ## Architecture
-
-### Legacy UI (AngularJS)
-
-**Tech Stack**: AngularJS 1.5, Gulp 3.x, SCSS, Babel 5, Socket.io 2.3.x
-
-**Key Files:**
-- `src/app/index.module.js` - Main module, registers all components
-- `src/app/index.route.js` - UI router configuration
-- `src/app/services/socket.service.js` - WebSocket communication hub
-- `src/app/services/player.service.js` - Player state management
-- `src/app/local-config.json` - Create with backend IP: `{"localhost": "http://192.168.x.x"}`
-
-**Patterns:**
-- All backend communication via Socket.io events (`emit('eventName')` → `on('pushEventName')`)
-- Two themes: `volumio` (Classic) and `volumio3` (Contemporary) in `src/app/themes/`
-- Services in `src/app/services/`, directives in `src/app/components/`
-
-### POC (Svelte)
 
 **Tech Stack**: Svelte 5, TypeScript, Vite 7, Vitest 4.x, Playwright, Socket.io 4.x
 
@@ -175,9 +130,9 @@ eval "$SSH_CMD 'sudo systemctl start stellar-backend stellar-frontend'"
 - Force layout via URL: `?layout=lcd` or `?layout=mobile`
 
 **LCD Panel Design (1920x440):**
-- Touch targets: 44×44px minimum
-- App tiles: 179×179px icons
-- Control buttons: 90×90px, Play button: 98×98px
+- Touch targets: 44x44px minimum
+- App tiles: 179x179px icons
+- Control buttons: 90x90px, Play button: 98x98px
 
 **Header Tokens (v1.3.1+):**
 - CSS var `--header-height-slim: 52px` defined in `app.css`
@@ -223,12 +178,12 @@ The home screen features a permanently docked mini player on the left side (~40%
 - "Deep sunk" effect on right edge (inner shadow + gradient)
 
 **Features:**
-- Large album artwork (200×200px)
+- Large album artwork (200x200px)
 - Track info (title, artist, album) + format badges (FLAC, 96kHz, 24bit)
 - Transport controls (shuffle, prev, play/pause, next, repeat)
 - Seek bar with time display
 - Source label (NAS, USB, LOCAL, QOBUZ, TIDAL, etc.)
-- Expand button → full PlayerView
+- Expand button -> full PlayerView
 - Queue strip showing upcoming tracks (tap to play)
 
 **Source Label Mapping** (`src/lib/utils/sourceClassifier.ts`):
@@ -269,8 +224,8 @@ Context menu system for Album and Track items throughout the library views.
 | View Info | No | Yes | Opens track info modal |
 
 **Touch Targets (optimized for LCD):**
-- AlbumGrid play button: 64×64px (up from 56px)
-- AlbumGrid more button: 40×40px
+- AlbumGrid play button: 64x64px (up from 56px)
+- AlbumGrid more button: 40x40px
 - AlbumGrid tile min-width: 220px (up from 200px)
 - TrackItem row: 48px min height
 
@@ -432,7 +387,7 @@ interface MultiRoomDevices {
 **LCD Control System:**
 - Two standby modes: CSS Dimmed (default, instant wake) or Hardware (wlr-randr, saves power)
 - Key files: `lcd.ts` (store), `StandbyOverlay.svelte` (overlay + touch handling)
-- State: ON → DIMMED → STANDBY
+- State: ON -> DIMMED -> STANDBY
 - Force layout via URL: `?layout=lcd` or `?layout=mobile`
 
 ### Socket.IO Compatibility
@@ -441,8 +396,7 @@ interface MultiRoomDevices {
 |-----------|-------------------|
 | Volumio Connect apps | v2.x client |
 | Stellar Go backend | v3 server (EIO3 compat enabled) |
-| Svelte frontend (POC) | v4.x client (npm package) |
-| Legacy UI | v2.3.x (CDN) |
+| Stellar Volumio frontend | v4.x client (npm package) |
 
 **mDNS Discovery:** Service type `_Volumio._tcp` via Avahi (`/etc/avahi/services/stellar.service`)
 
@@ -456,7 +410,7 @@ Format: `<type>(<scope>): <description>`
 
 ### E2E Tests
 
-Current pass rate: 38%. Known issues documented in `volumio-poc/E2E-TEST-ISSUES.md`.
+Current pass rate: 38%. Known issues documented in `E2E-TEST-ISSUES.md`.
 **Priority:** Add `data-testid` attributes when modifying components.
 
 ### Library Cache System (v1.3.0+)
@@ -486,7 +440,7 @@ sqlite3 ~/stellar-backend/data/library.db "SELECT COUNT(*) FROM albums"
 window.libraryActions.rebuildCache()
 ```
 
-For detailed design, see `volumio-poc/docs/LIBRARY-CACHE-DESIGN.md`.
+For detailed design, see `docs/LIBRARY-CACHE-DESIGN.md`.
 
 ### Artwork Enrichment System (v1.4.0+)
 
@@ -569,12 +523,12 @@ socket.emit('enrichment:artists:queue')
 
 ### Additional Documentation
 
-- `volumio-poc/DEVELOPMENT.md` - Full development guide (kiosk setup, deployment)
-- `volumio-poc/E2E-TEST-ISSUES.md` - Test failure analysis
-- `volumio-poc/docs/LIBRARY-CACHE-DESIGN.md` - Library cache architecture
-- `volumio-poc/docs/ARCHITECTURE.md` - Full backend architecture plan
+- `DEVELOPMENT.md` - Full development guide (kiosk setup, deployment)
+- `E2E-TEST-ISSUES.md` - Test failure analysis
+- `docs/LIBRARY-CACHE-DESIGN.md` - Library cache architecture
+- `docs/ARCHITECTURE.md` - Full backend architecture plan
 
-## Browser Console Debugging (POC)
+## Browser Console Debugging
 
 ```javascript
 // Performance
@@ -599,10 +553,10 @@ source .env && eval "$SSH_CMD 'vcgencmd measure_temp && vcgencmd get_throttled'"
 
 ## Troubleshooting
 
-- **Socket.io version mismatch**: Legacy UI uses Socket.io 2.3.x CDN; POC uses 4.x npm package; Stellar backend runs v3 server with EIO3 compat for both
+- **Socket.io version mismatch**: Stellar Volumio uses 4.x npm package; Stellar backend runs v3 server with EIO3 compat
 - **Connection fails with .local hostname**: Use IP address instead
 - **`$lib` path not resolved**: Check `vite.config.ts` alias configuration
-- **POC not connecting**: Verify `DEV_VOLUMIO_IP` in `volumio-poc/src/lib/config.ts`
+- **Stellar Volumio not connecting**: Verify `DEV_VOLUMIO_IP` in `src/lib/config.ts`
 
 ## Stellar Backend
 
