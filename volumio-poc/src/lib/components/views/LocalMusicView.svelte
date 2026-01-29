@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { navigationActions } from '$lib/stores/navigation';
+  import { uiActions } from '$lib/stores/ui';
   import {
     localAlbums,
     lastPlayedTracks,
@@ -19,7 +20,10 @@
     type AlbumSortOrder,
     type TrackSortOrder
   } from '$lib/stores/localMusic';
+  import type { Album } from '$lib/stores/library';
   import Icon from '../Icon.svelte';
+  import AlbumGrid from '../AlbumGrid.svelte';
+  import LibraryContextMenu from '../LibraryContextMenu.svelte';
   import SkeletonList from '../SkeletonList.svelte';
 
   type TabType = 'albums' | 'lastPlayed';
@@ -51,8 +55,45 @@
     activeTab = tab;
   }
 
-  function handleAlbumClick(album: LocalAlbum) {
-    localMusicActions.selectAlbum(album);
+  // Convert LocalAlbum to Album for AlbumGrid compatibility
+  function toAlbum(localAlbum: LocalAlbum): Album {
+    return {
+      id: localAlbum.id,
+      title: localAlbum.title,
+      artist: localAlbum.artist,
+      uri: localAlbum.uri,
+      albumArt: localAlbum.albumArt,
+      trackCount: localAlbum.trackCount,
+      source: localAlbum.source
+    };
+  }
+
+  // Convert Album back to LocalAlbum (for event handlers)
+  function toLocalAlbum(album: Album): LocalAlbum {
+    const localAlbum = $localAlbums.find(a => a.id === album.id);
+    return localAlbum || {
+      id: album.id,
+      title: album.title,
+      artist: album.artist,
+      uri: album.uri,
+      albumArt: album.albumArt || '',
+      trackCount: album.trackCount || 0,
+      source: album.source as 'usb' | 'local'
+    };
+  }
+
+  function handleAlbumClick(event: CustomEvent<Album>) {
+    const localAlbum = toLocalAlbum(event.detail);
+    localMusicActions.selectAlbum(localAlbum);
+  }
+
+  function handleAlbumPlay(event: CustomEvent<Album>) {
+    const localAlbum = toLocalAlbum(event.detail);
+    localMusicActions.playAlbum(localAlbum);
+  }
+
+  function handleAlbumMore(event: CustomEvent<{ album: Album; position: { x: number; y: number } }>) {
+    uiActions.openContextMenu(event.detail.album, 'album', event.detail.position);
   }
 
   function handlePlayAlbum(album: LocalAlbum) {
@@ -243,32 +284,13 @@
           <span class="hint">Add music to INTERNAL or USB storage</span>
         </div>
       {:else}
-        <div class="albums-grid">
-          {#each $localAlbums as album}
-            <button
-              class="album-card"
-              on:click={() => handleAlbumClick(album)}
-            >
-              <div class="album-art">
-                {#if album.albumArt}
-                  <img src={album.albumArt} alt={album.title} loading="lazy" />
-                {:else}
-                  <div class="album-placeholder">
-                    <Icon name="album" size={48} />
-                  </div>
-                {/if}
-                <div class="source-badge">
-                  <Icon name={getSourceIcon(album.source)} size={14} />
-                </div>
-              </div>
-              <div class="album-info">
-                <span class="album-title">{album.title}</span>
-                <span class="album-artist">{album.artist}</span>
-                <span class="album-tracks">{album.trackCount} tracks</span>
-              </div>
-            </button>
-          {/each}
-        </div>
+        <AlbumGrid
+          albums={$localAlbums.map(toAlbum)}
+          showSource={true}
+          on:albumClick={handleAlbumClick}
+          on:albumPlay={handleAlbumPlay}
+          on:albumMore={handleAlbumMore}
+        />
       {/if}
     {:else}
       <!-- Last Played List -->
@@ -310,6 +332,9 @@
       {/if}
     {/if}
   </div>
+
+  <!-- Context Menu -->
+  <LibraryContextMenu />
 </div>
 
 <style>
@@ -471,102 +496,6 @@
 
   .retry-btn:hover {
     opacity: 0.9;
-  }
-
-  /* Albums Grid */
-  .albums-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: var(--spacing-lg);
-  }
-
-  .album-card {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-md);
-    background: rgba(45, 45, 50, 0.6);
-    backdrop-filter: blur(1px);
-    border-radius: var(--radius-lg);
-    border: none;
-    cursor: pointer;
-    transition: all 0.2s;
-    text-align: left;
-  }
-
-  .album-card:hover {
-    background: rgba(55, 55, 60, 0.7);
-    transform: translateY(-2px);
-  }
-
-  .album-card:active {
-    transform: scale(0.98);
-  }
-
-  .album-art {
-    position: relative;
-    width: 100%;
-    aspect-ratio: 1;
-    border-radius: var(--radius-md);
-    overflow: hidden;
-    background: rgba(0, 0, 0, 0.2);
-  }
-
-  .album-art img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .album-placeholder {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--color-text-tertiary);
-  }
-
-  .source-badge {
-    position: absolute;
-    bottom: 8px;
-    right: 8px;
-    width: 28px;
-    height: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(0, 0, 0, 0.6);
-    border-radius: var(--radius-full);
-    color: var(--color-text-primary);
-  }
-
-  .album-info {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .album-title {
-    font-size: var(--font-size-base);
-    font-weight: 500;
-    color: var(--color-text-primary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .album-artist {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .album-tracks {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-tertiary);
   }
 
   /* Tracks List */

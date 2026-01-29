@@ -7,8 +7,14 @@
 
   const dispatch = createEventDispatcher<{
     itemClick: BrowseItem;
+    itemPlay: BrowseItem;
+    itemMore: { item: BrowseItem; position: { x: number; y: number } };
     itemContextMenu: { event: MouseEvent; item: BrowseItem };
   }>();
+
+  function isAlbumType(item: BrowseItem): boolean {
+    return item.type === 'album';
+  }
 
   function getItemIcon(item: BrowseItem): string {
     switch (item.type) {
@@ -35,6 +41,20 @@
     dispatch('itemClick', item);
   }
 
+  function handlePlayClick(event: MouseEvent, item: BrowseItem) {
+    event.stopPropagation();
+    dispatch('itemPlay', item);
+  }
+
+  function handleMoreClick(event: MouseEvent, item: BrowseItem) {
+    event.stopPropagation();
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    dispatch('itemMore', {
+      item,
+      position: { x: rect.left, y: rect.bottom }
+    });
+  }
+
   function handleContextMenu(event: MouseEvent, item: BrowseItem) {
     event.preventDefault();
     dispatch('itemContextMenu', { event, item });
@@ -43,14 +63,10 @@
 
 <div class="browse-grid">
   {#each items as item}
-    <!-- svelte-ignore a11y-no-static-element-interactions -->
     <div
       class="grid-item"
-      on:click={() => handleClick(item)}
-      on:contextmenu={(e) => handleContextMenu(e, item)}
-      on:keydown={(e) => e.key === 'Enter' && handleClick(item)}
-      role="button"
-      tabindex="0"
+      class:is-album={isAlbumType(item)}
+      data-testid="browse-item-{item.uri}"
     >
       <div class="grid-item-art">
         {#if item.albumart}
@@ -61,10 +77,28 @@
           </div>
         {/if}
         <div class="grid-item-overlay">
-          <button class="play-overlay-btn" on:click|stopPropagation={() => handleClick(item)}>
+          <button class="play-overlay-btn" on:click={(e) => handlePlayClick(e, item)}>
             <Icon name="play-filled" size={32} />
           </button>
         </div>
+        {#if isAlbumType(item)}
+          <!-- More options button (top-right) - for albums -->
+          <button
+            class="more-btn"
+            on:click={(e) => handleMoreClick(e, item)}
+            aria-label="More options for {item.title}"
+          >
+            <Icon name="more-vertical" size={20} />
+          </button>
+          <!-- View songs button (bottom-right) - for albums -->
+          <button
+            class="view-btn"
+            on:click={() => handleClick(item)}
+            aria-label="View songs in {item.title}"
+          >
+            <Icon name="list" size={20} />
+          </button>
+        {/if}
       </div>
       <div class="grid-item-info">
         <span class="grid-item-title">{item.title}</span>
@@ -161,6 +195,61 @@
   }
 
   .play-overlay-btn:active {
+    transform: scale(0.95);
+  }
+
+  /* More and View buttons for albums */
+  .more-btn {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.7);
+    border: none;
+    border-radius: var(--radius-full);
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s;
+    z-index: 1;
+  }
+
+  .more-btn:hover {
+    background: rgba(0, 0, 0, 0.85);
+    transform: scale(1.1);
+  }
+
+  .more-btn:active {
+    transform: scale(0.95);
+  }
+
+  .view-btn {
+    position: absolute;
+    bottom: 6px;
+    right: 6px;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.7);
+    border: none;
+    border-radius: var(--radius-full);
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s;
+    z-index: 1;
+  }
+
+  .view-btn:hover {
+    background: var(--color-primary);
+    transform: scale(1.1);
+  }
+
+  .view-btn:active {
     transform: scale(0.95);
   }
 

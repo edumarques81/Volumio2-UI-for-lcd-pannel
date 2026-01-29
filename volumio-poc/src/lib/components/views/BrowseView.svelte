@@ -68,6 +68,14 @@
     uiActions.openContextMenu(item, 'browse', { x: rect.right, y: rect.top });
   }
 
+  function handleItemPlay(item: BrowseItem) {
+    browseActions.play(item);
+  }
+
+  function handleItemMore(item: BrowseItem, position: { x: number; y: number }) {
+    uiActions.openContextMenu(item, 'browse', position);
+  }
+
   function handleToggleViewMode() {
     browseActions.toggleViewMode();
   }
@@ -131,6 +139,8 @@
         <BrowseGrid
           items={displayItems}
           on:itemClick={(e) => handleItemClick(e.detail)}
+          on:itemPlay={(e) => handleItemPlay(e.detail)}
+          on:itemMore={(e) => handleItemMore(e.detail.item, e.detail.position)}
           on:itemContextMenu={(e) => handleContextMenu(e.detail.event, e.detail.item)}
         />
       {/if}
