@@ -3,7 +3,14 @@
   import { navigationActions } from '$lib/stores/navigation';
   import { browseActions } from '$lib/stores/browse';
   import { audirvanaInstalled, audirvanaService, audirvanaInstanceCount } from '$lib/stores/audirvana';
+  import { lcdState, isDimmedStandby, lcdActions } from '$lib/stores/lcd';
+  import { lcdStandbyMode } from '$lib/stores/settings';
   import Icon from './Icon.svelte';
+
+  // Reactive standby state - true when screen is in standby mode
+  // Checks both CSS dimmed mode and hardware off mode based on settings
+  $: isInStandby = $lcdStandbyMode === 'css' ? $isDimmedStandby : $lcdState === 'off';
+  $: standbySubtitle = isInStandby ? 'ON' : 'OFF';
 
   let scrollContainer: HTMLElement;
 
@@ -93,7 +100,8 @@
 
   // iOS-style gradients matching the reference design
   // Icon gradients are subtle, light variations that complement the background
-  const apps: AppTile[] = [
+  // Static tiles that don't need reactive updates
+  const staticApps: AppTile[] = [
     {
       id: 'local-music',
       title: 'Local Music',
@@ -219,6 +227,24 @@
       }
     }
   ];
+
+  // Stand By tile with reactive subtitle based on standby mode state
+  // ON = standby mode is active (screen dimmed/off)
+  // OFF = standby mode is inactive (screen active)
+  $: standbyTile: AppTile = {
+    id: 'standby',
+    title: 'Stand By',
+    subtitle: standbySubtitle,
+    icon: 'power',
+    gradient: 'linear-gradient(180deg, #4a4a4e 0%, #2d2d30 100%)',
+    iconGradient: { from: '#f5f5f5', to: '#c0c0c0' },
+    action: () => {
+      lcdActions.toggle();
+    }
+  };
+
+  // Combined apps array with reactive Stand By tile
+  $: apps = [...staticApps, standbyTile];
 
   function handleTileClick(app: AppTile) {
     app.action();

@@ -289,53 +289,7 @@ describe('StatusBar component', () => {
     });
   });
 
-  describe('LCD toggle button', () => {
-    it('should show "LCD Off" when LCD is on', () => {
-      stores.lcdState.set('on');
-      render(StatusBar);
-
-      expect(screen.getByText('LCD Off')).toBeInTheDocument();
-    });
-
-    it('should show "LCD On" when LCD is off', () => {
-      stores.lcdState.set('off');
-      render(StatusBar);
-
-      expect(screen.getByText('LCD On')).toBeInTheDocument();
-    });
-
-    it('should apply lcd-on class when LCD is off (green style)', () => {
-      stores.lcdState.set('off');
-      render(StatusBar);
-
-      const button = document.querySelector('.lcd-toggle-btn');
-      expect(button).toHaveClass('lcd-on');
-    });
-
-    it('should call lcdActions.toggle when clicked', async () => {
-      render(StatusBar);
-
-      const button = screen.getByText('LCD Off').closest('button')!;
-      await fireEvent.click(button);
-
-      expect(mockLcdToggle).toHaveBeenCalled();
-    });
-
-    it('should disable button while loading', () => {
-      stores.lcdLoading.set(true);
-      render(StatusBar);
-
-      const button = document.querySelector('.lcd-toggle-btn');
-      expect(button).toBeDisabled();
-    });
-
-    it('should show spinner when loading', () => {
-      stores.lcdLoading.set(true);
-      render(StatusBar);
-
-      expect(document.querySelector('.spinner-small')).toBeInTheDocument();
-    });
-  });
+  // LCD toggle button removed from StatusBar - now available as Stand By tile in AppLauncher
 
   describe('status drawer interaction', () => {
     it('should open status drawer when status badge is clicked', async () => {

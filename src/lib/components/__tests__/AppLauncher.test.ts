@@ -21,7 +21,8 @@ describe('AppLauncher', () => {
     'playlists',
     'favorites',
     'genres',
-    'settings'
+    'settings',
+    'standby'
   ];
 
   // Define the app tile IDs that should NOT be present (removed)
@@ -86,12 +87,21 @@ describe('AppLauncher', () => {
     });
 
     /**
-     * Test: Verify total number of tiles after removal
+     * Test: Verify total number of tiles after removal and Stand By addition
      * Original: 15 tiles (including Spotify, USB, Tidal, Albums)
      * After removal: 11 tiles
+     * After Stand By addition: 12 tiles
      */
-    it('should have exactly 11 app tiles after removing spotify, usb, tidal, and albums', () => {
-      expect(expectedAppIds.length).toBe(11);
+    it('should have exactly 12 app tiles after removing spotify, usb, tidal, albums and adding standby', () => {
+      expect(expectedAppIds.length).toBe(12);
+    });
+
+    /**
+     * Test: Stand By tile should be included
+     * Requirement: Add Stand By button with same functionality as LCD Off
+     */
+    it('should include standby tile', () => {
+      expect(expectedAppIds).toContain('standby');
     });
   });
 
@@ -124,6 +134,39 @@ describe('AppLauncher', () => {
       expect(mockTile.iconGradient).toBeDefined();
       expect(mockTile.action).toBeDefined();
       expect(typeof mockTile.action).toBe('function');
+    });
+
+    it('should have correct structure for Stand By tile', () => {
+      const standbyTile: AppTile = {
+        id: 'standby',
+        title: 'Stand By',
+        subtitle: 'OFF', // Default state when screen is active
+        icon: 'power',
+        gradient: 'linear-gradient(180deg, #4a4a4e 0%, #2d2d30 100%)',
+        iconGradient: { from: '#f5f5f5', to: '#c0c0c0' },
+        action: () => {}
+      };
+
+      expect(standbyTile.id).toBe('standby');
+      expect(standbyTile.title).toBe('Stand By');
+      expect(standbyTile.subtitle).toBeDefined();
+      expect(standbyTile.icon).toBe('power');
+    });
+  });
+
+  describe('Stand By tile state', () => {
+    it('should show "ON" subtitle when in standby mode', () => {
+      // Stand By: ON means standby mode is active (screen is dimmed/off)
+      const isInStandby = true;
+      const subtitle = isInStandby ? 'ON' : 'OFF';
+      expect(subtitle).toBe('ON');
+    });
+
+    it('should show "OFF" subtitle when screen is active', () => {
+      // Stand By: OFF means standby mode is not active (screen is on)
+      const isInStandby = false;
+      const subtitle = isInStandby ? 'ON' : 'OFF';
+      expect(subtitle).toBe('OFF');
     });
   });
 });

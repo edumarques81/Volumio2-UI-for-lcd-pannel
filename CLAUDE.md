@@ -390,6 +390,14 @@ interface MultiRoomDevices {
 - State: ON -> DIMMED -> STANDBY
 - Force layout via URL: `?layout=lcd` or `?layout=mobile`
 
+**Stand By Tile (v2.0.2+):**
+- Located in `AppLauncher.svelte` as a home screen tile
+- Replaces the LCD Off button previously in the StatusBar
+- Title: "Stand By"
+- Subtitle: Reactive state indicator ("ON" when in standby, "OFF" when screen is active)
+- Action: Calls `lcdActions.toggle()` to switch standby mode
+- Respects the configured standby mode (CSS Dimmed or Hardware) from settings
+
 **Connection Grace Period (v2.0.1+):**
 
 Prevents UI flicker during brief network disconnections. Instead of immediately showing the "Connection Failed" screen, the UI remains stable during a 3-second grace period.

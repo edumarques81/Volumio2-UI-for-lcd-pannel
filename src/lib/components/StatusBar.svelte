@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount } from 'svelte';
   import { connectionState } from '$lib/services/socket';
   import { currentTrack, isPlaying } from '$lib/stores/player';
   import { highestSeverity, issueCounts, playbackIssues, type Issue } from '$lib/stores/issues';
   import { statusDrawerOpen } from '$lib/stores/ui';
-  import { lcdState, lcdLoading, lcdActions, initLcdStore, cleanupLcdStore } from '$lib/stores/lcd';
+  import { initLcdStore, cleanupLcdStore } from '$lib/stores/lcd';
   import { networkStatus, networkIcon, isConnected, initNetworkStore, cleanupNetworkStore } from '$lib/stores/network';
   import { isDeviceLocked, formatBadge, isBitPerfect, initAudioStore, cleanupAudioStore } from '$lib/stores/audio';
   import Icon from './Icon.svelte';
@@ -24,10 +24,6 @@
     }).toLowerCase();
 
     currentTime = `${dayOfWeek} ${dayOfMonth} ${month} ${time}`;
-  }
-
-  async function handleLcdToggle() {
-    await lcdActions.toggle();
   }
 
   function handleStatusTap() {
@@ -50,10 +46,6 @@
       cleanupNetworkStore();
     };
   });
-
-  // LCD button label based on current state
-  $: lcdButtonLabel = $lcdState === 'off' ? 'LCD On' : 'LCD Off';
-  $: lcdButtonIcon = $lcdState === 'off' ? 'monitor' : 'power';
 
   // Check if music is actually playing (not just has a track)
   // ON AIR should only show when playback is active
@@ -147,20 +139,6 @@
       </div>
     {/if}
     <span class="time">{currentTime}</span>
-    <button
-      class="lcd-toggle-btn"
-      class:lcd-on={$lcdState === 'off'}
-      class:loading={$lcdLoading}
-      on:click={handleLcdToggle}
-      disabled={$lcdLoading}
-    >
-      {#if $lcdLoading}
-        <span class="spinner-small"></span>
-      {:else}
-        <Icon name={lcdButtonIcon} size={18} />
-      {/if}
-      <span>{lcdButtonLabel}</span>
-    </button>
   </div>
 </div>
 
@@ -286,59 +264,6 @@
   .indicator.connected {
     color: var(--color-text-primary);
     opacity: 1;
-  }
-
-  .lcd-toggle-btn {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 14px;
-    border: none;
-    border-radius: 20px;
-    background: rgba(255, 255, 255, 0.1);
-    color: var(--color-text-primary);
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s;
-    min-height: 44px;
-  }
-
-  .lcd-toggle-btn:hover {
-    background: rgba(255, 255, 255, 0.2);
-  }
-
-  .lcd-toggle-btn:active {
-    transform: scale(0.95);
-  }
-
-  .lcd-toggle-btn:disabled {
-    opacity: 0.7;
-    cursor: wait;
-  }
-
-  /* When LCD is off, show green "turn on" style */
-  .lcd-toggle-btn.lcd-on {
-    background: rgba(52, 199, 89, 0.3);
-    color: #34c759;
-  }
-
-  .lcd-toggle-btn.lcd-on:hover {
-    background: rgba(52, 199, 89, 0.4);
-  }
-
-  /* Loading spinner */
-  .spinner-small {
-    width: 18px;
-    height: 18px;
-    border: 2px solid rgba(255, 255, 255, 0.2);
-    border-top-color: var(--color-text-primary);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
-
-  @keyframes spin {
-    to { transform: rotate(360deg); }
   }
 
   /* Playback issue banner */
