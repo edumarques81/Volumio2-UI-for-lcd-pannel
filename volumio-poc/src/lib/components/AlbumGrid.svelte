@@ -43,13 +43,8 @@
 
 <div class="album-grid">
   {#each albums as album}
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
       class="album-card"
-      on:click={() => handleAlbumClick(album)}
-      on:keydown={(e) => e.key === 'Enter' && handleAlbumClick(album)}
-      role="button"
-      tabindex="0"
       data-testid="album-card-{album.id}"
     >
       <div class="album-art">
@@ -69,12 +64,21 @@
             <Icon name="play-filled" size={36} />
           </button>
         </div>
+        <!-- More options button (top-right) - always visible -->
         <button
           class="more-btn"
           on:click={(e) => handleMoreClick(e, album)}
           aria-label="More options for {album.title}"
         >
-          <Icon name="more-vertical" size={20} />
+          <Icon name="more-vertical" size={24} />
+        </button>
+        <!-- View songs button (bottom-right) - always visible -->
+        <button
+          class="view-songs-btn"
+          on:click={() => handleAlbumClick(album)}
+          aria-label="View songs in {album.title}"
+        >
+          <Icon name="list" size={24} />
         </button>
         {#if showSource}
           <div class="source-badge">
@@ -193,27 +197,22 @@
     position: absolute;
     top: 8px;
     right: 8px;
-    width: 44px;
-    height: 44px;
+    width: 48px;
+    height: 48px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(0, 0, 0, 0.6);
+    background: rgba(0, 0, 0, 0.7);
     border: none;
     border-radius: var(--radius-full);
     color: white;
     cursor: pointer;
-    opacity: 0;
     transition: all 0.2s;
     z-index: 1;
   }
 
-  .album-card:hover .more-btn {
-    opacity: 1;
-  }
-
   .more-btn:hover {
-    background: rgba(0, 0, 0, 0.8);
+    background: rgba(0, 0, 0, 0.85);
     transform: scale(1.1);
   }
 
@@ -221,10 +220,37 @@
     transform: scale(0.95);
   }
 
-  .source-badge {
+  .view-songs-btn {
     position: absolute;
     bottom: 8px;
     right: 8px;
+    width: 56px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.7);
+    border: none;
+    border-radius: var(--radius-full);
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s;
+    z-index: 1;
+  }
+
+  .view-songs-btn:hover {
+    background: var(--color-primary);
+    transform: scale(1.1);
+  }
+
+  .view-songs-btn:active {
+    transform: scale(0.95);
+  }
+
+  .source-badge {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
     width: 28px;
     height: 28px;
     display: flex;
@@ -283,9 +309,14 @@
       height: 56px;
     }
 
-    /* Always show more button on LCD for touch accessibility */
     .more-btn {
-      opacity: 1;
+      width: 44px;
+      height: 44px;
+    }
+
+    .view-songs-btn {
+      width: 52px;
+      height: 52px;
     }
   }
 </style>
