@@ -180,8 +180,7 @@
       gradient: 'linear-gradient(180deg, #4a90d9 0%, #2563b0 100%)',
       iconGradient: { from: '#f0f7ff', to: '#c9e0f9' },
       action: () => {
-        browseActions.browse('playlists');
-        navigationActions.goToBrowse('playlists', 'Playlists');
+        navigationActions.goToPlaylists();
       }
     },
     {

@@ -17,7 +17,8 @@ export type ViewType =
   | 'artists'
   | 'artistAlbums'
   | 'albumDetail'
-  | 'radio';
+  | 'radio'
+  | 'playlists';
 
 /**
  * Layout modes:
@@ -151,6 +152,13 @@ export const navigationActions = {
    */
   goToRadio() {
     currentView.set('radio');
+  },
+
+  /**
+   * Navigate to playlists view
+   */
+  goToPlaylists() {
+    currentView.set('playlists');
   },
 
   /**

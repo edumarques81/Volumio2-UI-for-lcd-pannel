@@ -13,6 +13,7 @@
   import NASAlbumsView from '../views/NASAlbumsView.svelte';
   import ArtistsView from '../views/ArtistsView.svelte';
   import RadioView from '../views/RadioView.svelte';
+  import PlaylistsView from '../views/PlaylistsView.svelte';
   import MiniPlayer from '../MiniPlayer.svelte';
   import StandbyOverlay from '../StandbyOverlay.svelte';
 
@@ -57,6 +58,8 @@
         <ArtistsView />
       {:else if $currentView === 'radio'}
         <RadioView />
+      {:else if $currentView === 'playlists'}
+        <PlaylistsView />
       {/if}
     </div>
 

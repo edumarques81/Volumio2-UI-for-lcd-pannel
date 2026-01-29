@@ -240,7 +240,8 @@
       goToAllAlbums: () => navigationActions.goToAllAlbums(),
       goToNASAlbums: () => navigationActions.goToNASAlbums(),
       goToArtists: () => navigationActions.goToArtists(),
-      goToRadio: () => navigationActions.goToRadio()
+      goToRadio: () => navigationActions.goToRadio(),
+      goToPlaylists: () => navigationActions.goToPlaylists()
     };
 
     // Expose LCD actions for E2E testing

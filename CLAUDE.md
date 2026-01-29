@@ -163,6 +163,7 @@ eval "$SSH_CMD 'sudo systemctl start stellar-backend stellar-frontend'"
 - `queue.ts` - Play queue management
 - `browse.ts` - Library browsing, navigation history
 - `library.ts` - MPD-driven library browsing (albums, artists, radio)
+- `playlist.ts` - Playlist CRUD (list, create, delete, play, add/remove items)
 - `navigation.ts` - View routing, layout mode
 - `lcd.ts` - LCD standby modes (CSS dimmed / hardware), brightness
 - `settings.ts` - UI preferences
@@ -183,6 +184,30 @@ eval "$SSH_CMD 'sudo systemctl start stellar-backend stellar-frontend'"
 - Internal pages use slim header: 52px height, 44px back button
 - Audirvana uses `BackHeader.svelte` component (unchanged styling)
 - Main screen tiles: Spotify and USB removed (v1.3.1)
+
+**PlaylistsView (v1.6.0+):**
+
+Dedicated view for managing playlists, accessed via Playlists tile from home screen.
+
+**Features:**
+- Header with back button and playlist count
+- Search bar below header (filters playlists by name)
+- Create playlist button in header
+- Grid of playlist cards with play overlay
+- Delete button (appears on hover) with confirmation modal
+- Empty state with create button
+- Loading skeleton during fetch
+- Error state with retry
+
+**Navigation:** `navigationActions.goToPlaylists()`
+
+**Components:** `src/lib/components/views/PlaylistsView.svelte`
+
+**Store:** `src/lib/stores/playlist.ts` exports:
+- `playlists` - Array of playlist names
+- `playlistsLoading`, `playlistsError` - Loading/error states
+- `playlistsCount` - Derived count
+- `playlistActions` - CRUD operations (see Socket.IO events below)
 
 **Docked Mini Player (v1.4.0+):**
 
