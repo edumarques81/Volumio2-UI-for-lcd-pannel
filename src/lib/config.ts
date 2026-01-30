@@ -90,19 +90,38 @@ export function getVolumioAssetHost(): string {
 /**
  * Fix asset URL (albumart, etc) to point to Stellar backend
  *
- * Album art is now served by the Stellar backend on port 3002,
+ * Album art is now served by the Stellar backend on port 3000,
  * which fetches embedded art from MPD via the /albumart endpoint.
+ *
+ * This function handles:
+ * - Relative URLs: prefixes with current backend host
+ * - Absolute URLs to our backend (port 3000): rewrites to current host
+ * - External URLs (other ports/hosts): returns as-is
  */
 export function fixVolumioAssetUrl(url: string | undefined): string | undefined {
   if (!url) return url;
 
-  // If it's already an absolute URL, return as-is
+  const assetHost = getVolumioAssetHost();
+
+  // If it's an absolute URL, check if it's pointing to our backend
   if (url.startsWith('http://') || url.startsWith('https://')) {
-    return url;
+    try {
+      const urlObj = new URL(url);
+      // Check if this is a backend URL (port 3000) that needs rewriting
+      // This handles cases where the cache stored URLs with an old IP address
+      if (urlObj.port === String(STELLAR_PORT) || urlObj.pathname.startsWith('/albumart') || urlObj.pathname.startsWith('/artistart')) {
+        // Extract the path and rebuild with current asset host
+        return `${assetHost}${urlObj.pathname}${urlObj.search}`;
+      }
+      // External URL (different service), return as-is
+      return url;
+    } catch {
+      // Invalid URL, return as-is
+      return url;
+    }
   }
 
-  // Always prefix with Volumio asset host (port 3000) for assets
-  const assetHost = getVolumioAssetHost();
+  // Relative URL - prefix with asset host
   return `${assetHost}${url.startsWith('/') ? '' : '/'}${url}`;
 }
 
