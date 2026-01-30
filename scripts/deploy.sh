@@ -2,10 +2,15 @@
 # Deploy script for Stellar Volumio UI
 # Uses rsync for efficient incremental updates
 
-PI_HOST="${VOLUMIO_PI_HOST:-192.168.86.34}"
-PI_USER="${VOLUMIO_PI_USER:-volumio}"
-PI_PASS="${VOLUMIO_PI_PASS:-volumio}"
-REMOTE_PATH="/home/volumio/stellar-volumio"
+# Load .env file if it exists
+if [ -f .env ]; then
+    source .env
+fi
+
+PI_HOST="${RASPBERRY_PI_API_ADDRESS:-192.168.4.58}"
+PI_USER="${RASPBERRY_PI_SSH_USERNAME:-eduardo}"
+PI_PASS="${RASPBERRY_PI_SSH_PASSWORD:-volumio}"
+REMOTE_PATH="/home/${PI_USER}/stellar-volumio"
 
 # Colors
 GREEN='\033[0;32m'

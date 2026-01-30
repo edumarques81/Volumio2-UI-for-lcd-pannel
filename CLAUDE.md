@@ -21,6 +21,9 @@ Stellar Volumio is a modern Svelte 5 web application for controlling Volumio-com
 ## Quick Reference
 
 ```bash
+# Setup
+npm install                                     # Install dependencies (first time)
+
 # Development
 npm run dev                                     # Dev server (localhost:5173)
 
@@ -37,6 +40,7 @@ npm run test:e2e:debug                          # E2E debug mode
 
 # Build & Type Check
 npm run build                                   # Production build → dist/
+npm run preview                                 # Preview production build locally
 npx tsc --noEmit                                # Type check only
 
 # Deploy to Pi
@@ -128,6 +132,40 @@ eval "$SSH_CMD 'sudo systemctl start stellar-backend stellar-frontend'"
 - Tests in `__tests__/` directories adjacent to source files
 - Layouts: `LCDLayout` (1920x440), `MobileLayout`, `DesktopLayout`
 - Force layout via URL: `?layout=lcd` or `?layout=mobile`
+
+**Store Pattern Example:**
+```typescript
+// src/lib/stores/example.ts
+import { writable, derived, get } from 'svelte/store';
+import { socketService } from '$lib/services/socket';
+
+// 1. State stores (writables)
+export const exampleData = writable<SomeType | null>(null);
+export const exampleLoading = writable<boolean>(false);
+
+// 2. Derived stores (computed from writables)
+export const exampleCount = derived(exampleData, $data => $data?.items.length ?? 0);
+
+// 3. Actions object (methods that modify state or emit socket events)
+export const exampleActions = {
+  fetch: () => socketService.emit('getExample'),
+  update: (value: string) => socketService.emit('updateExample', { value }),
+};
+
+// 4. Init function (registers socket listeners, called once from App.svelte)
+let initialized = false;
+export function initExampleStore() {
+  if (initialized) return;
+  initialized = true;
+
+  socketService.on<SomeType>('pushExample', (data) => {
+    exampleData.set(data);
+  });
+
+  // Request initial state
+  exampleActions.fetch();
+}
+```
 
 **LCD Panel Design (1920x440):**
 - Touch targets: 44x44px minimum
