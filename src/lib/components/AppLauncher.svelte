@@ -231,7 +231,7 @@
   // Stand By tile with reactive subtitle based on standby mode state
   // ON = standby mode is active (screen dimmed/off)
   // OFF = standby mode is inactive (screen active)
-  $: standbyTile: AppTile = {
+  $: standbyTile = {
     id: 'standby',
     title: 'Stand By',
     subtitle: standbySubtitle,
