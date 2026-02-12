@@ -15,9 +15,9 @@ export type ConnectionState = 'connected' | 'disconnected' | 'connecting' | 'rec
 export const connectionState = writable<ConnectionState>('disconnected');
 export const loadingState = writable<boolean>(false);
 
-// Grace period for brief disconnections - prevents UI flicker
-// When disconnected, we wait this long before showing the disconnect UI
-const DISCONNECT_GRACE_PERIOD_MS = 3000; // 3 seconds
+// Grace period for disconnections - delays error reporting to the issues system
+// When disconnected, we wait this long before flagging the connection as failed
+const DISCONNECT_GRACE_PERIOD_MS = 5000; // 5 seconds
 
 // Whether we're in the grace period (raw=disconnected, but UI still shows as connected)
 export const isReconnecting = writable<boolean>(false);
@@ -191,43 +191,22 @@ class SocketService {
         window.__stellarSocketConnected = false;
       }
 
-      // If we've been connected before, use grace period to prevent UI flicker
-      // For brief disconnections (< 3 seconds), the UI stays stable
-      if (hasEverConnected) {
-        // Start grace period - show reconnecting indicator but keep UI visible
-        if (!disconnectGraceTimer) {
-          console.log(`[Disconnect] Starting ${DISCONNECT_GRACE_PERIOD_MS}ms grace period`);
-          isReconnecting.set(true);
-
-          disconnectGraceTimer = setTimeout(() => {
-            // Grace period expired - show full disconnect UI
-            console.log('[Disconnect] Grace period expired, showing disconnect UI');
-            connectionState.set('disconnected');
-            isReconnecting.set(false);
-            disconnectGraceTimer = null;
-          }, DISCONNECT_GRACE_PERIOD_MS);
-        }
-      } else {
-        // First connection attempt failed - show disconnect immediately
-        connectionState.set('disconnected');
-      }
+      // Universal grace period - delays reporting disconnection to issues system
+      // The UI always stays visible regardless of connection state
+      this.startGracePeriod();
     });
 
     this.socket.on('connect_error', (error: any) => {
       console.error(`Socket connect_error:`, error);
-      // Only set disconnected if this is an initial connection failure
-      // For reconnection failures, the grace period handles this
-      if (!hasEverConnected && !disconnectGraceTimer) {
-        connectionState.set('disconnected');
-      }
+      // Start grace period - connection failure will be reported to issues system
+      // after the grace period expires (5 seconds)
+      this.startGracePeriod();
     });
 
     this.socket.on('connect_timeout', () => {
       console.error('Socket connect_timeout');
-      // Only set disconnected if this is an initial connection failure
-      if (!hasEverConnected && !disconnectGraceTimer) {
-        connectionState.set('disconnected');
-      }
+      // Start grace period for timeout as well
+      this.startGracePeriod();
     });
 
     this.socket.on('error', (error: any) => {
@@ -359,6 +338,27 @@ class SocketService {
 
     // Reconnect immediately
     this.connect();
+  }
+
+  /**
+   * Start the grace period timer for delayed disconnection reporting.
+   * If a timer is already running, this is a no-op.
+   * After DISCONNECT_GRACE_PERIOD_MS, connectionState transitions to 'disconnected'
+   * which triggers an issue in the issues system.
+   */
+  private startGracePeriod(): void {
+    if (disconnectGraceTimer) return; // Already running
+
+    console.log(`[GracePeriod] Starting ${DISCONNECT_GRACE_PERIOD_MS}ms grace period`);
+    isReconnecting.set(true);
+
+    disconnectGraceTimer = setTimeout(() => {
+      // Grace period expired - report disconnection to issues system
+      console.log('[GracePeriod] Expired, reporting disconnection');
+      connectionState.set('disconnected');
+      isReconnecting.set(false);
+      disconnectGraceTimer = null;
+    }, DISCONNECT_GRACE_PERIOD_MS);
   }
 
   /**

@@ -436,28 +436,28 @@ interface MultiRoomDevices {
 - Action: Calls `lcdActions.toggle()` to switch standby mode
 - Respects the configured standby mode (CSS Dimmed or Hardware) from settings
 
-**Connection Grace Period (v2.0.1+):**
+**Connection Grace Period (v2.1.1+):**
 
-Prevents UI flicker during brief network disconnections. Instead of immediately showing the "Connection Failed" screen, the UI remains stable during a 3-second grace period.
+The UI always remains visible regardless of connection state. Connection failures are reported via the issues system (status button in the upper-left corner) after a 5-second grace period. There is no overlay, blur, or "Connection Failed" screen.
 
 **Implementation:**
-- `src/lib/services/socket.ts` - Grace period timer and `isReconnecting` store
-- `src/lib/components/ReconnectingOverlay.svelte` - Subtle overlay during reconnection
+- `src/lib/services/socket.ts` - Grace period timer, universal for both initial and reconnection failures
+- `src/lib/stores/issues.ts` - Creates `connection:disconnected` issue when `connectionState` becomes `'disconnected'`
 
 **Behavior:**
-| Event | Before Grace Period | After Grace Period |
-|-------|--------------------|--------------------|
-| Disconnect | UI stays visible, overlay shows | Full disconnect screen |
-| Reconnect during grace | Overlay disappears, normal operation | Normal operation |
-| Connect (first time) | Immediate (no grace period) | N/A |
+| Event | During Grace Period (0-5s) | After Grace Period (5s+) |
+|-------|---------------------------|--------------------------|
+| Disconnect | UI stays visible, no visual change | Error issue appears in status system |
+| Reconnect during grace | Timer cancelled, no issue created | Issue resolved automatically |
+| Connect (first time) | Grace period applies to initial failures too | Error issue in status system |
 
 **Stores:**
-- `connectionState` - Debounced state: only transitions to `'disconnected'` after grace period
-- `isReconnecting` - `true` during grace period when attempting to reconnect
+- `connectionState` - Transitions to `'disconnected'` only after 5s grace period expires
+- `isReconnecting` - `true` during grace period (internal use only, no UI effect)
 
 **Configuration:**
 ```typescript
-const DISCONNECT_GRACE_PERIOD_MS = 3000; // 3 seconds
+const DISCONNECT_GRACE_PERIOD_MS = 5000; // 5 seconds
 ```
 
 ### Socket.IO Performance Optimization (v2.1.0+)

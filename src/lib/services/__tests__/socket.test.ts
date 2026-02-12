@@ -338,10 +338,34 @@ describe('SocketService - connection grace period', () => {
     expect(get(connectionState)).toBe('connected');
     expect(get(isReconnecting)).toBe(true);
 
-    // Advance timers past grace period (3 seconds)
-    vi.advanceTimersByTime(3100);
+    // Advance timers past grace period (5 seconds)
+    vi.advanceTimersByTime(5100);
 
     // Now should be disconnected
+    expect(get(connectionState)).toBe('disconnected');
+    expect(get(isReconnecting)).toBe(false);
+  });
+
+  it('should not set disconnected at 3 seconds (old grace period)', () => {
+    socketService.connect();
+
+    const connectHandler = mockSocket.on.mock.calls.find(
+      (call: any[]) => call[0] === 'connect'
+    )?.[1];
+    connectHandler();
+
+    const disconnectHandler = mockSocket.on.mock.calls.find(
+      (call: any[]) => call[0] === 'disconnect'
+    )?.[1];
+    disconnectHandler('transport close');
+
+    // At 3 seconds - should still be connected (grace period is 5s)
+    vi.advanceTimersByTime(3100);
+    expect(get(connectionState)).toBe('connected');
+    expect(get(isReconnecting)).toBe(true);
+
+    // At 5 seconds - now should be disconnected
+    vi.advanceTimersByTime(2000);
     expect(get(connectionState)).toBe('disconnected');
     expect(get(isReconnecting)).toBe(false);
   });
@@ -372,8 +396,8 @@ describe('SocketService - connection grace period', () => {
     expect(get(connectionState)).toBe('connected');
     expect(get(isReconnecting)).toBe(false);
 
-    // Advance timers past original grace period
-    vi.advanceTimersByTime(3000);
+    // Advance timers past original grace period (5 seconds)
+    vi.advanceTimersByTime(5000);
 
     // Should still be connected (timer was cancelled)
     expect(get(connectionState)).toBe('connected');
@@ -406,15 +430,64 @@ describe('SocketService - connection grace period', () => {
     expect(get(isReconnecting)).toBe(false);
   });
 
-  it('should not apply grace period to initial connection', () => {
-    // When connecting for the first time, should go straight to 'connecting'
+  it('should start in connecting state on first connect()', () => {
+    // When connecting for the first time, should go to 'connecting'
     expect(get(connectionState)).toBe('disconnected');
 
     socketService.connect();
 
-    // Should immediately show 'connecting' (no grace period for initial connection)
+    // Should show 'connecting' while establishing connection
     expect(get(connectionState)).toBe('connecting');
     expect(get(isReconnecting)).toBe(false);
+  });
+
+  it('should use grace period for initial connection failure via connect_error', () => {
+    socketService.connect();
+
+    // Simulate connect_error (server unreachable on first attempt)
+    const connectErrorHandler = mockSocket.on.mock.calls.find(
+      (call: any[]) => call[0] === 'connect_error'
+    )?.[1];
+
+    expect(connectErrorHandler).toBeDefined();
+    connectErrorHandler(new Error('connection refused'));
+
+    // Should NOT immediately set disconnected - grace period should start
+    expect(get(connectionState)).not.toBe('disconnected');
+    expect(get(isReconnecting)).toBe(true);
+
+    // After grace period (5s), should set disconnected
+    vi.advanceTimersByTime(5100);
+    expect(get(connectionState)).toBe('disconnected');
+    expect(get(isReconnecting)).toBe(false);
+  });
+
+  it('should cancel initial connection grace period if connect succeeds', () => {
+    socketService.connect();
+
+    // Simulate connect_error first
+    const connectErrorHandler = mockSocket.on.mock.calls.find(
+      (call: any[]) => call[0] === 'connect_error'
+    )?.[1];
+    connectErrorHandler(new Error('connection refused'));
+
+    expect(get(isReconnecting)).toBe(true);
+
+    // Advance 2 seconds (within grace period)
+    vi.advanceTimersByTime(2000);
+
+    // Now connection succeeds
+    const connectHandler = mockSocket.on.mock.calls.find(
+      (call: any[]) => call[0] === 'connect'
+    )?.[1];
+    connectHandler();
+
+    expect(get(connectionState)).toBe('connected');
+    expect(get(isReconnecting)).toBe(false);
+
+    // Advance past grace period - should stay connected
+    vi.advanceTimersByTime(5000);
+    expect(get(connectionState)).toBe('connected');
   });
 });
 
