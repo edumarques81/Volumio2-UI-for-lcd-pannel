@@ -234,6 +234,58 @@ describe('SocketService', () => {
       expect(mockSocket.disconnect).toHaveBeenCalled();
     });
   });
+
+  describe('connect() - no redundant getState on connect', () => {
+    it('should NOT emit getState on connect (backend pushes state)', () => {
+      socketService.connect();
+
+      // Simulate connect event
+      const connectHandler = mockSocket.on.mock.calls.find(
+        (call: any[]) => call[0] === 'connect'
+      )?.[1];
+
+      expect(connectHandler).toBeDefined();
+      mockSocket.emit.mockClear();
+      connectHandler();
+
+      // getState should NOT be emitted — backend pushes state on connect
+      const getStateCalls = mockSocket.emit.mock.calls.filter(
+        (call: any[]) => call[0] === 'getState'
+      );
+      expect(getStateCalls.length).toBe(0);
+    });
+  });
+
+  describe('emit/on - no verbose console.log', () => {
+    it('should not log every emit call to console', () => {
+      socketService.connect();
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+      socketService.emit('play');
+
+      // Should NOT have logged "→ emit: play"
+      const emitLogs = consoleSpy.mock.calls.filter(
+        (call) => typeof call[0] === 'string' && call[0].includes('→ emit:')
+      );
+      expect(emitLogs.length).toBe(0);
+      consoleSpy.mockRestore();
+    });
+
+    it('should not log every received event to console', () => {
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const handler = vi.fn();
+
+      socketService.on('pushState', handler);
+      socketService.simulateEvent('pushState', { status: 'play' });
+
+      // Should NOT have logged "← pushState:"
+      const receiveLogs = consoleSpy.mock.calls.filter(
+        (call) => typeof call[0] === 'string' && call[0].includes('← pushState:')
+      );
+      expect(receiveLogs.length).toBe(0);
+      consoleSpy.mockRestore();
+    });
+  });
 });
 
 describe('SocketService - connection grace period', () => {

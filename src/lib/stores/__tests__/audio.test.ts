@@ -261,6 +261,16 @@ describe('Audio store', () => {
       // Should only register once due to initialized flag (5 handlers: pushAudioStatus + pushBitPerfect + pushDsdMode + pushMixerMode + pushApplyBitPerfect)
       expect(socketService.on).toHaveBeenCalledTimes(5);
     });
+
+    it('should NOT emit getAudioStatus on init (backend pushes on connect)', () => {
+      initAudioStore();
+
+      // getAudioStatus should NOT be emitted — backend pushes pushAudioStatus on connect
+      const getAudioStatusCalls = (socketService.emit as any).mock.calls.filter(
+        (call: any[]) => call[0] === 'getAudioStatus'
+      );
+      expect(getAudioStatusCalls.length).toBe(0);
+    });
   });
 
   describe('pushAudioStatus handler', () => {

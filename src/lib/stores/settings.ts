@@ -346,25 +346,21 @@ export const settingsActions = {
 export function initSettingsStore() {
   // Listen for system info
   socketService.on<SystemInfo>('pushSystemInfo', (data) => {
-    console.log('[Settings] System info:', data);
     systemInfo.set(data);
   });
 
   // Listen for network status
   socketService.on('pushNetworkStatus', (data: any) => {
-    console.log('[Settings] Network status:', data);
     networkStatus.set(data);
   });
 
   // Listen for audio outputs
   socketService.on('pushAudioOutputs', (data: AudioOutput[]) => {
-    console.log('[Settings] Audio outputs:', data);
     audioOutputs.set(data || []);
   });
 
   // Listen for backgrounds
   socketService.on('pushBackgrounds', (data: any) => {
-    console.log('[Settings] Backgrounds:', data);
     if (data && data.available) {
       const host = getVolumioHost();
       const bgBasePath = '/app/plugins/miscellanea/appearance/backgrounds';
@@ -379,8 +375,6 @@ export function initSettingsStore() {
     }
   });
 
-  // Fetch initial data
-  settingsActions.getSystemInfo();
-  settingsActions.getNetworkStatus();
-  settingsActions.getBackgrounds();
+  // No initial fetch needed — backend pushes systemInfo, networkStatus,
+  // and backgrounds on connect (server.go on-connect handler).
 }

@@ -46,16 +46,11 @@ export function initNetworkStore() {
   if (initialized) return;
   initialized = true;
 
-  console.log('🌐 Initializing network store (Socket.IO)...');
-
   // Listen for network status updates via Socket.IO
   // Backend pushes initial state on connection, no need for manual request
   socketService.on<NetworkStatus>('pushNetworkStatus', (status) => {
-    console.log('🌐 Network status update:', status);
     networkStatus.set(status);
   });
-
-  console.log('✅ Network store initialized (no polling)');
 }
 
 export function cleanupNetworkStore() {

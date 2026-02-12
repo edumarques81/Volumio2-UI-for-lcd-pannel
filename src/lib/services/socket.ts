@@ -161,8 +161,8 @@ class SocketService {
         }
       }
 
-      // Request initial state
-      this.emit('getState');
+      // Backend already pushes state on connect (server.go:201-202),
+      // so we don't emit getState here to avoid duplicate events.
 
       // Mobile connection verification: if we don't receive data within 10s,
       // the connection might be a zombie - force reconnect
@@ -242,8 +242,6 @@ class SocketService {
       this.pendingLatencyTimers.set(responseEvent, performance.now());
     }
 
-    console.log(`→ emit: ${eventName}`, data);
-
     this.socket.emit(eventName, data, (response: any) => {
       loadingState.set(false);
       callback?.(response);
@@ -263,7 +261,6 @@ class SocketService {
         this.recordLatency(eventName, latencyMs);
       }
 
-      console.log(`← ${eventName}:`, data);
       loadingState.set(false);
       callback(data);
     };

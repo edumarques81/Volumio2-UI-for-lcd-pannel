@@ -251,10 +251,12 @@ export function initAudioStore() {
 
   console.log('✅ Audio store initialized');
 
-  // Request initial status after a short delay
+  // Request initial config after a short delay.
+  // Note: getAudioStatus is NOT emitted here because the backend already
+  // pushes pushAudioStatus on connect (server.go:208).
+  // getDsdMode and getMixerMode are NOT pushed by the backend on connect,
+  // so we must request them explicitly.
   setTimeout(() => {
-    console.log('📡 Requesting initial audio status...');
-    socketService.emit('getAudioStatus');
     socketService.emit('getDsdMode');
     socketService.emit('getMixerMode');
   }, 600);
