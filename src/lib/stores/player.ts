@@ -73,56 +73,33 @@ export const playerActions = {
     const currentStatus = state?.status;
     const currentPosition = state?.position ?? 0;
 
-    console.log(`▶ Play called - status: ${currentStatus}, position: ${currentPosition}, index arg: ${index}`);
-
     // If index provided, play that specific track
     if (index !== undefined) {
-      console.log(`▶ Playing track at index: ${index}`);
       socketService.emit('play', { value: index });
       return;
     }
 
     // If paused, resume without index
     if (currentStatus === 'pause') {
-      console.log('▶ Resuming from pause');
       socketService.emit('play');
       return;
     }
 
     // For stop, undefined, or any other state - send with position
-    // This ensures we always have a valid track to play
-    console.log(`▶ Starting playback at position: ${currentPosition}`);
     socketService.emit('play', { value: currentPosition });
   },
 
   // Request current state from backend
   getState: () => {
-    console.log('📡 Requesting state from backend');
     socketService.emit('getState');
   },
 
-  pause: () => {
-    console.log('⏸ Pause');
-    socketService.emit('pause');
-  },
-
-  stop: () => {
-    console.log('⏹ Stop');
-    socketService.emit('stop');
-  },
-
-  prev: () => {
-    console.log('⏮ Previous');
-    socketService.emit('prev');
-  },
-
-  next: () => {
-    console.log('⏭ Next');
-    socketService.emit('next');
-  },
+  pause: () => socketService.emit('pause'),
+  stop: () => socketService.emit('stop'),
+  prev: () => socketService.emit('prev'),
+  next: () => socketService.emit('next'),
 
   setVolume: (vol: number) => {
-    console.log(`🔊 Volume: ${vol}`);
     volume.set(vol);
     socketService.emit('volume', vol);
   },
@@ -130,7 +107,6 @@ export const playerActions = {
   toggleMute: () => {
     const currentMute = get(mute);
     const newMute = !currentMute;
-    console.log(`🔇 Mute: ${newMute}`);
     mute.set(newMute);
     socketService.emit('mute', newMute ? 'mute' : 'unmute');
   },
@@ -138,13 +114,11 @@ export const playerActions = {
   toggleShuffle: () => {
     const currentShuffle = get(shuffle);
     const newShuffle = !currentShuffle;
-    console.log(`🔀 Shuffle: ${newShuffle}`);
     shuffle.set(newShuffle);
     socketService.emit('setRandom', { value: newShuffle });
   },
 
   setRepeat: (mode: 'off' | 'all' | 'one') => {
-    console.log(`🔁 Repeat: ${mode}`);
     repeat.set(mode);
     const repeatSingle = mode === 'one';
     socketService.emit('setRepeat', {
@@ -154,13 +128,11 @@ export const playerActions = {
   },
 
   seekTo: (position: number) => {
-    console.log(`⏩ Seek to: ${position}s`);
     seek.set(position);
     socketService.emit('seek', position);
   },
 
   getTrackInfo: (uri?: string, service?: string) => {
-    console.log('ℹ️ Getting track info');
     trackInfoLoading.set(true);
     trackInfo.set(null);
     socketService.emit('GetTrackInfo', { uri, service });
@@ -210,39 +182,33 @@ export function initPlayerStore() {
   if (initialized) return;
   initialized = true;
 
-  console.log('🎵 Initializing player store...');
-
   // Listen for state updates from backend
-  const unsubscribe = socketService.on<PlayerState>('pushState', (state) => {
-    console.log('📊 pushState received:', {
-      status: state.status,
-      title: state.title,
-      seekMs: state.seek,
-      durationSec: state.duration
-    });
-
+  socketService.on<PlayerState>('pushState', (state) => {
     // Fix albumart URL to point to Volumio backend
     if (state.albumart) {
-      state.albumart = fixVolumioAssetUrl(state.albumart);
+      state.albumart = fixVolumioAssetUrl(state.albumart) ?? state.albumart;
     }
     playerState.set(state);
 
-    // Update derived values
-    if (state.volume !== undefined) volume.set(state.volume);
-    if (state.mute !== undefined) mute.set(state.mute);
-    if (state.random !== undefined) shuffle.set(state.random);
+    // Change-gated updates: only set stores whose values actually changed
+    if (state.volume !== undefined && state.volume !== get(volume)) volume.set(state.volume);
+    if (state.mute !== undefined && state.mute !== get(mute)) mute.set(state.mute);
+    if (state.random !== undefined && state.random !== get(shuffle)) shuffle.set(state.random);
 
     if (state.repeat !== undefined) {
-      repeat.set(state.repeat ? (state.repeatSingle ? 'one' : 'all') : 'off');
+      const newRepeat = state.repeat ? (state.repeatSingle ? 'one' : 'all') : 'off';
+      if (newRepeat !== get(repeat)) repeat.set(newRepeat);
     }
 
     // Convert seek from milliseconds to seconds
     if (state.seek !== undefined) {
       const seekSeconds = Math.floor(state.seek / 1000);
-      seek.set(seekSeconds);
+      if (seekSeconds !== get(seek)) {
+        seek.set(seekSeconds);
+      }
       lastSeekUpdate = Date.now();
     }
-    if (state.duration !== undefined) duration.set(state.duration);
+    if (state.duration !== undefined && state.duration !== get(duration)) duration.set(state.duration);
 
     // Manage seek interpolation based on playback state
     if (state.status === 'play') {
@@ -252,28 +218,12 @@ export function initPlayerStore() {
     }
   });
 
-  // Listen for queue updates
-  socketService.on('pushQueue', (queue) => {
-    console.log('📋 Queue update:', queue);
-  });
-
-  // Listen for toast messages
-  socketService.on('pushToastMessage', (message) => {
-    console.log('💬 Toast:', message);
-  });
-
   // Listen for track info response
   socketService.on<TrackInfo>('pushTrackInfo', (info) => {
-    console.log('ℹ️ Track info:', info);
     trackInfo.set(info);
     trackInfoLoading.set(false);
   });
 
-  console.log('✅ Player store initialized, pushState handler registered');
-
-  // Request initial state after a short delay to ensure socket is connected
-  setTimeout(() => {
-    console.log('📡 Requesting initial state...');
-    socketService.emit('getState');
-  }, 500);
+  // Backend pushes state on connect (server.go:169), socket.ts connect handler
+  // also requests it (line 165) - no need for an additional delayed request.
 }

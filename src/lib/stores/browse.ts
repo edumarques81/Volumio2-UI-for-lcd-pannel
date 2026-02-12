@@ -95,11 +95,13 @@ function isSourceElement(list: BrowseList): boolean {
  * Normalize browse item - handle 'name' vs 'title' and other variations
  */
 function normalizeBrowseItem(item: BrowseItem | BrowseList): BrowseItem {
+  const asItem = item as BrowseItem;
+  const asList = item as BrowseList;
   return {
     ...item,
-    title: item.title || (item as BrowseList).name || '',
-    type: item.type || 'folder',
-    service: item.service || item.plugin_name || '',
+    title: item.title || asList.name || '',
+    type: asItem.type || 'folder',
+    service: asItem.service || asList.plugin_name || '',
     albumart: fixVolumioAssetUrl(item.albumart)
   } as BrowseItem;
 }

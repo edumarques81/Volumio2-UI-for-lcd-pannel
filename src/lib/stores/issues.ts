@@ -279,7 +279,7 @@ export function initIssueStore() {
     }
 
     // Check for stream errors (usually indicated by specific states)
-    if (state.stream === false && state.status === 'play') {
+    if (!state.stream && state.status === 'play') {
       issueActions.upsertIssue({
         id: 'playback:stream_error',
         domain: 'playback',

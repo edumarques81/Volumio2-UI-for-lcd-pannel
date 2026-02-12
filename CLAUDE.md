@@ -460,6 +460,36 @@ Prevents UI flicker during brief network disconnections. Instead of immediately 
 const DISCONNECT_GRACE_PERIOD_MS = 3000; // 3 seconds
 ```
 
+### Socket.IO Performance Optimization (v2.1.0+)
+
+**MPD Event Debouncing:**
+- `BroadcastDebouncer` (`debouncer.go`) collapses rapid MPD subsystem events (100ms window)
+- Volume knob turning (20 mixer events) produces 1 broadcast instead of 20
+- `database` events bypass debouncer for immediate cache rebuild
+
+**State Diffing:**
+- `BroadcastState()` compares key fields with last broadcast before emitting
+- Fields checked: status, position, title, artist, album, volume, seek, duration, random, repeat, samplerate, bitdepth, trackType
+- Skips broadcast if no fields changed (common during steady playback)
+
+**Connection Limiting:**
+- `ConnectionLimiter` (`connlimit.go`) allows 1 external + unlimited local connections
+- Local = `127.0.0.1` or `::1` (always allowed)
+- Second external connection evicts oldest with a toast notification
+- Prevents broadcast multiplication from unlimited clients
+
+**Handler Redundancy Removal:**
+- Volumio Connect handlers (addPlay, playNext, moveQueue, removeFromQueue) no longer call `BroadcastQueue()` - MPD watcher handles it via debouncer
+- `playPlaylist` sends only unicast to requesting client; MPD watcher broadcasts to all
+
+**Frontend Store Optimization:**
+- Change-gated store updates: `volume.set()` only called when value actually differs
+- Removed duplicate `getState` request from `initPlayerStore()` (backend pushes on connect)
+- Removed duplicate `getQueue()` call from `initQueueStore()` (backend pushes on connect)
+- `fixVolumioAssetUrl()` results cached (200-entry LRU) to avoid `new URL()` parsing on every pushState
+- `AppLauncher.svelte` uses keyed `{#each}` to prevent full tile re-renders when standby subtitle changes
+- Console.log calls removed from hot-path handlers (pushState, player actions, queue actions)
+
 ### Socket.IO Compatibility
 
 | Component | Socket.IO Version |

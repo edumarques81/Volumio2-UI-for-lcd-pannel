@@ -265,7 +265,7 @@ class SocketService {
 
     console.log(`→ emit: ${eventName}`, data);
 
-    this.socket.emit(eventName, data, (response) => {
+    this.socket.emit(eventName, data, (response: any) => {
       loadingState.set(false);
       callback?.(response);
     });

@@ -254,7 +254,7 @@
 <div class="app-launcher" bind:this={scrollContainer}>
   <div class="tiles-container">
     <!-- App Tiles (NowPlayingTile removed - now using DockedMiniPlayer) -->
-    {#each apps as app}
+    {#each apps as app (app.id)}
       <button class="app-tile" data-testid="tile-{app.id}" on:click={() => handleTileClick(app)}>
         <div class="tile-icon" style="background: {app.gradient}">
           <Icon name={app.icon} size={90} gradient={app.iconGradient} />

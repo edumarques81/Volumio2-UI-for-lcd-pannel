@@ -63,7 +63,6 @@ export const queueActions = {
    * Play a specific item in the queue
    */
   play(index: number) {
-    console.log('[Queue] Playing index:', index);
     socketService.emit('play', { value: index });
   },
 
@@ -71,7 +70,6 @@ export const queueActions = {
    * Remove item from queue
    */
   remove(index: number) {
-    console.log('[Queue] Removing index:', index);
     socketService.emit('removeFromQueue', { value: index });
   },
 
@@ -79,7 +77,6 @@ export const queueActions = {
    * Move item in queue
    */
   move(from: number, to: number) {
-    console.log('[Queue] Moving:', from, '->', to);
     socketService.emit('moveQueue', { from, to });
   },
 
@@ -87,7 +84,6 @@ export const queueActions = {
    * Clear the entire queue
    */
   clear() {
-    console.log('[Queue] Clearing');
     socketService.emit('clearQueue');
   },
 
@@ -95,7 +91,6 @@ export const queueActions = {
    * Save queue as playlist
    */
   saveAsPlaylist(name: string) {
-    console.log('[Queue] Saving as playlist:', name);
     socketService.emit('saveQueueToPlaylist', { name });
   },
 
@@ -103,9 +98,7 @@ export const queueActions = {
    * Shuffle the queue
    */
   shuffle() {
-    console.log('[Queue] Shuffling');
     // Note: Volumio doesn't have a direct shuffle queue command
-    // This would need custom implementation
   }
 };
 
@@ -115,7 +108,6 @@ export const queueActions = {
 export function initQueueStore() {
   // Listen for queue updates
   socketService.on<QueueItem[]>('pushQueue', (data) => {
-    console.log('[Queue] Received:', data?.length, 'items');
     // Fix albumart URLs to point to Volumio backend
     const fixedData = (data || []).map(item => ({
       ...item,
@@ -125,6 +117,5 @@ export function initQueueStore() {
     queueLoading.set(false);
   });
 
-  // Fetch queue on init
-  queueActions.getQueue();
+  // Backend pushes queue on connect (server.go:170) - no need to fetch here.
 }

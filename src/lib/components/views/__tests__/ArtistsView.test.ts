@@ -11,25 +11,21 @@ import type { Artist, Album, Track } from '$lib/stores/library';
 describe('ArtistsView', () => {
   const mockArtists: Artist[] = [
     {
-      id: 'artist1',
       name: 'Miles Davis',
       albumCount: 5,
       albumArt: '/artistart?id=artist1'
     },
     {
-      id: 'artist2',
       name: 'John Coltrane And Johnny Hartman', // Medium-length name
       albumCount: 3,
       albumArt: '/artistart?id=artist2'
     },
     {
-      id: 'artist3',
       name: 'Pittsburgh Symphony Orchestra; Manfred Honeck; Christina Landshamer; Jennifer Johnson Cano', // Very long name that should truncate
       albumCount: 2,
       albumArt: ''
     },
     {
-      id: 'artist4',
       name: 'Ella Fitzgerald - vocals  Paul Smith - piano', // Long name with special formatting
       albumCount: 1,
       albumArt: '/artistart?id=artist4'
@@ -56,14 +52,15 @@ describe('ArtistsView', () => {
       album: 'Kind of Blue',
       uri: 'NAS/Jazz/Kind of Blue/01-So What.flac',
       duration: 562,
-      trackNumber: 1
+      trackNumber: 1,
+      albumArt: '/albumart?path=...',
+      source: 'nas'
     }
   ];
 
   describe('Artist type', () => {
     it('should have required fields', () => {
       const artist = mockArtists[0];
-      expect(artist.id).toBeDefined();
       expect(artist.name).toBeDefined();
       expect(artist.albumCount).toBeDefined();
     });
@@ -130,8 +127,8 @@ describe('ArtistsView', () => {
 
   describe('getTitle helper', () => {
     it('should return "Artists" when no selection', () => {
-      const selectedAlbum: Album | null = null;
-      const selectedArtist: string | null = null;
+      const selectedAlbum = null as Album | null;
+      const selectedArtist = null as string | null;
 
       const getTitle = (): string => {
         if (selectedAlbum) return selectedAlbum.title;
@@ -143,8 +140,8 @@ describe('ArtistsView', () => {
     });
 
     it('should return artist name when artist is selected', () => {
-      const selectedAlbum: Album | null = null;
-      const selectedArtist: string | null = 'Miles Davis';
+      const selectedAlbum = null as Album | null;
+      const selectedArtist = 'Miles Davis' as string | null;
 
       const getTitle = (): string => {
         if (selectedAlbum) return selectedAlbum.title;

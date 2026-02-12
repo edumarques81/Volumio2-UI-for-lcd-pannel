@@ -102,6 +102,7 @@ describe('AudioEngine Store', () => {
             });
           }, 100);
         }
+        return () => {};
       });
 
       const switchPromise = audioEngineActions.switchTo('audirvana');
@@ -122,7 +123,7 @@ describe('AudioEngine Store', () => {
       audioEngineState.update(s => ({ ...s, active: 'audirvana' }));
 
       // Mock slow response - never resolves immediately
-      vi.mocked(socketService.on).mockImplementation(() => {});
+      vi.mocked(socketService.on).mockImplementation(() => { return () => {}; });
 
       // Start first switch to MPD (don't await)
       const promise1 = audioEngineActions.switchTo('mpd');
@@ -158,6 +159,7 @@ describe('AudioEngine Store', () => {
         if (event === 'pushAudirvanaStatus') {
           statusHandler = handler as (status: AudiorvanaStatus) => void;
         }
+        return () => {};
       });
 
       const switchPromise = audioEngineActions.switchTo('mpd');
@@ -168,7 +170,7 @@ describe('AudioEngine Store', () => {
       // Simulate backend confirming Audirvana stopped
       await new Promise(r => setTimeout(r, 100));
       if (statusHandler) {
-        statusHandler({
+        (statusHandler as (status: AudiorvanaStatus) => void)({
           installed: true,
           service: { loaded: true, enabled: true, active: false, running: false },
           instances: []
@@ -209,6 +211,7 @@ describe('AudioEngine Store', () => {
         if (event === 'pushAudirvanaStatus') {
           statusHandler = handler as (status: AudiorvanaStatus) => void;
         }
+        return () => {};
       });
 
       const switchPromise = audioEngineActions.switchTo('audirvana');
@@ -221,7 +224,7 @@ describe('AudioEngine Store', () => {
 
       // Simulate backend confirming Audirvana started
       if (statusHandler) {
-        statusHandler({
+        (statusHandler as (status: AudiorvanaStatus) => void)({
           installed: true,
           service: { loaded: true, enabled: true, active: true, running: true },
           instances: []

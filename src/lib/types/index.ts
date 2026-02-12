@@ -17,6 +17,7 @@ export interface PlayerState {
   repeatSingle: boolean;
   volume: number;
   mute: boolean;
+  service?: string;
   stream?: string;
   updatedb?: boolean;
   volatile?: boolean;

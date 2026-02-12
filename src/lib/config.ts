@@ -97,10 +97,31 @@ export function getVolumioAssetHost(): string {
  * - Relative URLs: prefixes with current backend host
  * - Absolute URLs to our backend (port 3000): rewrites to current host
  * - External URLs (other ports/hosts): returns as-is
+ *
+ * Results are cached to avoid repeated URL parsing on every pushState.
  */
+const URL_CACHE_MAX = 200;
+const urlCache = new Map<string, string | undefined>();
+
 export function fixVolumioAssetUrl(url: string | undefined): string | undefined {
   if (!url) return url;
 
+  const cached = urlCache.get(url);
+  if (cached !== undefined) return cached;
+
+  const result = resolveAssetUrl(url);
+
+  // Evict oldest entries when cache is full
+  if (urlCache.size >= URL_CACHE_MAX) {
+    const firstKey = urlCache.keys().next().value;
+    if (firstKey !== undefined) urlCache.delete(firstKey);
+  }
+  urlCache.set(url, result);
+
+  return result;
+}
+
+function resolveAssetUrl(url: string): string | undefined {
   const assetHost = getVolumioAssetHost();
 
   // If it's an absolute URL, check if it's pointing to our backend

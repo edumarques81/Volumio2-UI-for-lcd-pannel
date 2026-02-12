@@ -608,13 +608,6 @@
     border-radius: var(--radius-sm);
   }
 
-  /* Header subtitle */
-  .subtitle {
-    font-size: var(--font-size-base);
-    color: var(--color-text-secondary);
-    margin-left: var(--spacing-sm);
-  }
-
   /* Play All button */
   .play-all-btn {
     display: flex;

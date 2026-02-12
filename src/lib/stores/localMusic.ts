@@ -114,21 +114,21 @@ export const hasLastPlayed = derived(lastPlayedTracks, ($tracks) => $tracks.leng
 function processAlbum(album: LocalAlbum): LocalAlbum {
   return {
     ...album,
-    albumArt: fixVolumioAssetUrl(album.albumArt)
+    albumArt: fixVolumioAssetUrl(album.albumArt) ?? album.albumArt
   };
 }
 
 function processTrack(track: PlayHistoryEntry): PlayHistoryEntry {
   return {
     ...track,
-    albumArt: fixVolumioAssetUrl(track.albumArt)
+    albumArt: fixVolumioAssetUrl(track.albumArt) ?? track.albumArt
   };
 }
 
 function processAlbumTrack(track: AlbumTrack): AlbumTrack {
   return {
     ...track,
-    albumArt: fixVolumioAssetUrl(track.albumArt)
+    albumArt: fixVolumioAssetUrl(track.albumArt) ?? track.albumArt
   };
 }
 

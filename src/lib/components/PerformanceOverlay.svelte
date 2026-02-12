@@ -17,8 +17,8 @@
 		graphHeight = 40
 	}: Props = $props();
 
-	// Graph data (last N frame times) - managed imperatively for test compatibility
-	let graphData: number[] = [];
+	// Graph data (last N frame times)
+	let graphData: number[] = $state([]);
 	const MAX_GRAPH_POINTS = 60;
 	let unsubscribe: (() => void) | null = null;
 
