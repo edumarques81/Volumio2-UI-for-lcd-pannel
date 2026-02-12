@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { get } from 'svelte/store';
+import type { PlayerState } from '$lib/types';
+
+// Capture the player state subscriber so we can trigger it in tests
+let playerStateSubscriber: ((state: PlayerState | null) => void) | null = null;
 
 // Mock the socket service before importing issues store
 vi.mock('$lib/services/socket', () => ({
@@ -16,10 +20,11 @@ vi.mock('$lib/services/socket', () => ({
   }
 }));
 
-// Mock the player store
+// Mock the player store, capturing the subscriber for test control
 vi.mock('$lib/stores/player', () => ({
   playerState: {
-    subscribe: vi.fn((cb) => {
+    subscribe: vi.fn((cb: (state: PlayerState | null) => void) => {
+      playerStateSubscriber = cb;
       cb(null);
       return () => {};
     })
@@ -32,6 +37,7 @@ import {
   issueCounts,
   playbackIssues,
   issueActions,
+  initIssueStore,
   type Issue,
   type Severity
 } from '../issues';
@@ -525,6 +531,153 @@ describe('issues store', () => {
 
       const recent = issueActions.listRecent(10);
       expect(recent.length).toBe(1);
+    });
+  });
+
+  describe('player state stream error detection (bug fix)', () => {
+    beforeEach(() => {
+      issueActions.resetAll();
+      // Trigger initIssueStore to register the playerState subscriber
+      initIssueStore();
+    });
+
+    it('should NOT create stream issue when playing a regular file without stream field', () => {
+      // Regular file playback: stream is undefined or empty string
+      const state: PlayerState = {
+        status: 'play',
+        position: 0,
+        title: 'Test Song',
+        artist: 'Test Artist',
+        album: 'Test Album',
+        albumart: '/albumart',
+        uri: 'NAS/music/song.flac',
+        trackType: 'flac',
+        seek: 0,
+        duration: 300,
+        random: false,
+        repeat: false,
+        repeatSingle: false,
+        volume: 80,
+        mute: false,
+        service: 'mpd'
+        // stream is undefined - normal for local files
+      };
+
+      playerStateSubscriber?.(state);
+
+      const issues = get(activeIssuesList);
+      const streamIssue = issues.find(i => i.id === 'playback:stream_error');
+      expect(streamIssue).toBeUndefined();
+    });
+
+    it('should NOT create stream issue when stream is empty string during play', () => {
+      const state: PlayerState = {
+        status: 'play',
+        position: 0,
+        title: 'Test Song',
+        artist: 'Test Artist',
+        album: 'Test Album',
+        albumart: '/albumart',
+        uri: 'NAS/music/song.flac',
+        trackType: 'flac',
+        seek: 0,
+        duration: 300,
+        random: false,
+        repeat: false,
+        repeatSingle: false,
+        volume: 80,
+        mute: false,
+        service: 'mpd',
+        stream: '' // Empty string - normal for local files from backend
+      };
+
+      playerStateSubscriber?.(state);
+
+      const issues = get(activeIssuesList);
+      const streamIssue = issues.find(i => i.id === 'playback:stream_error');
+      expect(streamIssue).toBeUndefined();
+    });
+
+    it('should NOT create stream issue when playing internet radio with stream name', () => {
+      const state: PlayerState = {
+        status: 'play',
+        position: 0,
+        title: 'Radio Station',
+        artist: '',
+        album: '',
+        albumart: '/albumart',
+        uri: 'http://stream.example.com/radio',
+        trackType: 'mp3',
+        seek: 0,
+        duration: 0,
+        random: false,
+        repeat: false,
+        repeatSingle: false,
+        volume: 80,
+        mute: false,
+        service: 'mpd',
+        stream: 'My Radio Station' // Stream name present for radio
+      };
+
+      playerStateSubscriber?.(state);
+
+      const issues = get(activeIssuesList);
+      const streamIssue = issues.find(i => i.id === 'playback:stream_error');
+      expect(streamIssue).toBeUndefined();
+    });
+
+    it('should NOT create stream issue when player is stopped', () => {
+      const state: PlayerState = {
+        status: 'stop',
+        position: 0,
+        title: '',
+        artist: '',
+        album: '',
+        albumart: '/albumart',
+        uri: '',
+        trackType: '',
+        seek: 0,
+        duration: 0,
+        random: false,
+        repeat: false,
+        repeatSingle: false,
+        volume: 80,
+        mute: false,
+        service: 'mpd'
+      };
+
+      playerStateSubscriber?.(state);
+
+      const issues = get(activeIssuesList);
+      const streamIssue = issues.find(i => i.id === 'playback:stream_error');
+      expect(streamIssue).toBeUndefined();
+    });
+
+    it('should NOT create stream issue when player is paused', () => {
+      const state: PlayerState = {
+        status: 'pause',
+        position: 0,
+        title: 'Test Song',
+        artist: 'Test Artist',
+        album: 'Test Album',
+        albumart: '/albumart',
+        uri: 'NAS/music/song.flac',
+        trackType: 'flac',
+        seek: 100,
+        duration: 300,
+        random: false,
+        repeat: false,
+        repeatSingle: false,
+        volume: 80,
+        mute: false,
+        service: 'mpd'
+      };
+
+      playerStateSubscriber?.(state);
+
+      const issues = get(activeIssuesList);
+      const streamIssue = issues.find(i => i.id === 'playback:stream_error');
+      expect(streamIssue).toBeUndefined();
     });
   });
 });

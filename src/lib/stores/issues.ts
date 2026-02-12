@@ -272,27 +272,11 @@ export function initIssueStore() {
   playerState.subscribe((state) => {
     if (!state) return;
 
-    // Check for playback errors
-    if (state.status === 'stop' && state.service === 'mpd') {
-      // Check if MPD reported an error (this would come from backend)
-      // For now, we just monitor state changes
-    }
-
-    // Check for stream errors (usually indicated by specific states)
-    if (!state.stream && state.status === 'play') {
-      issueActions.upsertIssue({
-        id: 'playback:stream_error',
-        domain: 'playback',
-        severity: 'warning',
-        title: 'Stream Issue',
-        detail: 'Stream may have stopped unexpectedly',
-        ts: Date.now(),
-        persistent: false,
-        source: 'frontend-detection',
-      });
-    } else {
-      issueActions.resolveIssue('playback:stream_error');
-    }
+    // Resolve any stale stream error when player state changes.
+    // Note: state.stream is the internet radio stream name (from MPD's
+    // song "Name" tag), NOT a playback health indicator. It is empty/undefined
+    // for regular file playback, so it must never be used to detect errors.
+    issueActions.resolveIssue('playback:stream_error');
   });
 
   // Listen for backend error events
