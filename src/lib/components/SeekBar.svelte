@@ -27,6 +27,7 @@
 
   <div class="track">
     <input
+      id="seekbar-slider"
       type="range"
       min="0"
       max={$duration}

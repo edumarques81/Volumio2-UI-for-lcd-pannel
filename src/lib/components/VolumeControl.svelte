@@ -24,6 +24,7 @@
 
   <div class="volume-slider">
     <input
+      id="volume-slider"
       type="range"
       min="0"
       max="100"

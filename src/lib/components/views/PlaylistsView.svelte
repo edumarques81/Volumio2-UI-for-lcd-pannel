@@ -124,6 +124,7 @@
     <div class="search-input-wrapper">
       <Icon name="search" size={18} />
       <input
+        id="playlists-search"
         type="text"
         placeholder="Search playlists..."
         bind:value={searchQuery}

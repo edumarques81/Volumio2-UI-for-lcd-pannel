@@ -108,6 +108,7 @@
       {#if !$selectedLibraryAlbum}
         <!-- Sort dropdown -->
         <select
+          id="all-albums-sort"
           class="sort-select"
           value={$librarySort}
           on:change={handleSortChange}

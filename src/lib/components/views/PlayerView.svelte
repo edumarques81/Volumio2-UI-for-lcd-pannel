@@ -237,6 +237,7 @@
         <div class="seek-track">
           <div class="seek-progress" style="width: {$duration > 0 ? ((isSeeking ? seekValue : $seek) / $duration) * 100 : 0}%"></div>
           <input
+            id="player-seek-slider"
             type="range"
             class="seek-slider"
             min="0"

@@ -250,6 +250,7 @@
     <div class="save-modal" on:click|stopPropagation>
       <h3>Save Queue as Playlist</h3>
       <input
+        id="save-playlist-name"
         type="text"
         bind:value={savePlaylistName}
         placeholder="Playlist name"

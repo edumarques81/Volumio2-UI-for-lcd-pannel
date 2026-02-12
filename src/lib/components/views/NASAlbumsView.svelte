@@ -108,6 +108,7 @@
       {#if !$selectedLibraryAlbum}
         <!-- Sort dropdown -->
         <select
+          id="nas-albums-sort"
           class="sort-select"
           value={$librarySort}
           on:change={handleSortChange}

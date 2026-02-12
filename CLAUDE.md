@@ -651,6 +651,30 @@ window.libraryActions.rebuildCache()  // Trigger cache rebuild
 source .env && eval "$SSH_CMD 'vcgencmd measure_temp && vcgencmd get_throttled'"
 ```
 
+### Content Security Policy (v2.1.2+)
+
+CSP is configured in `vite.config.ts` via a custom Vite plugin, with different policies for dev and production:
+
+**Production** (meta tag injected by `cspMetaTagPlugin`):
+- `script-src 'self'` - no `eval()` or inline scripts allowed
+- `style-src 'self' 'unsafe-inline'` - Svelte component styles need inline
+- `img-src 'self' data: blob: http: https:` - album artwork from any source
+- `connect-src 'self' ws: wss: http: https:` - Socket.IO WebSocket connections
+- `font-src 'self'`, `media-src 'self' http: https:`
+
+**Dev mode** (server headers in `vite.config.ts`):
+- Same as production plus `'unsafe-eval'` and `'unsafe-inline'` in `script-src` for Vite HMR
+
+**Key files:** `vite.config.ts` (CSP directives + plugin), `src/lib/__tests__/csp.test.ts`
+
+### Form Field Accessibility Convention
+
+All `<input>`, `<select>`, and `<textarea>` elements MUST have an `id` attribute. This prevents the browser warning "A form field element should have an id or name attribute" and improves accessibility.
+
+**Naming convention:** `{component-context}-{purpose}` (e.g., `player-seek-slider`, `browse-search`, `mixer-toggle`)
+
+**Enforced by:** `src/lib/__tests__/form-accessibility.test.ts` (scans all `.svelte` files)
+
 ## Troubleshooting
 
 - **Socket.io version mismatch**: Stellar Volumio uses 4.x npm package; Stellar backend runs v3 server with EIO3 compat

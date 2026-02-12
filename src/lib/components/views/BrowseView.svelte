@@ -102,6 +102,7 @@
       <div class="search-box">
         <Icon name="search" size={20} />
         <input
+          id="browse-search"
           type="text"
           placeholder="Search..."
           bind:value={searchQuery}

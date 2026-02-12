@@ -176,6 +176,7 @@
         {#if showCreateNew}
           <div class="playlist-selector-create-form">
             <input
+              id="playlist-selector-name"
               bind:this={inputElement}
               bind:value={newPlaylistName}
               type="text"

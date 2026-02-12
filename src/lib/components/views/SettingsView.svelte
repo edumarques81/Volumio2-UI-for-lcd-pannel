@@ -393,6 +393,7 @@
           <div class="brightness-control">
             <Icon name="sun" size={18} />
             <input
+              id="brightness-slider"
               type="range"
               min="10"
               max="100"
@@ -686,6 +687,7 @@
             </div>
             <label class="toggle">
               <input
+                id="mixer-toggle"
                 type="checkbox"
                 checked={$mixerEnabled}
                 on:change={(e) => audioActions.setMixerMode(e.currentTarget.checked)}

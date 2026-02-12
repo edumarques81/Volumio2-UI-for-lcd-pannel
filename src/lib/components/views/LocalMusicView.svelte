@@ -199,6 +199,7 @@
         <!-- Sort dropdown -->
         {#if activeTab === 'albums'}
           <select
+            id="local-album-sort"
             class="sort-select"
             value={$albumSortOrder}
             on:change={handleAlbumSortChange}
@@ -209,6 +210,7 @@
           </select>
         {:else}
           <select
+            id="local-track-sort"
             class="sort-select"
             value={$trackSortOrder}
             on:change={handleTrackSortChange}
