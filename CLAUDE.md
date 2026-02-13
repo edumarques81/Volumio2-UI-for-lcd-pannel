@@ -675,6 +675,36 @@ All `<input>`, `<select>`, and `<textarea>` elements MUST have an `id` attribute
 
 **Enforced by:** `src/lib/__tests__/form-accessibility.test.ts` (scans all `.svelte` files)
 
+### NAS Mount Resilience (v2.2.0+)
+
+The backend handles NAS mount failures gracefully with retry logic, periodic health checks, and proper CORS headers on error responses.
+
+**CORS Middleware:**
+- `cmd/stellar/cors.go` - Sets `Access-Control-Allow-Origin: *` on ALL responses (including 404 errors)
+- Prevents CORB (Cross-Origin Read Blocking) when frontend (port 8080) requests fail on backend (port 3000)
+- Handles OPTIONS preflight requests
+- Applied at the server level via `corsMiddleware(mux)` in `main.go`
+
+**Startup Mount Retry:**
+- `MountAllSharesWithRetry(ctx, maxAttempts, initialDelay)` in `internal/domain/sources/service.go`
+- Runs in background goroutine so server starts immediately
+- 5 attempts with exponential backoff: 5s → 10s → 20s → 40s (capped at 60s)
+- Only retries unmounted shares; triggers `mpdClient.Update("")` on success
+
+**Mount Health Check (periodic re-mount):**
+- `StartMountWatcher(ctx)` in `internal/transport/socketio/mountwatcher.go`
+- Follows `StartNetworkWatcher` pattern: 60-second ticker
+- Checks `GetUnmountedShares()`, calls `RemountUnmountedShares()` if any found
+- On success: triggers MPD update, broadcasts updated share list to all clients
+
+**Systemd Network Readiness:**
+- `scripts/pi-setup/setup-streamer.sh` uses `network-online.target` (not `network.target`)
+- Ensures actual network connectivity before starting backend service
+
+**MPD Update via Go Client:**
+- All MPD database updates use `s.mpdClient.Update("")` instead of `exec.Command("mpc", "update")`
+- Eliminates dependency on `mpc` binary being installed
+
 ## Troubleshooting
 
 - **Socket.io version mismatch**: Stellar Volumio uses 4.x npm package; Stellar backend runs v3 server with EIO3 compat

@@ -163,8 +163,8 @@ log_info "Installing Stellar Backend service..."
 sudo tee /etc/systemd/system/stellar-backend.service > /dev/null << EOF
 [Unit]
 Description=Stellar Audio Backend
-After=network.target mpd.service
-Wants=mpd.service
+After=network-online.target mpd.service
+Wants=network-online.target mpd.service
 
 [Service]
 Type=simple
@@ -182,7 +182,8 @@ log_info "Installing Stellar Frontend service..."
 sudo tee /etc/systemd/system/stellar-frontend.service > /dev/null << EOF
 [Unit]
 Description=Stellar Audio Frontend
-After=network.target
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
