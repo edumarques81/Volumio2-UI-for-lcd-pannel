@@ -42,4 +42,10 @@ describe('Content Security Policy', () => {
     expect(distHtml).toContain('http:');
     expect(distHtml).toContain('https:');
   });
+
+  it('should NOT include frame-ancestors in meta tag (only valid via HTTP headers)', () => {
+    const cspMatch = distHtml.match(/content="(default-src[^"]*)"/);
+    expect(cspMatch).toBeTruthy();
+    expect(cspMatch![1]).not.toContain('frame-ancestors');
+  });
 });

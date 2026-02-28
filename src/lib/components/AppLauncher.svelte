@@ -3,13 +3,11 @@
   import { navigationActions } from '$lib/stores/navigation';
   import { browseActions } from '$lib/stores/browse';
   import { audirvanaInstalled, audirvanaService, audirvanaInstanceCount } from '$lib/stores/audirvana';
-  import { lcdState, isDimmedStandby, lcdActions } from '$lib/stores/lcd';
-  import { lcdStandbyMode } from '$lib/stores/settings';
+  import { isDimmedStandby, lcdActions } from '$lib/stores/lcd';
   import Icon from './Icon.svelte';
 
-  // Reactive standby state - true when screen is in standby mode
-  // Checks both CSS dimmed mode and hardware off mode based on settings
-  $: isInStandby = $lcdStandbyMode === 'css' ? $isDimmedStandby : $lcdState === 'off';
+  // Reactive standby state - true when screen is blacked out via CSS overlay
+  $: isInStandby = $isDimmedStandby;
   $: standbySubtitle = isInStandby ? 'ON' : 'OFF';
 
   let scrollContainer: HTMLElement;
@@ -239,7 +237,11 @@
     gradient: 'linear-gradient(180deg, #4a4a4e 0%, #2d2d30 100%)',
     iconGradient: { from: '#f5f5f5', to: '#c0c0c0' },
     action: () => {
-      lcdActions.toggle();
+      if (isInStandby) {
+        lcdActions.wake();
+      } else {
+        lcdActions.standby();
+      }
     }
   };
 

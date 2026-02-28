@@ -428,13 +428,12 @@ interface MultiRoomDevices {
 - State: ON -> DIMMED -> STANDBY
 - Force layout via URL: `?layout=lcd` or `?layout=mobile`
 
-**Stand By Tile (v2.0.2+):**
-- Located in `AppLauncher.svelte` as a home screen tile
-- Replaces the LCD Off button previously in the StatusBar
-- Title: "Stand By"
+**Stand By Tile (v2.0.2+, updated v2.3.0):**
+- Located in `AppLauncher.svelte` (LCD layout) and `MobileHomeScreen.svelte` (mobile layout as "LCD Panel")
+- Always uses hardware LCD control (`lcdStandby`/`lcdWake` socket events) regardless of standby mode setting
+- The `lcdStandbyMode` setting only affects `StandbyOverlay.svelte` auto-dim on idle behavior
 - Subtitle: Reactive state indicator ("ON" when in standby, "OFF" when screen is active)
-- Action: Calls `lcdActions.toggle()` to switch standby mode
-- Respects the configured standby mode (CSS Dimmed or Hardware) from settings
+- Mobile "LCD Panel" tile enables remote LCD on/off from phone browser (via `pushLcdStatus` broadcast)
 
 **Connection Grace Period (v2.1.1+):**
 

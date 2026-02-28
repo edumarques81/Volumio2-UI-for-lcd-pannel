@@ -15,7 +15,6 @@
   }
 
   // Only apply standby overlay on physical LCD panel, not remote browsers
-  // Use isDimmedStandby to detect when brightness is at standby level (20% or below)
   $: shouldShowOverlay = isPhysicalLcd && $isDimmedStandby;
   $: shouldApplyBrightness = isPhysicalLcd;
 

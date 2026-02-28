@@ -22,6 +22,10 @@ const cspDirectives: Record<string, string[]> = {
   'object-src': ["'none'"],
   'base-uri': ["'self'"],
   'form-action': ["'self'"],
+};
+
+/** Directives only valid via HTTP headers, not <meta> tags (per CSP spec) */
+const headerOnlyDirectives: Record<string, string[]> = {
   'frame-ancestors': ["'none'"],
 };
 
@@ -31,6 +35,9 @@ function buildCspString(isDev: boolean): string {
   if (isDev) {
     // Vite HMR uses new Function() and inline scripts for hot module replacement
     directives['script-src'] = [...directives['script-src'], "'unsafe-eval'", "'unsafe-inline'"];
+    // Header-only directives (e.g. frame-ancestors) are valid in HTTP headers but
+    // ignored in <meta> tags per CSP spec, so only include them for dev server headers
+    Object.assign(directives, headerOnlyDirectives);
   }
   return Object.entries(directives)
     .map(([key, values]) => `${key} ${values.join(' ')}`)

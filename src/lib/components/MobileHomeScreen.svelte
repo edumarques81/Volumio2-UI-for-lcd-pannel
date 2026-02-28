@@ -2,11 +2,13 @@
   import { navigationActions } from '$lib/stores/navigation';
   import { browseActions } from '$lib/stores/browse';
   import { deviceType } from '$lib/stores/device';
+  import { lcdState, lcdActions } from '$lib/stores/lcd';
   import Icon from './Icon.svelte';
 
   interface AppTile {
     id: string;
     title: string;
+    subtitle?: string;
     icon: string;
     gradient: string;
     iconGradient: { from: string; to: string };
@@ -14,7 +16,7 @@
   }
 
   // Same app tiles as AppLauncher but optimized for mobile grid
-  const apps: AppTile[] = [
+  const staticApps: AppTile[] = [
     {
       id: 'local-music',
       title: 'Local Music',
@@ -106,6 +108,26 @@
     }
   ];
 
+  // LCD Panel tile with reactive subtitle showing hardware state
+  $: lcdTile = {
+    id: 'lcd-panel',
+    title: 'LCD Panel',
+    subtitle: $lcdState === 'off' ? 'OFF' : 'ON',
+    icon: 'power',
+    gradient: 'linear-gradient(180deg, #4a4a4e 0%, #2d2d30 100%)',
+    iconGradient: { from: '#f5f5f5', to: '#c0c0c0' },
+    action: () => {
+      if ($lcdState === 'off') {
+        lcdActions.turnOn();
+      } else {
+        lcdActions.turnOff();
+      }
+    }
+  } as AppTile;
+
+  // Combined apps array with reactive LCD tile
+  $: apps = [...staticApps, lcdTile];
+
   // Determine icon size based on device
   $: iconSize = $deviceType === 'phone' ? 48 : 56;
 </script>
@@ -116,7 +138,7 @@
   </header>
 
   <div class="tiles-grid">
-    {#each apps as app}
+    {#each apps as app (app.id)}
       <button
         class="tile"
         data-testid="mobile-tile-{app.id}"
@@ -126,6 +148,9 @@
           <Icon name={app.icon} size={iconSize} gradient={app.iconGradient} />
         </div>
         <span class="tile-label">{app.title}</span>
+        {#if app.subtitle}
+          <span class="tile-subtitle">{app.subtitle}</span>
+        {/if}
       </button>
     {/each}
   </div>
@@ -210,6 +235,14 @@
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 100%;
+  }
+
+  .tile-subtitle {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--color-text-secondary);
+    text-align: center;
+    margin-top: -4px;
   }
 
   /* Tablet - 3 columns */

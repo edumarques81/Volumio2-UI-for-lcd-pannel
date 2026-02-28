@@ -1,6 +1,5 @@
 import { writable, derived, get } from 'svelte/store';
 import { socketService } from '$lib/services/socket';
-import { lcdStandbyMode } from './settings';
 
 export type LcdState = 'on' | 'off' | 'unknown';
 
@@ -69,29 +68,16 @@ export const lcdActions = {
   },
 
   /**
-   * Toggle LCD state based on the configured standby mode
-   * - 'css' mode: Uses standby()/wake() for instant, reliable touch-to-wake
-   * - 'hardware' mode: Uses turnOff()/turnOn() with wlr-randr backend commands
+   * Toggle LCD hardware power state via backend socket events.
+   * Always uses turnOff()/turnOn() regardless of standby mode setting.
+   * (CSS dimmed standby is handled separately by StandbyOverlay for auto-dim on idle.)
    */
   toggle(): void {
-    const mode = get(lcdStandbyMode);
-
-    if (mode === 'css') {
-      // CSS dimmed standby mode - check brightness level
-      const currentBrightness = get(brightness);
-      if (currentBrightness <= STANDBY_BRIGHTNESS) {
-        this.wake();
-      } else {
-        this.standby();
-      }
+    const currentState = get(lcdState);
+    if (currentState === 'off') {
+      this.turnOn();
     } else {
-      // Hardware mode - check lcdState
-      const currentState = get(lcdState);
-      if (currentState === 'off') {
-        this.turnOn();
-      } else {
-        this.turnOff();
-      }
+      this.turnOff();
     }
   },
 
@@ -115,20 +101,19 @@ export const lcdActions = {
   },
 
   /**
-   * Put display into dimmed standby mode (CSS overlay only - no backend call)
-   * Dims to STANDBY_BRIGHTNESS (20%) instead of fully black.
-   * This keeps the browser running so touch-to-wake works reliably.
-   * Use turnOff() for actual hardware power off.
+   * Put display into standby mode (CSS full-black overlay - no backend call).
+   * Sets brightness to 0 so the screen appears completely off.
+   * Touch-to-wake still works because the display hardware stays connected.
+   * Use turnOff() for actual hardware power off (disables HDMI output).
    */
   standby(): void {
-    // Save current brightness as working brightness before dimming
     const currentBrightness = get(brightness);
-    if (currentBrightness > STANDBY_BRIGHTNESS) {
+    if (currentBrightness > 0) {
       workingBrightness.set(currentBrightness);
     }
 
-    console.log(`📺 LCD standby (dimming to ${STANDBY_BRIGHTNESS}%)`);
-    brightness.set(STANDBY_BRIGHTNESS);
+    console.log('📺 LCD standby (full black)');
+    brightness.set(0);
     lcdLoading.set(false);
   },
 
