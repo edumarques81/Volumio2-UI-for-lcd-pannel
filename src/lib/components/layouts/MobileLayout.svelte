@@ -143,6 +143,7 @@
     overflow: hidden;
     position: relative;
     min-height: 0;
+    transform: translateZ(0); /* GPU layer — prevent layout repaint propagation */
   }
 
   .mini-player-container {

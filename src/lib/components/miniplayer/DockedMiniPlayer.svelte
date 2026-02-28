@@ -244,6 +244,7 @@
     background: linear-gradient(165deg, rgba(38, 38, 44, 0.97) 0%, rgba(22, 22, 26, 0.99) 60%, rgba(18, 18, 22, 1) 100%);
     box-sizing: border-box;
     overflow: hidden;
+    transform: translateZ(0); /* GPU layer — isolate repaints from parent */
   }
 
   /* Top-right light effect - like light coming from top-right */

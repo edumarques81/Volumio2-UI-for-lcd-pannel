@@ -189,7 +189,25 @@ export function initPlayerStore() {
     if (state.albumart) {
       state.albumart = fixVolumioAssetUrl(state.albumart) ?? state.albumart;
     }
-    playerState.set(state);
+
+    // Change-gate the main playerState to prevent unnecessary re-renders.
+    // Only update if visually significant fields changed.
+    const current = get(playerState);
+    const stateChanged = !current ||
+      current.status !== state.status ||
+      current.title !== state.title ||
+      current.artist !== state.artist ||
+      current.album !== state.album ||
+      current.albumart !== state.albumart ||
+      current.uri !== state.uri ||
+      current.service !== state.service ||
+      current.trackType !== state.trackType ||
+      current.samplerate !== state.samplerate ||
+      current.bitdepth !== state.bitdepth ||
+      current.position !== state.position;
+    if (stateChanged) {
+      playerState.set(state);
+    }
 
     // Sync audio engine state from service field
     syncEngineFromPushState(state.service);

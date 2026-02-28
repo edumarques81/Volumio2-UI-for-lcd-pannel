@@ -117,6 +117,7 @@
     overflow: hidden;
     position: relative;
     z-index: 2;
+    transform: translateZ(0); /* GPU layer — prevent layout repaint propagation */
   }
 
   .mini-player-section {
