@@ -129,12 +129,12 @@
   $: apps = [...staticApps, lcdTile];
 
   // Determine icon size based on device
-  $: iconSize = $deviceType === 'phone' ? 48 : 56;
+  $: iconSize = $deviceType === 'phone' ? 32 : 36;
 </script>
 
 <div class="mobile-home">
   <header class="home-header">
-    <h1>Stellar - Volumio</h1>
+    <h1>Stellar</h1>
   </header>
 
   <div class="tiles-grid">
@@ -144,7 +144,7 @@
         data-testid="mobile-tile-{app.id}"
         on:click={app.action}
       >
-        <div class="tile-icon" style="background: {app.gradient}">
+        <div class="tile-icon-circle">
           <Icon name={app.icon} size={iconSize} gradient={app.iconGradient} />
         </div>
         <span class="tile-label">{app.title}</span>
@@ -162,20 +162,20 @@
     flex-direction: column;
     width: 100%;
     height: 100%;
-    background: var(--color-background);
+    background: var(--md-background);
     overflow: hidden;
   }
 
   .home-header {
     flex-shrink: 0;
-    padding: 8px 16px;
-    padding-top: max(8px, env(safe-area-inset-top));
+    padding: 12px 20px;
+    padding-top: max(12px, env(safe-area-inset-top));
   }
 
   .home-header h1 {
-    font-size: 18px;
+    font-size: var(--md-headline-medium);
     font-weight: 600;
-    color: var(--color-text-primary);
+    color: var(--md-on-background);
     margin: 0;
     letter-spacing: -0.3px;
   }
@@ -196,40 +196,39 @@
     flex-direction: column;
     align-items: center;
     gap: 10px;
-    padding: 16px 12px 14px;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 16px;
+    padding: 20px 12px 16px;
+    background: var(--md-surface-container-high);
+    border: none;
+    border-radius: var(--md-shape-large);
     cursor: pointer;
     transition: all 0.15s ease-out;
     -webkit-tap-highlight-color: transparent;
+    box-shadow: 0 1px 3px rgba(181, 38, 76, 0.08);
   }
 
   .tile:hover {
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--md-surface-container-highest);
   }
 
   .tile:active {
-    transform: scale(0.96);
-    background: rgba(255, 255, 255, 0.06);
+    transform: scale(0.97);
+    background: var(--md-surface-container-highest);
   }
 
-  .tile-icon {
-    width: 72px;
-    height: 72px;
+  .tile-icon-circle {
+    width: 64px;
+    height: 64px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 16px;
-    box-shadow:
-      0 4px 12px rgba(0, 0, 0, 0.3),
-      inset 0 1px 2px rgba(255, 255, 255, 0.15);
+    border-radius: var(--md-shape-large);
+    background: var(--md-primary-container);
   }
 
   .tile-label {
-    font-size: 13px;
+    font-size: var(--md-label-large);
     font-weight: 500;
-    color: var(--color-text-primary);
+    color: var(--md-on-surface);
     text-align: center;
     white-space: nowrap;
     overflow: hidden;
@@ -238,9 +237,9 @@
   }
 
   .tile-subtitle {
-    font-size: 11px;
+    font-size: var(--md-label-small);
     font-weight: 400;
-    color: var(--color-text-secondary);
+    color: var(--md-on-surface-variant);
     text-align: center;
     margin-top: -4px;
   }
@@ -254,26 +253,26 @@
     }
 
     .tile {
-      padding: 20px 16px 18px;
+      padding: 24px 16px 18px;
       gap: 12px;
     }
 
-    .tile-icon {
-      width: 80px;
-      height: 80px;
+    .tile-icon-circle {
+      width: 72px;
+      height: 72px;
       border-radius: 20px;
     }
 
     .tile-label {
-      font-size: 14px;
+      font-size: var(--md-body-medium);
     }
 
     .home-header h1 {
-      font-size: 32px;
+      font-size: var(--md-headline-large);
     }
   }
 
-  /* Landscape phone - wider tiles */
+  /* Landscape phone - 4 columns */
   @media (max-width: 599px) and (orientation: landscape) {
     .tiles-grid {
       grid-template-columns: repeat(4, 1fr);
@@ -282,18 +281,18 @@
     }
 
     .tile {
-      padding: 12px 8px 10px;
+      padding: 14px 8px 10px;
       gap: 6px;
     }
 
-    .tile-icon {
-      width: 56px;
-      height: 56px;
-      border-radius: 12px;
+    .tile-icon-circle {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--md-shape-medium);
     }
 
     .tile-label {
-      font-size: 11px;
+      font-size: var(--md-label-small);
     }
 
     .home-header {
@@ -301,7 +300,7 @@
     }
 
     .home-header h1 {
-      font-size: 22px;
+      font-size: var(--md-headline-small);
     }
   }
 </style>
