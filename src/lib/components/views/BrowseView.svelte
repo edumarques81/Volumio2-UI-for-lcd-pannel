@@ -125,8 +125,13 @@
       <SkeletonList count={8} variant="browse" />
     {:else if displayItems.length === 0}
       <div class="empty">
-        <Icon name="folder-open" size={64} />
-        <p>No items found</p>
+        <Icon name={$currentBrowseLocation?.uri === 'favourites' ? 'favorite' : 'folder-open'} size={64} />
+        {#if $currentBrowseLocation?.uri === 'favourites'}
+          <p>No favorites yet</p>
+          <p class="empty-hint">Heart a track to save it here</p>
+        {:else}
+          <p>No items found</p>
+        {/if}
       </div>
     {:else}
       {#if $browseViewMode === 'list'}
@@ -282,6 +287,11 @@
     height: 100%;
     gap: var(--spacing-md);
     color: var(--color-text-secondary);
+  }
+
+  .empty-hint {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-tertiary);
   }
 
   /* Mobile responsive adjustments */

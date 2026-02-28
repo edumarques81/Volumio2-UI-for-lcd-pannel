@@ -60,6 +60,9 @@
         <RadioView />
       {:else if $currentView === 'playlists'}
         <PlaylistsView />
+      {:else}
+        <!-- Fallback for unknown views -->
+        <BrowseView />
       {/if}
     </div>
 
