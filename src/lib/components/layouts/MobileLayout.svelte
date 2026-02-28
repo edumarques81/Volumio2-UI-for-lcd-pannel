@@ -172,8 +172,10 @@
     border: none;
     color: var(--md-on-surface-variant);
     cursor: pointer;
+    touch-action: manipulation;
     transition: color 0.2s ease;
     -webkit-tap-highlight-color: transparent;
+    will-change: transform;
     min-height: 80px;
   }
 

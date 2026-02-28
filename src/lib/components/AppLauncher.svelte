@@ -257,7 +257,7 @@
   <div class="tiles-container">
     <!-- App Tiles (NowPlayingTile removed - now using DockedMiniPlayer) -->
     {#each apps as app (app.id)}
-      <button class="app-tile" data-testid="tile-{app.id}" on:click={() => handleTileClick(app)}>
+      <button class="app-tile" data-testid="tile-{app.id}" on:click={() => handleTileClick(app)} on:touchend|preventDefault={() => handleTileClick(app)}>
         <div class="tile-icon" style="background: {app.gradient}">
           <Icon name={app.icon} size={90} gradient={app.iconGradient} />
         </div>
@@ -311,8 +311,10 @@
     -webkit-backdrop-filter: blur(1.5px) saturate(135%);
     border-radius: 33px;
     cursor: pointer;
+    touch-action: manipulation;
     transition: all 0.15s ease-out;
     -webkit-tap-highlight-color: transparent;
+    will-change: transform;
     /* Subtle 3D lighting from top-left */
     box-shadow:
       /* Soft drop shadow */
@@ -368,6 +370,7 @@
     border-bottom: 1px solid rgba(0, 0, 0, 0.15);
     border-right: 1px solid rgba(0, 0, 0, 0.1);
     transition: transform 0.15s ease-out, box-shadow 0.15s ease-out;
+    will-change: transform;
   }
 
   /* Subtle gradient highlight from top-left */

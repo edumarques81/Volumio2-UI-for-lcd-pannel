@@ -201,8 +201,10 @@
     border: none;
     border-radius: var(--md-shape-large);
     cursor: pointer;
+    touch-action: manipulation;
     transition: all 0.15s ease-out;
     -webkit-tap-highlight-color: transparent;
+    will-change: transform;
     box-shadow: 0 1px 3px rgba(181, 38, 76, 0.08);
   }
 
