@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import { navigationActions } from '$lib/stores/navigation';
   import { browseActions, browseData } from '$lib/stores/browse';
   import { audirvanaInstalled, audirvanaService, audirvanaInstanceCount } from '$lib/stores/audirvana';
@@ -10,82 +9,6 @@
   // Reactive standby state - true when screen is blacked out via CSS overlay
   $: isInStandby = $isDimmedStandby;
   $: standbySubtitle = isInStandby ? 'ON' : 'OFF';
-
-  let scrollContainer: HTMLElement;
-
-  // iOS-like momentum scrolling
-  onMount(() => {
-    if (!scrollContainer) return;
-
-    let isDown = false;
-    let startX: number;
-    let scrollLeft: number;
-    let velX = 0;
-    let momentumID: number;
-
-    const friction = 0.92; // Higher = longer momentum
-    const minVelocity = 0.5;
-
-    function cancelMomentum() {
-      if (momentumID) {
-        cancelAnimationFrame(momentumID);
-      }
-    }
-
-    function momentum() {
-      if (Math.abs(velX) > minVelocity) {
-        scrollContainer.scrollLeft -= velX;
-        velX *= friction;
-        momentumID = requestAnimationFrame(momentum);
-      }
-    }
-
-    function onPointerDown(e: PointerEvent) {
-      isDown = true;
-      cancelMomentum();
-      startX = e.pageX - scrollContainer.offsetLeft;
-      scrollLeft = scrollContainer.scrollLeft;
-      velX = 0;
-      scrollContainer.style.cursor = 'grabbing';
-    }
-
-    function onPointerUp() {
-      isDown = false;
-      scrollContainer.style.cursor = 'grab';
-      momentum();
-    }
-
-    function onPointerMove(e: PointerEvent) {
-      if (!isDown) return;
-      e.preventDefault();
-      const x = e.pageX - scrollContainer.offsetLeft;
-      const walk = (x - startX) * 1.5; // Scroll speed multiplier
-      const newScrollLeft = scrollLeft - walk;
-      velX = scrollContainer.scrollLeft - newScrollLeft;
-      scrollContainer.scrollLeft = newScrollLeft;
-    }
-
-    function onPointerLeave() {
-      if (isDown) {
-        isDown = false;
-        scrollContainer.style.cursor = 'grab';
-        momentum();
-      }
-    }
-
-    scrollContainer.addEventListener('pointerdown', onPointerDown);
-    scrollContainer.addEventListener('pointerup', onPointerUp);
-    scrollContainer.addEventListener('pointermove', onPointerMove);
-    scrollContainer.addEventListener('pointerleave', onPointerLeave);
-
-    return () => {
-      cancelMomentum();
-      scrollContainer.removeEventListener('pointerdown', onPointerDown);
-      scrollContainer.removeEventListener('pointerup', onPointerUp);
-      scrollContainer.removeEventListener('pointermove', onPointerMove);
-      scrollContainer.removeEventListener('pointerleave', onPointerLeave);
-    };
-  });
 
   interface AppTile {
     id: string;
@@ -254,13 +177,13 @@
   }
 </script>
 
-<div class="app-launcher" bind:this={scrollContainer}>
+<div class="app-launcher">
   <div class="tiles-container">
     <!-- App Tiles (NowPlayingTile removed - now using DockedMiniPlayer) -->
     {#each apps as app (app.id)}
       <button class="app-tile" data-testid="tile-{app.id}" on:click={() => handleTileClick(app)} on:touchend|preventDefault={() => handleTileClick(app)}>
         <div class="tile-icon" style="background: {app.gradient}">
-          <Icon name={app.icon} size={90} gradient={app.iconGradient} />
+          <Icon name={app.icon} size={36} gradient={app.iconGradient} />
         </div>
         <div class="tile-label">
           <span class="tile-title">{app.title}</span>
@@ -276,162 +199,82 @@
 <style>
   .app-launcher {
     display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    padding: var(--spacing-lg) var(--spacing-xl);
+    align-items: stretch;
+    justify-content: stretch;
+    padding: 12px 20px;
     width: 100%;
-    overflow-x: scroll;
-    overflow-y: hidden;
-    scrollbar-width: none;
-    cursor: grab;
+    height: 100%;
+    overflow: hidden;
+    cursor: default;
     user-select: none;
     -webkit-user-select: none;
   }
 
-  .app-launcher::-webkit-scrollbar {
-    display: none;
-  }
-
   .tiles-container {
-    display: flex;
-    gap: 7px;
-    padding: var(--spacing-md);
+    display: grid;
+    grid-template-rows: 1fr 1fr;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    gap: 10px;
+    width: 100%;
+    height: 100%;
+    align-items: stretch;
   }
 
   .app-tile {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: var(--spacing-sm);
-    padding: 23px 33px 29px;
-    min-width: 224px;
-    border: none;
-    /* Frosted glass with blur - same as mini player */
-    background: rgba(45, 45, 50, 0.7);
-    backdrop-filter: blur(1.5px) saturate(135%);
-    -webkit-backdrop-filter: blur(1.5px) saturate(135%);
-    border-radius: 33px;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 8px;
+    border: 1px solid var(--md-outline-variant);
+    background: var(--md-surface-container);
+    border-radius: var(--md-shape-extra-large);
     cursor: pointer;
-    touch-action: manipulation;
-    transition: all 0.15s ease-out;
+    transition: background 0.15s, transform 0.1s;
     -webkit-tap-highlight-color: transparent;
-    will-change: transform;
-    /* Subtle 3D lighting from top-left */
-    box-shadow:
-      /* Soft drop shadow */
-      2px 3px 8px rgba(0, 0, 0, 0.2),
-      /* Subtle inner highlight - top/left */
-      inset 1px 1px 2px rgba(255, 255, 255, 0.08),
-      /* Subtle inner shadow - bottom/right */
-      inset -1px -1px 2px rgba(0, 0, 0, 0.1);
-    /* Very subtle directional border */
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    border-left: 1px solid rgba(255, 255, 255, 0.06);
-    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-    border-right: 1px solid rgba(0, 0, 0, 0.08);
   }
 
   .app-tile:hover {
-    background: rgba(55, 55, 60, 0.6);
-    box-shadow:
-      3px 4px 12px rgba(0, 0, 0, 0.25),
-      inset 1px 1px 3px rgba(255, 255, 255, 0.1),
-      inset -1px -1px 2px rgba(0, 0, 0, 0.1);
+    background: var(--md-surface-container-high);
   }
 
   .app-tile:active {
-    transform: scale(0.97);
-    background: rgba(50, 50, 55, 0.65);
-    box-shadow:
-      1px 2px 4px rgba(0, 0, 0, 0.2),
-      inset 1px 1px 2px rgba(255, 255, 255, 0.06);
+    transform: scale(0.96);
+    background: var(--md-surface-container-highest);
   }
 
   .tile-icon {
-    width: 179px;
-    height: 179px;
+    width: 72px;
+    height: 72px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 40px;
+    border-radius: var(--md-shape-extra-large);
     color: white;
     position: relative;
     overflow: hidden;
-    /* Subtle directional lighting from top-left */
-    box-shadow:
-      /* Soft drop shadow */
-      2px 3px 8px rgba(0, 0, 0, 0.35),
-      /* Subtle inner highlight - top/left */
-      inset 1px 1px 4px rgba(255, 255, 255, 0.2),
-      /* Subtle inner shadow - bottom/right */
-      inset -1px -1px 4px rgba(0, 0, 0, 0.15);
-    /* Subtle directional border */
-    border-top: 1px solid rgba(255, 255, 255, 0.15);
-    border-left: 1px solid rgba(255, 255, 255, 0.1);
-    border-bottom: 1px solid rgba(0, 0, 0, 0.15);
-    border-right: 1px solid rgba(0, 0, 0, 0.1);
-    transition: transform 0.15s ease-out, box-shadow 0.15s ease-out;
-    will-change: transform;
-  }
-
-  /* Subtle gradient highlight from top-left */
-  .tile-icon::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, transparent 40%, rgba(0, 0, 0, 0.08) 100%);
-    border-radius: 40px;
-    pointer-events: none;
-  }
-
-  /* Soft top shine */
-  .tile-icon::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 15%;
-    right: 15%;
-    height: 35%;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, transparent 100%);
-    border-radius: 40px 40px 100px 100px;
-    pointer-events: none;
-  }
-
-  .app-tile:hover .tile-icon {
-    transform: scale(1.03);
-    box-shadow:
-      3px 4px 12px rgba(0, 0, 0, 0.4),
-      inset 1px 1px 5px rgba(255, 255, 255, 0.25),
-      inset -1px -1px 4px rgba(0, 0, 0, 0.15);
-  }
-
-  .app-tile:active .tile-icon {
-    transform: scale(0.95);
   }
 
   .tile-label {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
+    gap: 2px;
     text-align: center;
   }
 
   .tile-title {
-    font-size: 22px;
-    font-weight: 400;
-    color: var(--color-text-primary);
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    font-size: var(--md-title-small);
+    font-weight: 500;
+    color: var(--md-on-surface);
     white-space: nowrap;
   }
 
   .tile-subtitle {
-    font-size: 18px;
-    color: var(--color-text-secondary);
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    font-size: var(--md-label-medium);
+    color: var(--md-on-surface-variant);
     white-space: nowrap;
   }
 </style>

@@ -79,26 +79,19 @@
   .mini-player {
     display: flex;
     flex-direction: column;
-    /* Frosted glass - 30% more blur/saturation than tiles */
-    background: rgba(45, 45, 50, 0.7);
-    backdrop-filter: blur(1.5px) saturate(135%);
-    -webkit-backdrop-filter: blur(1.5px) saturate(135%);
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
-    /* Subtle 3D effect */
-    box-shadow:
-      0 -1px 4px rgba(0, 0, 0, 0.15),
-      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    background: var(--md-surface-container-high);
+    border-top: 1px solid var(--md-outline-variant);
   }
 
   .progress-bar {
     width: 100%;
     height: 3px;
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--md-outline-variant);
   }
 
   .progress-fill {
     height: 100%;
-    background: var(--color-accent);
+    background: var(--md-primary);
     transition: width 0.3s linear;
   }
 
@@ -122,21 +115,21 @@
     cursor: pointer;
     text-align: left;
     padding: var(--spacing-xs);
-    border-radius: var(--radius-md);
+    border-radius: var(--md-shape-medium);
     transition: background 0.2s;
   }
 
   .track-section:hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(239, 224, 225, 0.05);
   }
 
   .mini-art {
     width: 48px;
     height: 48px;
-    border-radius: var(--radius-sm);
+    border-radius: var(--md-shape-small);
     overflow: hidden;
     flex-shrink: 0;
-    background: var(--color-bg-secondary);
+    background: var(--md-surface-container);
   }
 
   .mini-art img {
@@ -151,7 +144,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(145deg, #1a1a1c 0%, #2a2a2e 50%, #1c1c1e 100%);
+    background: var(--md-surface-container-low);
   }
 
   .vinyl-icon {
@@ -159,10 +152,8 @@
     height: 36px;
     position: relative;
     border-radius: 50%;
-    background: linear-gradient(135deg, #1a1a1c 0%, #2d2d30 100%);
-    box-shadow:
-      0 2px 6px rgba(0, 0, 0, 0.4),
-      inset 0 1px 1px rgba(255, 255, 255, 0.05);
+    background: var(--md-surface-container);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
   }
 
   .vinyl-outer {
@@ -172,8 +163,7 @@
     right: 2px;
     bottom: 2px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #252528 0%, #1a1a1c 100%);
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+    background: var(--md-surface-container-low);
   }
 
   .vinyl-grooves {
@@ -185,9 +175,9 @@
     border-radius: 50%;
     background: repeating-radial-gradient(
       circle at center,
-      rgba(60, 60, 65, 0.4) 0px,
-      rgba(40, 40, 45, 0.6) 1px,
-      rgba(60, 60, 65, 0.4) 2px
+      var(--md-surface-container-high) 0px,
+      var(--md-surface-container) 1px,
+      var(--md-surface-container-high) 2px
     );
     box-shadow: inset 0 0 3px rgba(0, 0, 0, 0.3);
   }
@@ -200,10 +190,7 @@
     width: 14px;
     height: 14px;
     border-radius: 50%;
-    background: linear-gradient(145deg, #e86a8a 0%, #c94466 100%);
-    box-shadow:
-      0 1px 2px rgba(0, 0, 0, 0.3),
-      inset 0 1px 1px rgba(255, 255, 255, 0.2);
+    background: linear-gradient(145deg, var(--md-primary) 0%, color-mix(in srgb, var(--md-primary) 70%, black 30%) 100%);
   }
 
   .vinyl-center {
@@ -214,7 +201,7 @@
     width: 4px;
     height: 4px;
     border-radius: 50%;
-    background: #1a1a1c;
+    background: var(--md-surface-container-lowest);
     box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.5);
   }
 
@@ -226,17 +213,17 @@
   }
 
   .mini-title {
-    font-size: var(--font-size-base);
+    font-size: var(--md-body-large);
     font-weight: 500;
-    color: var(--color-text-primary);
+    color: var(--md-on-surface);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
   .mini-artist {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
+    font-size: var(--md-body-medium);
+    color: var(--md-on-surface-variant);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -256,15 +243,15 @@
     align-items: center;
     justify-content: center;
     border: none;
-    border-radius: var(--radius-full);
+    border-radius: var(--md-shape-full);
     background: transparent;
-    color: var(--color-text-primary);
+    color: var(--md-on-surface);
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background 0.2s;
   }
 
   .control-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(239, 224, 225, 0.1);
   }
 
   .control-btn:active {
@@ -274,11 +261,11 @@
   .control-btn.primary {
     width: 52px;
     height: 52px;
-    background: var(--color-accent);
-    color: white;
+    background: var(--md-primary);
+    color: var(--md-on-primary);
   }
 
   .control-btn.primary:hover {
-    background: var(--color-accent-dark);
+    background: color-mix(in srgb, var(--md-primary) 85%, white 15%);
   }
 </style>

@@ -148,13 +148,12 @@
     justify-content: space-between;
     align-items: center;
     padding: var(--spacing-sm) var(--spacing-xl);
-    height: 40px;
-    background: transparent;
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
+    height: 48px;
+    background: var(--md-surface-container-highest);
+    border-bottom: 1px solid var(--md-outline-variant);
+    position: relative;
     z-index: 200;
+    flex-shrink: 0;
   }
 
   .left, .right {
@@ -170,16 +169,14 @@
     padding: 6px 12px;
     border: none;
     border-radius: 20px;
-    background: rgba(0, 0, 0, 0.3);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    background: var(--md-surface-container);
     cursor: pointer;
     transition: all 0.2s;
-    min-height: 44px; /* Touch-friendly */
+    min-height: 44px;
   }
 
   .status-badge:hover {
-    background: rgba(0, 0, 0, 0.4);
+    background: var(--md-surface-container-high);
   }
 
   .status-badge:active {
@@ -226,17 +223,16 @@
     font-weight: 600;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: var(--color-text-secondary);
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    color: var(--md-on-surface-variant);
   }
 
   .issue-count {
-    font-size: 11px;
+    font-size: var(--md-label-small);
     font-weight: 700;
     padding: 2px 6px;
     border-radius: 10px;
-    background: rgba(255, 255, 255, 0.2);
-    color: var(--color-text-primary);
+    background: var(--md-surface-container-high);
+    color: var(--md-on-surface);
   }
 
   .issue-count.error {
@@ -251,18 +247,16 @@
   .time {
     font-size: var(--font-size-lg);
     font-weight: 600;
-    color: var(--color-text-primary);
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    color: var(--md-on-surface);
   }
 
   .indicator {
-    color: var(--color-text-secondary);
+    color: var(--md-on-surface-variant);
     opacity: 0.6;
-    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
   }
 
   .indicator.connected {
-    color: var(--color-text-primary);
+    color: var(--md-on-surface);
     opacity: 1;
   }
 
@@ -273,12 +267,10 @@
     gap: 6px;
     padding: 6px 12px;
     background: rgba(0, 122, 255, 0.25);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
     border: none;
     border-radius: 16px;
     color: #5ac8fa;
-    font-size: 12px;
+    font-size: var(--md-label-medium);
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;
@@ -324,9 +316,7 @@
     align-items: center;
     gap: 6px;
     padding: 6px 12px;
-    background: rgba(0, 0, 0, 0.3);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    background: var(--md-surface-container);
     border-radius: 16px;
   }
 
@@ -341,9 +331,9 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    font-size: 12px;
+    font-size: var(--md-label-medium);
     font-weight: 600;
-    color: var(--color-text-secondary);
+    color: var(--md-on-surface-variant);
     letter-spacing: 0.02em;
   }
 

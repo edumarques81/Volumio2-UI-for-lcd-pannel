@@ -93,7 +93,7 @@
     background-size: cover;
     background-position: center;
     z-index: 0;
-    background-color: #1a1a2e;
+    background-color: var(--md-surface);
   }
 
   .view-background-overlay {

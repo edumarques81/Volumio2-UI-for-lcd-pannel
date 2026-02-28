@@ -100,12 +100,6 @@
 </script>
 
 <div class="docked-mini-player" data-testid="docked-mini-player">
-  <!-- Top-right light effect overlay -->
-  <div class="light-effect"></div>
-
-  <!-- Deep sunk effect overlay on right edge -->
-  <div class="sunk-edge"></div>
-
   <!-- Header row with source and expand on the right -->
   <div class="header-row">
     <div class="header-left">
@@ -130,7 +124,7 @@
 
   <!-- Main content area -->
   <div class="main-content">
-    <!-- Large album art - now bigger and positioned to align with UP NEXT -->
+    <!-- Large album art -->
     <div class="artwork-section" data-testid="miniplayer-artwork">
       {#if !showPlaceholder}
         <img
@@ -215,7 +209,7 @@
         </button>
       </div>
 
-      <!-- Progress bar - aligned with controls, squared and thicker -->
+      <!-- Progress bar -->
       <div class="progress-section" data-testid="miniplayer-progress">
         <span class="time current-time">{formatTime(isSeeking ? seekValue : $seek)}</span>
         <div class="seek-track">
@@ -251,67 +245,10 @@
     display: flex;
     flex-direction: column;
     padding: 12px 20px 12px;
-    background: linear-gradient(165deg, rgba(38, 38, 44, 0.97) 0%, rgba(22, 22, 26, 0.99) 60%, rgba(18, 18, 22, 1) 100%);
+    background: linear-gradient(160deg, var(--md-surface-container-low) 0%, var(--md-surface) 100%);
     box-sizing: border-box;
     overflow: hidden;
-    transform: translateZ(0); /* GPU layer — isolate repaints from parent */
-  }
-
-  /* Top-right light effect - like light coming from top-right */
-  .light-effect {
-    position: absolute;
-    top: -50%;
-    right: -30%;
-    width: 80%;
-    height: 120%;
-    pointer-events: none;
-    background: radial-gradient(
-      ellipse at center,
-      rgba(255, 255, 255, 0.08) 0%,
-      rgba(255, 255, 255, 0.04) 25%,
-      rgba(255, 255, 255, 0.01) 50%,
-      transparent 70%
-    );
-    transform: rotate(-15deg);
-    z-index: 0;
-  }
-
-  /* Deep sunk effect on right edge */
-  .sunk-edge {
-    position: absolute;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    width: 50px;
-    pointer-events: none;
-    background: linear-gradient(
-      90deg,
-      transparent 0%,
-      rgba(0, 0, 0, 0.1) 20%,
-      rgba(0, 0, 0, 0.25) 60%,
-      rgba(0, 0, 0, 0.45) 100%
-    );
-    /* Inner shadow for depth */
-    box-shadow: inset -20px 0 35px -15px rgba(0, 0, 0, 0.5);
-    z-index: 2;
-  }
-
-  /* Subtle inner glow on left side for contrast */
-  .docked-mini-player::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    width: 3px;
-    background: linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.08) 0%,
-      rgba(255, 255, 255, 0.03) 50%,
-      rgba(255, 255, 255, 0.05) 100%
-    );
-    pointer-events: none;
-    z-index: 1;
+    transform: translateZ(0);
   }
 
   /* Header row */
@@ -340,20 +277,20 @@
     height: 44px;
     display: flex;
     align-items: center;
-    font-size: 11px;
+    font-size: var(--md-label-large);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     padding: 0 14px;
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 8px;
-    color: rgba(255, 255, 255, 0.7);
+    background: var(--md-surface-container-highest);
+    border-radius: var(--md-shape-medium);
+    color: var(--md-on-surface-variant);
   }
 
   .source-audirvana {
-    background: rgba(107, 78, 160, 0.3);
+    background: rgba(107, 78, 160, 0.25);
     color: #c4a8ff;
-    border: 1px solid rgba(107, 78, 160, 0.4);
+    border: 1px solid rgba(107, 78, 160, 0.3);
   }
 
   .audirvana-hint {
@@ -367,17 +304,17 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--md-surface-container-high);
     border: none;
-    border-radius: 8px;
-    color: rgba(255, 255, 255, 0.7);
+    border-radius: var(--md-shape-medium);
+    color: var(--md-on-surface-variant);
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: background 0.15s, color 0.15s;
   }
 
   .expand-btn:hover {
-    background: rgba(255, 255, 255, 0.15);
-    color: white;
+    background: var(--md-surface-container-highest);
+    color: var(--md-on-surface);
   }
 
   .expand-btn:active {
@@ -394,17 +331,15 @@
     z-index: 1;
   }
 
-  /* Artwork section - larger, extending close to UP NEXT */
+  /* Artwork section */
   .artwork-section {
-    width: 280px;
-    height: 280px;
+    width: 260px;
+    height: 260px;
     flex-shrink: 0;
-    border-radius: 12px;
+    border-radius: var(--md-shape-large);
     overflow: hidden;
-    background: rgba(40, 40, 45, 0.5);
-    box-shadow:
-      0 6px 30px rgba(0, 0, 0, 0.5),
-      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    background: var(--md-surface-container);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
     align-self: flex-end;
     margin-bottom: 8px;
   }
@@ -421,7 +356,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(145deg, #1a1a1c 0%, #2a2a2e 50%, #1c1c1e 100%);
+    background: var(--md-surface-container-low);
   }
 
   .vinyl-icon {
@@ -429,10 +364,8 @@
     height: 180px;
     position: relative;
     border-radius: 50%;
-    background: linear-gradient(135deg, #1a1a1c 0%, #2d2d30 100%);
-    box-shadow:
-      0 2px 8px rgba(0, 0, 0, 0.4),
-      inset 0 1px 1px rgba(255, 255, 255, 0.05);
+    background: var(--md-surface-container);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
   }
 
   .vinyl-outer {
@@ -442,8 +375,7 @@
     right: 2px;
     bottom: 2px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #252528 0%, #1a1a1c 100%);
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+    background: var(--md-surface-container-low);
   }
 
   .vinyl-grooves {
@@ -455,9 +387,9 @@
     border-radius: 50%;
     background: repeating-radial-gradient(
       circle at center,
-      rgba(60, 60, 65, 0.4) 0px,
-      rgba(40, 40, 45, 0.6) 1px,
-      rgba(60, 60, 65, 0.4) 2px
+      var(--md-surface-container-high) 0px,
+      var(--md-surface-container) 1px,
+      var(--md-surface-container-high) 2px
     );
     box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.3);
   }
@@ -470,10 +402,7 @@
     width: 60px;
     height: 60px;
     border-radius: 50%;
-    background: linear-gradient(145deg, #e86a8a 0%, #c94466 100%);
-    box-shadow:
-      0 1px 3px rgba(0, 0, 0, 0.3),
-      inset 0 1px 1px rgba(255, 255, 255, 0.2);
+    background: linear-gradient(145deg, var(--md-primary) 0%, color-mix(in srgb, var(--md-primary) 70%, black 30%) 100%);
   }
 
   .vinyl-center {
@@ -484,7 +413,7 @@
     width: 16px;
     height: 16px;
     border-radius: 50%;
-    background: #1a1a1c;
+    background: var(--md-surface-container-lowest);
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
   }
 
@@ -507,9 +436,9 @@
   }
 
   .track-title {
-    font-size: 26px;
+    font-size: var(--md-headline-medium);
     font-weight: 600;
-    color: white;
+    color: var(--md-on-surface);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -517,22 +446,23 @@
   }
 
   .track-artist {
-    font-size: 18px;
-    color: rgba(255, 255, 255, 0.7);
+    font-size: var(--md-title-large);
+    color: var(--md-on-surface-variant);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
   .track-album {
-    font-size: 14px;
-    color: rgba(255, 255, 255, 0.5);
+    font-size: var(--md-title-small);
+    color: var(--md-on-surface-variant);
+    opacity: 0.7;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
-  /* Format badges */
+  /* Format badges — warm rose container */
   .format-badges {
     display: flex;
     gap: 8px;
@@ -540,15 +470,15 @@
   }
 
   .badge {
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
+    background: var(--md-primary-container);
+    color: var(--md-on-primary-container);
+    border: none;
+    border-radius: var(--md-shape-small);
+    font-size: var(--md-label-small);
+    font-weight: 700;
     padding: 3px 8px;
-    border-radius: 4px;
-    background: rgba(255, 255, 255, 0.08);
-    color: rgba(255, 255, 255, 0.6);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
   }
 
   /* Transport controls */
@@ -566,15 +496,15 @@
     justify-content: center;
     background: transparent;
     border: none;
-    border-radius: 50%;
-    color: rgba(255, 255, 255, 0.8);
+    border-radius: var(--md-shape-full);
+    color: var(--md-on-surface-variant);
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: background 0.15s, color 0.15s;
   }
 
   .control-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: white;
+    background: rgba(239, 224, 225, 0.1);
+    color: var(--md-on-surface);
   }
 
   .control-btn:active {
@@ -584,27 +514,29 @@
   .control-btn.play-btn {
     width: 64px;
     height: 64px;
-    background: rgba(255, 255, 255, 0.15);
+    background: var(--md-primary);
+    color: var(--md-on-primary);
+    border-radius: var(--md-shape-full);
     margin: 0 8px;
   }
 
   .control-btn.play-btn:hover {
-    background: rgba(255, 255, 255, 0.25);
+    background: color-mix(in srgb, var(--md-primary) 85%, white 15%);
   }
 
   .control-btn.shuffle-btn,
   .control-btn.repeat-btn {
     width: 40px;
     height: 40px;
-    color: rgba(255, 255, 255, 0.5);
+    color: var(--md-on-surface-variant);
   }
 
   .control-btn.shuffle-btn.active,
   .control-btn.repeat-btn.active {
-    color: var(--color-accent, #e86a8a);
+    color: var(--md-primary);
   }
 
-  /* Progress section - aligned with controls */
+  /* Progress section */
   .progress-section {
     display: flex;
     align-items: center;
@@ -615,9 +547,9 @@
   }
 
   .time {
-    font-size: 12px;
+    font-size: var(--md-label-medium);
     font-weight: 500;
-    color: rgba(255, 255, 255, 0.5);
+    color: var(--md-on-surface-variant);
     min-width: 40px;
     font-variant-numeric: tabular-nums;
   }
@@ -630,33 +562,32 @@
     text-align: left;
   }
 
-  /* Custom progress bar track - thicker with slight roundness */
+  /* MD3 slider-style seek bar */
   .seek-track {
     flex: 1;
-    height: 16px;
-    background: rgba(255, 255, 255, 0.12);
-    border-radius: 3px;
+    height: 4px;
+    background: var(--md-outline-variant);
+    border-radius: var(--md-shape-full);
     position: relative;
     overflow: visible;
   }
 
-  /* Progress fill - warm coral/orange color */
   .seek-progress {
     position: absolute;
     top: 0;
     left: 0;
     height: 100%;
-    background: linear-gradient(90deg, #e07850 0%, #d86040 100%);
-    border-radius: 3px 0 0 3px;
+    background: var(--md-primary);
+    border-radius: var(--md-shape-full);
     pointer-events: none;
   }
 
   .seek-slider {
     position: absolute;
-    top: 0;
+    top: -8px;
     left: 0;
     width: 100%;
-    height: 100%;
+    height: 20px;
     -webkit-appearance: none;
     appearance: none;
     background: transparent;
@@ -666,31 +597,31 @@
 
   .seek-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
-    width: 24px;
-    height: 24px;
-    background: white;
+    width: 20px;
+    height: 20px;
+    background: var(--md-primary);
     cursor: pointer;
-    border-radius: 6px;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
-    margin-top: -4px;
+    border-radius: var(--md-shape-full);
+    border: 2px solid var(--md-on-primary);
+    box-shadow: 0 2px 8px rgba(181, 38, 76, 0.4);
   }
 
   .seek-slider::-moz-range-thumb {
-    width: 24px;
-    height: 24px;
-    background: white;
+    width: 20px;
+    height: 20px;
+    background: var(--md-primary);
     cursor: pointer;
-    border: none;
-    border-radius: 6px;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+    border: 2px solid var(--md-on-primary);
+    border-radius: var(--md-shape-full);
+    box-shadow: 0 2px 8px rgba(181, 38, 76, 0.4);
   }
 
   .seek-slider::-webkit-slider-runnable-track {
-    height: 16px;
+    height: 4px;
   }
 
   .seek-slider::-moz-range-track {
-    height: 16px;
+    height: 4px;
     background: transparent;
   }
 </style>

@@ -85,7 +85,7 @@
     display: flex;
     flex-direction: column;
     padding-top: 8px;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    border-top: 1px solid var(--md-outline-variant);
     position: relative;
     z-index: 1;
     min-height: 72px;
@@ -114,17 +114,17 @@
     min-width: 180px;
     max-width: 200px;
     padding: 8px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 8px;
+    background: var(--md-surface-container);
+    border: 1px solid var(--md-outline-variant);
+    border-radius: var(--md-shape-medium);
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: background 0.15s;
     flex-shrink: 0;
+    color: var(--md-on-surface);
   }
 
   .queue-tile:hover {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(255, 255, 255, 0.1);
+    background: var(--md-surface-container-high);
   }
 
   .queue-tile:active {
@@ -134,9 +134,9 @@
   .tile-art {
     width: 48px;
     height: 48px;
-    border-radius: 6px;
+    border-radius: var(--md-shape-small);
     overflow: hidden;
-    background: rgba(40, 40, 45, 0.5);
+    background: var(--md-surface-container-high);
     flex-shrink: 0;
   }
 
@@ -152,8 +152,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #2a2a2e 0%, #1c1c1e 100%);
-    color: rgba(255, 255, 255, 0.3);
+    background: var(--md-surface-container-high);
+    color: var(--md-on-surface-variant);
   }
 
   .tile-info {
@@ -165,9 +165,9 @@
   }
 
   .tile-title {
-    font-size: 13px;
+    font-size: var(--md-body-medium);
     font-weight: 500;
-    color: rgba(255, 255, 255, 0.9);
+    color: var(--md-on-surface);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -175,8 +175,8 @@
   }
 
   .tile-artist {
-    font-size: 11px;
-    color: rgba(255, 255, 255, 0.5);
+    font-size: var(--md-label-medium);
+    color: var(--md-on-surface-variant);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -188,7 +188,7 @@
     align-items: center;
     justify-content: center;
     padding: 16px;
-    color: rgba(255, 255, 255, 0.3);
-    font-size: 13px;
+    color: var(--md-on-surface-variant);
+    font-size: var(--md-body-medium);
   }
 </style>

@@ -135,9 +135,6 @@
     <div class="background-overlay"></div>
   </div>
 
-  <!-- Top-right light effect overlay -->
-  <div class="light-effect"></div>
-
   <!-- Floating controls in top-right corner (no layout space) -->
   <div class="floating-controls">
     {#if isAudirvana}
@@ -154,32 +151,45 @@
     </button>
   </div>
 
-  <!-- Main content -->
-  <div class="player-content">
-    <!-- Large album art -->
-    <div class="artwork-section">
-      {#if !showPlaceholder}
-        <img
-          src={$currentTrack.albumart}
-          alt={$currentTrack.title}
-          class="album-art"
-          on:error={handleImageError}
-        />
-      {:else}
-        <div class="art-placeholder">
-          <div class="vinyl-icon">
-            <div class="vinyl-outer"></div>
-            <div class="vinyl-grooves"></div>
-            <div class="vinyl-label"></div>
-            <div class="vinyl-center"></div>
+  <!-- 3-zone layout -->
+  <div class="player-zones">
+    <!-- Zone 1: Art -->
+    <div class="zone-art">
+      <div class="artwork-section">
+        {#if !showPlaceholder}
+          <img
+            src={$currentTrack.albumart}
+            alt={$currentTrack.title}
+            class="album-art"
+            on:error={handleImageError}
+          />
+        {:else}
+          <div class="art-placeholder">
+            <div class="vinyl-icon">
+              <div class="vinyl-outer"></div>
+              <div class="vinyl-grooves"></div>
+              <div class="vinyl-label"></div>
+              <div class="vinyl-center"></div>
+            </div>
           </div>
-        </div>
-      {/if}
+        {/if}
+      </div>
+      <!-- Format badges below art -->
+      <div class="format-badges">
+        {#if formatBadge}
+          <span class="badge">{formatBadge}</span>
+        {/if}
+        {#if sampleRateBadge}
+          <span class="badge">{sampleRateBadge}</span>
+        {/if}
+        {#if bitDepthBadge}
+          <span class="badge">{bitDepthBadge}</span>
+        {/if}
+      </div>
     </div>
 
-    <!-- Right side: Track info, controls, progress, queue -->
-    <div class="info-controls-section">
-      <!-- Track info -->
+    <!-- Zone 2: Controls -->
+    <div class="zone-controls">
       <div class="track-info">
         {#if audirvanaNoTrack}
           <span class="track-title">Audirvana Active</span>
@@ -189,19 +199,6 @@
           <span class="track-artist">{$currentTrack.artist || 'Unknown Artist'}</span>
           <span class="track-album">{$currentTrack.album || ''}</span>
         {/if}
-
-        <!-- Format badges -->
-        <div class="format-badges">
-          {#if formatBadge}
-            <span class="badge">{formatBadge}</span>
-          {/if}
-          {#if sampleRateBadge}
-            <span class="badge">{sampleRateBadge}</span>
-          {/if}
-          {#if bitDepthBadge}
-            <span class="badge">{bitDepthBadge}</span>
-          {/if}
-        </div>
       </div>
 
       <!-- Transport controls -->
@@ -262,45 +259,46 @@
         </div>
         <span class="time duration-time">{formatTime($duration)}</span>
       </div>
+    </div>
 
-      <!-- Queue strip -->
-      <div class="queue-section">
-        {#if hasUpcoming}
-          <div class="queue-strip-scroll">
-            {#each upcomingTracks as track, i}
-              <button
-                class="queue-tile"
-                on:click={() => handleQueueTileClick(i)}
-              >
-                <div class="tile-art">
-                  {#if getArtworkUrl(track) && !queueImageErrors[i]}
-                    <img
-                      src={getArtworkUrl(track)}
-                      alt={getTrackTitle(track)}
-                      loading="lazy"
-                      on:error={() => handleQueueImageError(i)}
-                    />
-                  {:else}
-                    <div class="art-placeholder-small">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
-                      </svg>
-                    </div>
-                  {/if}
-                </div>
-                <div class="tile-info">
-                  <span class="tile-title">{getTrackTitle(track)}</span>
-                  <span class="tile-artist">{track.artist || 'Unknown Artist'}</span>
-                </div>
-              </button>
-            {/each}
-          </div>
-        {:else}
-          <div class="empty-queue">
-            <span>No upcoming tracks</span>
-          </div>
-        {/if}
-      </div>
+    <!-- Zone 3: Queue -->
+    <div class="zone-queue">
+      <div class="up-next-label">UP NEXT</div>
+      {#if hasUpcoming}
+        <div class="queue-list">
+          {#each upcomingTracks as track, i}
+            <button
+              class="queue-tile"
+              on:click={() => handleQueueTileClick(i)}
+            >
+              <div class="tile-art">
+                {#if getArtworkUrl(track) && !queueImageErrors[i]}
+                  <img
+                    src={getArtworkUrl(track)}
+                    alt={getTrackTitle(track)}
+                    loading="lazy"
+                    on:error={() => handleQueueImageError(i)}
+                  />
+                {:else}
+                  <div class="art-placeholder-small">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+                    </svg>
+                  </div>
+                {/if}
+              </div>
+              <div class="tile-info">
+                <span class="tile-title">{getTrackTitle(track)}</span>
+                <span class="tile-artist">{track.artist || 'Unknown Artist'}</span>
+              </div>
+            </button>
+          {/each}
+        </div>
+      {:else}
+        <div class="empty-queue">
+          <span>No upcoming tracks</span>
+        </div>
+      {/if}
     </div>
   </div>
 </div>
@@ -310,12 +308,8 @@
     position: relative;
     width: 100%;
     height: 100%;
-    display: flex;
-    flex-direction: column;
-    padding: 16px 24px 16px;
-    box-sizing: border-box;
     overflow: hidden;
-    background: linear-gradient(165deg, rgba(38, 38, 44, 0.97) 0%, rgba(22, 22, 26, 0.99) 60%, rgba(18, 18, 22, 1) 100%);
+    background: var(--md-background);
   }
 
   /* Background with blur */
@@ -348,32 +342,13 @@
     bottom: 0;
     background: linear-gradient(
       165deg,
-      rgba(28, 28, 32, 0.85) 0%,
-      rgba(18, 18, 22, 0.9) 60%,
-      rgba(14, 14, 18, 0.95) 100%
+      rgba(28, 17, 18, 0.85) 0%,
+      rgba(28, 17, 18, 0.9) 60%,
+      rgba(28, 17, 18, 0.95) 100%
     );
   }
 
-  /* Top-right light effect */
-  .light-effect {
-    position: absolute;
-    top: -50%;
-    right: -20%;
-    width: 70%;
-    height: 120%;
-    pointer-events: none;
-    background: radial-gradient(
-      ellipse at center,
-      rgba(255, 255, 255, 0.06) 0%,
-      rgba(255, 255, 255, 0.03) 25%,
-      rgba(255, 255, 255, 0.01) 50%,
-      transparent 70%
-    );
-    transform: rotate(-15deg);
-    z-index: 1;
-  }
-
-  /* Floating controls - absolutely positioned, no layout impact */
+  /* Floating controls */
   .floating-controls {
     position: absolute;
     top: 16px;
@@ -388,20 +363,20 @@
     height: 44px;
     display: flex;
     align-items: center;
-    font-size: 12px;
+    font-size: var(--md-label-large);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     padding: 0 16px;
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 8px;
-    color: rgba(255, 255, 255, 0.7);
+    background: var(--md-surface-container-highest);
+    border-radius: var(--md-shape-medium);
+    color: var(--md-on-surface-variant);
   }
 
   .source-audirvana {
-    background: rgba(107, 78, 160, 0.3);
+    background: rgba(107, 78, 160, 0.25);
     color: #c4a8ff;
-    border: 1px solid rgba(107, 78, 160, 0.4);
+    border: 1px solid rgba(107, 78, 160, 0.3);
   }
 
   .audirvana-hint {
@@ -415,46 +390,54 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--md-surface-container-high);
     border: none;
-    border-radius: 8px;
-    color: rgba(255, 255, 255, 0.7);
+    border-radius: var(--md-shape-medium);
+    color: var(--md-on-surface-variant);
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: background 0.15s, color 0.15s;
   }
 
   .minimize-btn:hover {
-    background: rgba(255, 255, 255, 0.15);
-    color: white;
+    background: var(--md-surface-container-highest);
+    color: var(--md-on-surface);
   }
 
   .minimize-btn:active {
     transform: scale(0.95);
   }
 
-  /* Main content - uses full height since header is floating */
-  .player-content {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    gap: 40px;
-    min-height: 0;
+  /* 3-zone layout */
+  .player-zones {
     position: relative;
     z-index: 2;
-    padding-left: 24px;
+    display: grid;
+    grid-template-columns: 28fr 44fr 28fr;
+    height: 100%;
+    align-items: center;
+    gap: 0;
   }
 
-  /* Artwork section - large album art, centered vertically */
+  /* Zone 1: Art */
+  .zone-art {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 16px 24px;
+    height: 100%;
+    border-right: 1px solid var(--md-outline-variant);
+  }
+
   .artwork-section {
-    width: 380px;
-    height: 380px;
-    flex-shrink: 0;
-    border-radius: 16px;
+    width: 280px;
+    height: 280px;
+    border-radius: var(--md-shape-extra-large);
     overflow: hidden;
-    background: rgba(40, 40, 45, 0.5);
-    box-shadow:
-      0 8px 40px rgba(0, 0, 0, 0.5),
-      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
+    background: var(--md-surface-container);
+    flex-shrink: 0;
   }
 
   .album-art {
@@ -469,18 +452,16 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(145deg, #1a1a1c 0%, #2a2a2e 50%, #1c1c1e 100%);
+    background: var(--md-surface-container-low);
   }
 
   .vinyl-icon {
-    width: 220px;
-    height: 220px;
+    width: 180px;
+    height: 180px;
     position: relative;
     border-radius: 50%;
-    background: linear-gradient(135deg, #1a1a1c 0%, #2d2d30 100%);
-    box-shadow:
-      0 2px 8px rgba(0, 0, 0, 0.4),
-      inset 0 1px 1px rgba(255, 255, 255, 0.05);
+    background: var(--md-surface-container);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
   }
 
   .vinyl-outer {
@@ -490,22 +471,21 @@
     right: 2px;
     bottom: 2px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #252528 0%, #1a1a1c 100%);
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+    background: var(--md-surface-container-low);
   }
 
   .vinyl-grooves {
     position: absolute;
-    top: 30px;
-    left: 30px;
-    right: 30px;
-    bottom: 30px;
+    top: 25px;
+    left: 25px;
+    right: 25px;
+    bottom: 25px;
     border-radius: 50%;
     background: repeating-radial-gradient(
       circle at center,
-      rgba(60, 60, 65, 0.4) 0px,
-      rgba(40, 40, 45, 0.6) 1px,
-      rgba(60, 60, 65, 0.4) 2px
+      var(--md-surface-container-high) 0px,
+      var(--md-surface-container) 1px,
+      var(--md-surface-container-high) 2px
     );
     box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.3);
   }
@@ -515,13 +495,10 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 70px;
-    height: 70px;
+    width: 60px;
+    height: 60px;
     border-radius: 50%;
-    background: linear-gradient(145deg, #e86a8a 0%, #c94466 100%);
-    box-shadow:
-      0 1px 3px rgba(0, 0, 0, 0.3),
-      inset 0 1px 1px rgba(255, 255, 255, 0.2);
+    background: linear-gradient(145deg, var(--md-primary) 0%, color-mix(in srgb, var(--md-primary) 70%, black 30%) 100%);
   }
 
   .vinyl-center {
@@ -529,24 +506,42 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
     border-radius: 50%;
-    background: #1a1a1c;
+    background: var(--md-surface-container-lowest);
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
   }
 
-  /* Info and controls section */
-  .info-controls-section {
-    flex: 1;
+  .format-badges {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .badge {
+    background: var(--md-primary-container);
+    color: var(--md-on-primary-container);
+    border: none;
+    border-radius: var(--md-shape-small);
+    font-size: var(--md-label-small);
+    font-weight: 700;
+    padding: 4px 10px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  /* Zone 2: Controls */
+  .zone-controls {
     display: flex;
     flex-direction: column;
     justify-content: center;
-    min-width: 0;
-    gap: 16px;
+    gap: 20px;
+    padding: 20px 40px;
+    height: 100%;
   }
 
-  /* Track info */
   .track-info {
     display: flex;
     flex-direction: column;
@@ -554,9 +549,9 @@
   }
 
   .track-title {
-    font-size: 32px;
-    font-weight: 600;
-    color: white;
+    font-size: var(--md-headline-large);
+    font-weight: 700;
+    color: var(--md-on-surface);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -564,64 +559,46 @@
   }
 
   .track-artist {
-    font-size: 22px;
-    color: rgba(255, 255, 255, 0.7);
+    font-size: var(--md-title-large);
+    color: var(--md-on-surface-variant);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
   .track-album {
-    font-size: 16px;
-    color: rgba(255, 255, 255, 0.5);
+    font-size: var(--md-title-small);
+    color: var(--md-on-surface-variant);
+    opacity: 0.7;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-  }
-
-  /* Format badges */
-  .format-badges {
-    display: flex;
-    gap: 8px;
-    margin-top: 10px;
-  }
-
-  .badge {
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    padding: 4px 10px;
-    border-radius: 4px;
-    background: rgba(255, 255, 255, 0.08);
-    color: rgba(255, 255, 255, 0.6);
-    border: 1px solid rgba(255, 255, 255, 0.1);
   }
 
   /* Transport controls */
   .transport-controls {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
   }
 
   .control-btn {
-    width: 56px;
-    height: 56px;
+    width: 52px;
+    height: 52px;
     display: flex;
     align-items: center;
     justify-content: center;
     background: transparent;
     border: none;
-    border-radius: 50%;
-    color: rgba(255, 255, 255, 0.8);
+    border-radius: var(--md-shape-full);
+    color: var(--md-on-surface-variant);
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: background 0.15s, color 0.15s;
   }
 
   .control-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: white;
+    background: rgba(239, 224, 225, 0.1);
+    color: var(--md-on-surface);
   }
 
   .control-btn:active {
@@ -629,42 +606,42 @@
   }
 
   .control-btn.play-btn {
-    width: 80px;
-    height: 80px;
-    background: rgba(255, 255, 255, 0.15);
+    width: 72px;
+    height: 72px;
+    background: var(--md-primary);
+    color: var(--md-on-primary);
     margin: 0 12px;
+    box-shadow: 0 4px 20px rgba(181, 38, 76, 0.4);
   }
 
   .control-btn.play-btn:hover {
-    background: rgba(255, 255, 255, 0.25);
+    filter: brightness(1.1);
   }
 
   .control-btn.shuffle-btn,
   .control-btn.repeat-btn {
     width: 48px;
     height: 48px;
-    color: rgba(255, 255, 255, 0.5);
+    color: var(--md-on-surface-variant);
   }
 
   .control-btn.shuffle-btn.active,
   .control-btn.repeat-btn.active {
-    color: var(--color-accent, #e86a8a);
+    color: var(--md-primary);
   }
 
   /* Progress section */
   .progress-section {
     display: flex;
     align-items: center;
-    gap: 14px;
-    padding: 4px 0;
+    gap: 12px;
   }
 
   .time {
-    font-size: 13px;
-    font-weight: 500;
-    color: rgba(255, 255, 255, 0.5);
-    min-width: 45px;
+    font-size: var(--md-label-medium);
+    color: var(--md-on-surface-variant);
     font-variant-numeric: tabular-nums;
+    min-width: 40px;
   }
 
   .current-time {
@@ -675,12 +652,11 @@
     text-align: left;
   }
 
-  /* Progress bar - matching mini player style */
   .seek-track {
     flex: 1;
-    height: 16px;
-    background: rgba(255, 255, 255, 0.12);
-    border-radius: 3px;
+    height: 4px;
+    background: var(--md-outline-variant);
+    border-radius: var(--md-shape-full);
     position: relative;
     overflow: visible;
   }
@@ -690,17 +666,17 @@
     top: 0;
     left: 0;
     height: 100%;
-    background: linear-gradient(90deg, #e07850 0%, #d86040 100%);
-    border-radius: 3px 0 0 3px;
+    background: var(--md-primary);
+    border-radius: var(--md-shape-full);
     pointer-events: none;
   }
 
   .seek-slider {
     position: absolute;
-    top: 0;
+    top: -8px;
     left: 0;
     width: 100%;
-    height: 100%;
+    height: 20px;
     -webkit-appearance: none;
     appearance: none;
     background: transparent;
@@ -710,84 +686,96 @@
 
   .seek-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
-    width: 24px;
-    height: 24px;
-    background: white;
+    width: 20px;
+    height: 20px;
+    background: var(--md-primary);
     cursor: pointer;
-    border-radius: 6px;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
-    margin-top: -4px;
+    border-radius: var(--md-shape-full);
+    border: 2px solid white;
+    box-shadow: 0 2px 8px rgba(181, 38, 76, 0.5);
   }
 
   .seek-slider::-moz-range-thumb {
-    width: 24px;
-    height: 24px;
-    background: white;
+    width: 20px;
+    height: 20px;
+    background: var(--md-primary);
     cursor: pointer;
-    border: none;
-    border-radius: 6px;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+    border: 2px solid white;
+    border-radius: var(--md-shape-full);
+    box-shadow: 0 2px 8px rgba(181, 38, 76, 0.5);
   }
 
   .seek-slider::-webkit-slider-runnable-track {
-    height: 16px;
+    height: 4px;
   }
 
   .seek-slider::-moz-range-track {
-    height: 16px;
+    height: 4px;
     background: transparent;
   }
 
-  /* Queue section */
-  .queue-section {
-    padding-top: 12px;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
-    min-height: 80px;
-  }
-
-  .queue-strip-scroll {
+  /* Zone 3: Queue */
+  .zone-queue {
     display: flex;
-    gap: 14px;
-    overflow-x: auto;
-    overflow-y: hidden;
-    scrollbar-width: none;
-    padding: 4px 0;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px 20px;
+    height: 100%;
+    border-left: 1px solid var(--md-outline-variant);
+    overflow: hidden;
   }
 
-  .queue-strip-scroll::-webkit-scrollbar {
+  .up-next-label {
+    font-size: var(--md-label-large);
+    font-weight: 700;
+    color: var(--md-primary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    flex-shrink: 0;
+    padding-top: 40px;
+  }
+
+  .queue-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: none;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .queue-list::-webkit-scrollbar {
     display: none;
   }
 
   .queue-tile {
     display: flex;
     align-items: center;
-    gap: 12px;
-    min-width: 200px;
-    max-width: 240px;
-    padding: 10px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 10px;
+    gap: 10px;
+    padding: 8px 10px;
+    background: var(--md-surface-container);
+    border-radius: var(--md-shape-medium);
+    border: none;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: background 0.15s;
+    text-align: left;
+    width: 100%;
+    color: var(--md-on-surface);
     flex-shrink: 0;
   }
 
   .queue-tile:hover {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(255, 255, 255, 0.1);
-  }
-
-  .queue-tile:active {
-    transform: scale(0.98);
+    background: var(--md-surface-container-high);
   }
 
   .tile-art {
-    width: 56px;
-    height: 56px;
-    border-radius: 8px;
+    width: 44px;
+    height: 44px;
+    border-radius: var(--md-shape-small);
     overflow: hidden;
-    background: rgba(40, 40, 45, 0.5);
+    background: var(--md-surface-container-high);
     flex-shrink: 0;
   }
 
@@ -803,8 +791,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #2a2a2e 0%, #1c1c1e 100%);
-    color: rgba(255, 255, 255, 0.3);
+    background: var(--md-surface-container-high);
+    color: var(--md-on-surface-variant);
   }
 
   .tile-info {
@@ -812,34 +800,31 @@
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 2px;
   }
 
   .tile-title {
-    font-size: 14px;
-    font-weight: 500;
-    color: rgba(255, 255, 255, 0.9);
+    font-size: var(--md-body-medium);
+    color: var(--md-on-surface);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    text-align: left;
   }
 
   .tile-artist {
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.5);
+    font-size: var(--md-label-medium);
+    color: var(--md-on-surface-variant);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    text-align: left;
   }
 
   .empty-queue {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 20px;
-    color: rgba(255, 255, 255, 0.3);
-    font-size: 14px;
+    flex: 1;
+    color: var(--md-on-surface-variant);
+    font-size: var(--md-body-medium);
   }
 </style>
