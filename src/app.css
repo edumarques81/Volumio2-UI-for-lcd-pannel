@@ -60,6 +60,67 @@
   --surface-hover: #333;
   --surface-active: #444;
   --border-color: #333;
+
+  /* ============================================
+     MD3 COLOUR ROLES — seed #E8576D
+     ============================================ */
+  --md-primary: #B5264C;
+  --md-on-primary: #FFFFFF;
+  --md-primary-container: #FFD9DE;
+  --md-on-primary-container: #3F0019;
+  --md-secondary: #75565B;
+  --md-on-secondary: #FFFFFF;
+  --md-secondary-container: #FFD9DE;
+  --md-on-secondary-container: #2C1519;
+  --md-tertiary: #7C5635;
+  --md-on-tertiary: #FFFFFF;
+  --md-tertiary-container: #FFD9BC;
+  --md-on-tertiary-container: #2E1500;
+  --md-surface: #1C1112;
+  --md-on-surface: #EFE0E1;
+  --md-surface-variant: #524344;
+  --md-on-surface-variant: #D7C1C3;
+  --md-surface-container-lowest: #160C0D;
+  --md-surface-container-low: #241A1B;
+  --md-surface-container: #281E1F;
+  --md-surface-container-high: #332829;
+  --md-surface-container-highest: #3E3233;
+  --md-outline: #A08C8E;
+  --md-outline-variant: #524344;
+  --md-background: #1C1112;
+  --md-on-background: #EFE0E1;
+  --md-error: #FFB4AB;
+  --md-on-error: #690005;
+
+  /* ============================================
+     MD3 TYPOGRAPHY SCALE
+     ============================================ */
+  --md-display-large: 57px;
+  --md-display-medium: 45px;
+  --md-display-small: 36px;
+  --md-headline-large: 32px;
+  --md-headline-medium: 28px;
+  --md-headline-small: 24px;
+  --md-title-large: 22px;
+  --md-title-medium: 16px;
+  --md-title-small: 14px;
+  --md-body-large: 16px;
+  --md-body-medium: 14px;
+  --md-body-small: 12px;
+  --md-label-large: 14px;
+  --md-label-medium: 12px;
+  --md-label-small: 11px;
+
+  /* ============================================
+     MD3 SHAPE TOKENS
+     ============================================ */
+  --md-shape-none: 0px;
+  --md-shape-extra-small: 4px;
+  --md-shape-small: 8px;
+  --md-shape-medium: 12px;
+  --md-shape-large: 16px;
+  --md-shape-extra-large: 28px;
+  --md-shape-full: 9999px;
 }
 
 /* ============================================
@@ -169,7 +230,7 @@ html, body {
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'DM Sans', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: var(--font-size-base);
   line-height: 1.5;
   color: var(--color-text-primary);
