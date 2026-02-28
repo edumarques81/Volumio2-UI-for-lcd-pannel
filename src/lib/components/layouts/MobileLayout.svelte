@@ -67,7 +67,7 @@
   $: showMiniPlayer = $currentView !== 'player' && hasActiveTrack;
 
   // Adjust icon size based on device
-  $: iconSize = $deviceType === 'phone' ? 22 : 26;
+  $: iconSize = $deviceType === 'phone' ? 24 : 26;
 </script>
 
 <div class="mobile-layout">
@@ -110,7 +110,7 @@
     </div>
   {/if}
 
-  <!-- Bottom navigation -->
+  <!-- Bottom navigation — MD3 Navigation Bar -->
   <nav class="bottom-nav">
     {#each tabs as tab}
       <button
@@ -119,7 +119,9 @@
         on:click={() => handleTabClick(tab)}
         aria-label={tab.label}
       >
-        <Icon name={tab.icon} size={iconSize} />
+        <div class="nav-indicator">
+          <Icon name={tab.icon} size={iconSize} />
+        </div>
         <span class="tab-label">{tab.label}</span>
       </button>
     {/each}
@@ -132,7 +134,7 @@
     flex-direction: column;
     width: 100%;
     height: 100%;
-    background: var(--color-background);
+    background: var(--md-background);
     overflow: hidden;
   }
 
@@ -147,14 +149,13 @@
     flex-shrink: 0;
   }
 
+  /* MD3 Navigation Bar */
   .bottom-nav {
     display: flex;
     justify-content: space-around;
     align-items: stretch;
-    background: rgba(20, 20, 24, 0.98);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--md-surface-container);
+    border-top: 1px solid var(--md-outline-variant);
     flex-shrink: 0;
     padding-bottom: env(safe-area-inset-bottom);
   }
@@ -164,34 +165,54 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 3px;
+    gap: 4px;
     flex: 1;
-    padding: 10px 8px 8px;
+    padding: 12px 8px 16px;
     background: none;
     border: none;
-    color: rgba(255, 255, 255, 0.4);
+    color: var(--md-on-surface-variant);
     cursor: pointer;
-    transition: color 0.15s ease;
+    transition: color 0.2s ease;
     -webkit-tap-highlight-color: transparent;
-    min-height: 52px;
+    min-height: 80px;
   }
 
   .nav-tab:hover {
-    color: rgba(255, 255, 255, 0.6);
+    color: var(--md-on-surface);
   }
 
-  .nav-tab:active {
-    color: rgba(255, 255, 255, 0.8);
+  /* Active indicator pill behind icon */
+  .nav-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 32px;
+    border-radius: var(--md-shape-full);
+    background: transparent;
+    transition: background-color 0.2s ease;
+  }
+
+  .nav-tab.active .nav-indicator {
+    background: var(--md-primary-container);
+  }
+
+  .nav-tab.active .nav-indicator :global(svg) {
+    color: var(--md-on-primary-container);
   }
 
   .nav-tab.active {
-    color: var(--color-accent, #e86a8a);
+    color: var(--md-on-surface);
   }
 
   .tab-label {
-    font-size: 10px;
+    font-size: var(--md-label-medium);
     font-weight: 500;
     letter-spacing: 0.01em;
+  }
+
+  .nav-tab.active .tab-label {
+    font-weight: 600;
   }
 
   /* Landscape phone adjustments */
@@ -201,25 +222,35 @@
     }
 
     .nav-tab {
-      padding: 6px 12px;
+      padding: 8px 12px;
       gap: 2px;
-      min-height: 44px;
+      min-height: 56px;
+    }
+
+    .nav-indicator {
+      width: 48px;
+      height: 28px;
     }
 
     .tab-label {
-      font-size: 9px;
+      font-size: var(--md-label-small);
     }
   }
 
   /* Tablet adjustments */
   @media (min-width: 600px) {
     .nav-tab {
-      padding: 12px 16px 10px;
+      padding: 14px 16px 18px;
       gap: 4px;
     }
 
+    .nav-indicator {
+      width: 72px;
+      height: 36px;
+    }
+
     .tab-label {
-      font-size: 11px;
+      font-size: var(--md-label-medium);
     }
   }
 </style>
