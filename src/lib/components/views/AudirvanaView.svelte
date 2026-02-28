@@ -58,6 +58,27 @@
         <button class="retry-btn" on:click={handleRefresh}>Retry</button>
       </div>
     {:else}
+      <!-- Prominent engine switch banner when MPD is active -->
+      {#if $activeEngine !== 'audirvana' && $audirvanaInstalled}
+        <div class="switch-banner">
+          <div class="banner-text">
+            <strong>MPD is currently active</strong>
+            <span>Switch to Audirvana for bit-perfect playback</span>
+          </div>
+          <button
+            class="switch-btn"
+            disabled={$engineSwitching}
+            on:click={handleSwitchToAudirvana}
+          >
+            {#if $engineSwitching}
+              Switching...
+            {:else}
+              Switch to Audirvana
+            {/if}
+          </button>
+        </div>
+      {/if}
+
       <!-- Status Section -->
       <section class="status-section">
         <h2>Status</h2>
@@ -507,5 +528,56 @@
     font-size: 14px;
     color: var(--color-text-secondary);
     line-height: 1.6;
+  }
+
+  /* Switch Banner */
+  .switch-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md) var(--spacing-lg);
+    background: linear-gradient(135deg, rgba(107, 78, 160, 0.3) 0%, rgba(107, 78, 160, 0.15) 100%);
+    border: 1px solid rgba(107, 78, 160, 0.4);
+    border-radius: var(--radius-lg);
+    margin-bottom: var(--spacing-xl);
+  }
+
+  .banner-text {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .banner-text strong {
+    font-size: 16px;
+    color: var(--color-text-primary);
+  }
+
+  .banner-text span {
+    font-size: 13px;
+    color: var(--color-text-secondary);
+  }
+
+  .switch-btn {
+    padding: var(--spacing-sm) var(--spacing-lg);
+    background: #6b4ea0;
+    border: none;
+    border-radius: var(--radius-md);
+    color: white;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+  }
+
+  .switch-btn:hover:not(:disabled) {
+    background: #7b5eb0;
+  }
+
+  .switch-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
   }
 </style>

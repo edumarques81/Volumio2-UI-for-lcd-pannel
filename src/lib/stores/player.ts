@@ -1,6 +1,7 @@
 import { writable, derived, get } from 'svelte/store';
 import { socketService } from '$lib/services/socket';
 import { fixVolumioAssetUrl } from '$lib/config';
+import { syncEngineFromPushState } from '$lib/stores/audioEngine';
 import type { PlayerState } from '$lib/types';
 
 /**
@@ -189,6 +190,9 @@ export function initPlayerStore() {
       state.albumart = fixVolumioAssetUrl(state.albumart) ?? state.albumart;
     }
     playerState.set(state);
+
+    // Sync audio engine state from service field
+    syncEngineFromPushState(state.service);
 
     // Change-gated updates: only set stores whose values actually changed
     if (state.volume !== undefined && state.volume !== get(volume)) volume.set(state.volume);

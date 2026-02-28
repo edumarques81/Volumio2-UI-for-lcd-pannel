@@ -13,7 +13,7 @@
   import { initAudioStore, cleanupAudioStore } from '$lib/stores/audio';
   import { initAudirvanaStore, cleanupAudirvanaStore } from '$lib/stores/audirvana';
   import { initLibraryStore } from '$lib/stores/library';
-  import { initAudioEngineStore, cleanupAudioEngineStore } from '$lib/stores/audioEngine';
+  import { initAudioEngineStore, cleanupAudioEngineStore, audioEngineActions } from '$lib/stores/audioEngine';
   import { initDeviceStore, cleanupDeviceStore, deviceType, isLcdPanel, isDesktop, isMobile } from '$lib/stores/device';
   import { currentView, layoutMode, navigationActions } from '$lib/stores/navigation';
   import { socketService as socket } from '$lib/services/socket';
@@ -86,6 +86,7 @@
         // Connection seems OK, but request fresh state to verify
         console.log(`[${source}] Pinging server for fresh state`);
         socketService.emit('getState');
+        socketService.emit('getAudioEngineState');
       }
     };
 

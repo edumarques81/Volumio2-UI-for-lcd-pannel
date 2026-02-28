@@ -307,8 +307,25 @@ function startAudirvana(): Promise<void> {
 let initialized = false;
 
 /**
+ * Sync active engine from pushState service field.
+ * Called by the player store when pushState arrives with service info.
+ */
+export function syncEngineFromPushState(service: string | undefined): void {
+  if (!service) return;
+  const lower = service.toLowerCase();
+  const current = get(audioEngineState);
+  if (lower === 'audirvana' && current.active !== 'audirvana' && !current.switching) {
+    audioEngineState.update((s) => ({ ...s, active: 'audirvana' }));
+  } else if (lower !== 'audirvana' && current.active === 'audirvana' && !current.switching) {
+    // Service changed away from audirvana (e.g. mpd), sync back
+    audioEngineState.update((s) => ({ ...s, active: 'mpd' }));
+  }
+}
+
+/**
  * Initialize the audio engine store
- * Determines initial state based on what's currently running
+ * Determines initial state based on what's currently running,
+ * and listens for pushAudioEngineState from the backend.
  */
 export function initAudioEngineStore(): void {
   if (initialized) {
@@ -326,8 +343,21 @@ export function initAudioEngineStore(): void {
     }));
   }
 
+  // Listen for explicit audio engine state from backend (if supported)
+  socketService.on<{ active: string }>('pushAudioEngineState', (data) => {
+    if (data?.active) {
+      const engine: AudioEngineType = data.active === 'audirvana' ? 'audirvana' : 'mpd';
+      const current = get(audioEngineState);
+      if (current.active !== engine && !current.switching) {
+        audioEngineState.update((s) => ({ ...s, active: engine }));
+      }
+    }
+  });
+
+  // Request initial engine state from backend
+  socketService.emit('getAudioEngineState');
+
   initialized = true;
-  console.log('[AudioEngine] Store initialized, active:', get(activeEngine));
 }
 
 /**
