@@ -1,9 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { navigationActions } from '$lib/stores/navigation';
-  import { browseActions } from '$lib/stores/browse';
+  import { browseActions, browseData } from '$lib/stores/browse';
   import { audirvanaInstalled, audirvanaService, audirvanaInstanceCount } from '$lib/stores/audirvana';
   import { isDimmedStandby, lcdActions } from '$lib/stores/lcd';
+  import { socketService } from '$lib/services/socket';
   import Icon from './Icon.svelte';
 
   // Reactive standby state - true when screen is blacked out via CSS overlay
@@ -96,14 +97,40 @@
     action: () => void;
   }
 
+  // Qobuz action with error handling — shows toast if browse fails
+  function handleQobuzTap() {
+    browseActions.browse('qobuz');
+    navigationActions.goToBrowse('qobuz', 'Qobuz');
+
+    // Watch for error response: if pushBrowseLibrary returns no items,
+    // show a toast after a brief delay
+    const unsub = browseData.subscribe((data) => {
+      if (data?.navigation?.lists) {
+        const hasError = data.navigation.lists.some(
+          (list: any) => list.items?.some((item: any) => item.type === 'error' || item.title?.toLowerCase().includes('error'))
+        );
+        const isEmpty = data.navigation.lists.every((list: any) => !list.items || list.items.length === 0);
+        if (hasError || isEmpty) {
+          socketService.simulateEvent('pushToastMessage', {
+            type: 'warning',
+            title: 'Qobuz',
+            message: 'Sign in required — check Settings'
+          });
+        }
+      }
+    });
+    // Unsubscribe after first response (don't leak)
+    setTimeout(() => unsub(), 3000);
+  }
+
   // iOS-style gradients matching the reference design
   // Icon gradients are subtle, light variations that complement the background
   // Static tiles that don't need reactive updates
   const staticApps: AppTile[] = [
     {
       id: 'local-music',
-      title: 'Local Music',
-      subtitle: 'Local + USB',
+      title: 'Local',
+      subtitle: 'USB + Internal',
       icon: 'folder',
       gradient: 'linear-gradient(180deg, #f5a623 0%, #c47f0a 100%)',
       iconGradient: { from: '#fffaf0', to: '#ffe4b3' },
@@ -113,8 +140,8 @@
     },
     {
       id: 'nas',
-      title: 'NAS Drives',
-      subtitle: 'Local network NAS Server',
+      title: 'NAS',
+      subtitle: 'Network storage',
       icon: 'storage',
       gradient: 'linear-gradient(180deg, #5ba3e0 0%, #2d7cc4 100%)',
       iconGradient: { from: '#f0f8ff', to: '#c9e4f9' },
@@ -123,16 +150,24 @@
       }
     },
     {
+      id: 'library',
+      title: 'Albums',
+      subtitle: 'All albums',
+      icon: 'music-note',
+      gradient: 'linear-gradient(180deg, #e8576d 0%, #c43550 100%)',
+      iconGradient: { from: '#fff5f6', to: '#ffd4db' },
+      action: () => {
+        navigationActions.goToAllAlbums();
+      }
+    },
+    {
       id: 'qobuz',
       title: 'Qobuz',
-      subtitle: 'Qobuz',
+      subtitle: 'Sign in required',
       icon: 'search',
       gradient: 'linear-gradient(180deg, #7b5ea7 0%, #4a3875 100%)',
       iconGradient: { from: '#f8f5ff', to: '#ddd4f0' },
-      action: () => {
-        browseActions.browse('qobuz');
-        navigationActions.goToBrowse('qobuz', 'Qobuz');
-      }
+      action: handleQobuzTap
     },
     {
       id: 'audirvana',
@@ -148,34 +183,12 @@
     {
       id: 'webradio',
       title: 'Web Radio',
-      subtitle: 'Web Radio',
+      subtitle: 'Internet radio',
       icon: 'broadcast',
       gradient: 'linear-gradient(180deg, #e86a8a 0%, #c94466 100%)',
       iconGradient: { from: '#fff5f7', to: '#ffd6df' },
       action: () => {
         navigationActions.goToRadio();
-      }
-    },
-    {
-      id: 'library',
-      title: 'Music Library',
-      subtitle: '',
-      icon: 'music-note',
-      gradient: 'linear-gradient(180deg, #e8576d 0%, #c43550 100%)',
-      iconGradient: { from: '#fff5f6', to: '#ffd4db' },
-      action: () => {
-        navigationActions.goToAllAlbums();
-      }
-    },
-    {
-      id: 'artists',
-      title: 'Artists',
-      subtitle: '',
-      icon: 'artist',
-      gradient: 'linear-gradient(180deg, #5a9e7c 0%, #3d7a5a 100%)',
-      iconGradient: { from: '#f0fff7', to: '#c9f0dc' },
-      action: () => {
-        navigationActions.goToArtists();
       }
     },
     {
@@ -199,18 +212,6 @@
       action: () => {
         browseActions.browse('favourites');
         navigationActions.goToBrowse('favourites', 'Favorites');
-      }
-    },
-    {
-      id: 'genres',
-      title: 'Genres',
-      subtitle: 'By genre',
-      icon: 'library',
-      gradient: 'linear-gradient(180deg, #16a085 0%, #0e7a64 100%)',
-      iconGradient: { from: '#f0fffc', to: '#c9f5ed' },
-      action: () => {
-        browseActions.browse('genres://');
-        navigationActions.goToBrowse('genres://', 'Genres');
       }
     },
     {

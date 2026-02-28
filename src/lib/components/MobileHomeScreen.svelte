@@ -1,8 +1,9 @@
 <script lang="ts">
   import { navigationActions } from '$lib/stores/navigation';
-  import { browseActions } from '$lib/stores/browse';
+  import { browseActions, browseData } from '$lib/stores/browse';
   import { deviceType } from '$lib/stores/device';
   import { lcdState, lcdActions } from '$lib/stores/lcd';
+  import { socketService } from '$lib/services/socket';
   import Icon from './Icon.svelte';
 
   interface AppTile {
@@ -15,11 +16,31 @@
     action: () => void;
   }
 
+  // Qobuz action with error handling
+  function handleQobuzTap() {
+    browseActions.browse('qobuz');
+    navigationActions.goToBrowse('qobuz', 'Qobuz');
+    const unsub = browseData.subscribe((data) => {
+      if (data?.navigation?.lists) {
+        const isEmpty = data.navigation.lists.every((list: any) => !list.items || list.items.length === 0);
+        if (isEmpty) {
+          socketService.simulateEvent('pushToastMessage', {
+            type: 'warning',
+            title: 'Qobuz',
+            message: 'Sign in required — check Settings'
+          });
+        }
+      }
+    });
+    setTimeout(() => unsub(), 3000);
+  }
+
   // Same app tiles as AppLauncher but optimized for mobile grid
   const staticApps: AppTile[] = [
     {
       id: 'local-music',
-      title: 'Local Music',
+      title: 'Local',
+      subtitle: 'USB + Internal',
       icon: 'folder',
       gradient: 'linear-gradient(180deg, #f5a623 0%, #c47f0a 100%)',
       iconGradient: { from: '#fffaf0', to: '#ffe4b3' },
@@ -28,6 +49,7 @@
     {
       id: 'nas',
       title: 'NAS',
+      subtitle: 'Network storage',
       icon: 'storage',
       gradient: 'linear-gradient(180deg, #5ba3e0 0%, #2d7cc4 100%)',
       iconGradient: { from: '#f0f8ff', to: '#c9e4f9' },
@@ -35,19 +57,11 @@
     },
     {
       id: 'library',
-      title: 'Library',
+      title: 'Albums',
       icon: 'music-note',
       gradient: 'linear-gradient(180deg, #e8576d 0%, #c43550 100%)',
       iconGradient: { from: '#fff5f6', to: '#ffd4db' },
       action: () => navigationActions.goToAllAlbums()
-    },
-    {
-      id: 'artists',
-      title: 'Artists',
-      icon: 'artist',
-      gradient: 'linear-gradient(180deg, #5a9e7c 0%, #3d7a5a 100%)',
-      iconGradient: { from: '#f0fff7', to: '#c9f0dc' },
-      action: () => navigationActions.goToArtists()
     },
     {
       id: 'playlists',
@@ -79,13 +93,11 @@
     {
       id: 'qobuz',
       title: 'Qobuz',
+      subtitle: 'Sign in required',
       icon: 'search',
       gradient: 'linear-gradient(180deg, #7b5ea7 0%, #4a3875 100%)',
       iconGradient: { from: '#f8f5ff', to: '#ddd4f0' },
-      action: () => {
-        browseActions.browse('qobuz');
-        navigationActions.goToBrowse('qobuz', 'Qobuz');
-      }
+      action: handleQobuzTap
     },
     {
       id: 'audirvana',
@@ -94,17 +106,6 @@
       gradient: 'linear-gradient(180deg, #6b4ea0 0%, #3d2d66 100%)',
       iconGradient: { from: '#f5f0ff', to: '#d4c8f0' },
       action: () => navigationActions.goToAudirvana()
-    },
-    {
-      id: 'genres',
-      title: 'Genres',
-      icon: 'library',
-      gradient: 'linear-gradient(180deg, #16a085 0%, #0e7a64 100%)',
-      iconGradient: { from: '#f0fffc', to: '#c9f5ed' },
-      action: () => {
-        browseActions.browse('genres://');
-        navigationActions.goToBrowse('genres://', 'Genres');
-      }
     }
   ];
 
