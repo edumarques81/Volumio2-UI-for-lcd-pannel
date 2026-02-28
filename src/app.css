@@ -121,6 +121,13 @@
   --md-shape-large: 16px;
   --md-shape-extra-large: 28px;
   --md-shape-full: 9999px;
+
+  /* ============================================
+     RESPONSIVE VIEWPORT TYPE
+     ============================================ */
+  --viewport-type: phone;
+  --md-page-padding: 16px;
+  --md-grid-gap: 12px;
 }
 
 /* ============================================
@@ -136,6 +143,7 @@
 @media (max-height: 500px) {
   :root {
     --display-mode: lcd;
+    --viewport-type: lcd;
     --font-size-xs: 12px;
     --font-size-sm: 14px;
     --font-size-base: 16px;
@@ -157,6 +165,9 @@
 @media (min-width: 1025px) and (min-height: 501px) {
   :root {
     --display-mode: desktop;
+    --viewport-type: desktop;
+    --md-page-padding: 24px;
+    --md-grid-gap: 16px;
     --font-size-xs: 12px;
     --font-size-sm: 14px;
     --font-size-base: 16px;
@@ -172,8 +183,11 @@
 @media (min-width: 768px) and (max-width: 1024px) and (min-height: 501px) {
   :root {
     --display-mode: tablet;
+    --viewport-type: tablet;
     --grid-columns: 4;
     --font-scale: 1.1;
+    --md-page-padding: 24px;
+    --md-grid-gap: 16px;
     --font-size-xs: 13px;
     --font-size-sm: 15px;
     --font-size-base: 17px;
@@ -196,8 +210,11 @@
 @media (max-width: 767px) and (min-height: 501px) {
   :root {
     --display-mode: mobile;
+    --viewport-type: phone;
     --grid-columns: 2;
     --font-scale: 1.2;
+    --md-page-padding: 16px;
+    --md-grid-gap: 12px;
     --font-size-xs: 12px;
     --font-size-sm: 14px;
     --font-size-base: 16px;

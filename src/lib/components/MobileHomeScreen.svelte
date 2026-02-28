@@ -168,7 +168,7 @@
 
   .home-header {
     flex-shrink: 0;
-    padding: 12px 20px;
+    padding: 12px var(--md-page-padding);
     padding-top: max(12px, env(safe-area-inset-top));
   }
 
@@ -184,8 +184,8 @@
     flex: 1;
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-    padding: 8px 16px 24px;
+    gap: var(--md-grid-gap);
+    padding: 8px var(--md-page-padding) 24px;
     overflow-y: auto;
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
