@@ -105,7 +105,7 @@
         <Icon name="chevron-down" size={28} />
       </button>
       {#if showSource}
-        <span class="source-label">{sourceLabel}</span>
+        <span class="source-chip">{sourceLabel}</span>
       {/if}
       <button class="header-btn" on:click={goToQueue} aria-label="View queue">
         <Icon name="queue" size={24} />
@@ -158,63 +158,66 @@
       {/if}
     </div>
 
-    <!-- Progress bar - LCD mini player style -->
-    <div class="progress-section">
-      <span class="time current-time">{formatTime(isSeeking ? seekValue : $seek)}</span>
-      <div class="seek-track">
-        <div class="seek-progress" style="width: {$duration > 0 ? ((isSeeking ? seekValue : $seek) / $duration) * 100 : 0}%"></div>
-        <input
-          id="mobile-seek-slider"
-          type="range"
-          class="seek-slider"
-          min="0"
-          max={$duration || 100}
-          value={isSeeking ? seekValue : $seek}
-          on:mousedown={handleSeekStart}
-          on:touchstart={handleSeekStart}
-          on:mouseup={handleSeekEnd}
-          on:touchend={handleSeekEnd}
-          on:input={handleSeekInput}
-        />
+    <!-- Controls card -->
+    <div class="controls-card">
+      <!-- Progress bar -->
+      <div class="progress-section">
+        <span class="time current-time">{formatTime(isSeeking ? seekValue : $seek)}</span>
+        <div class="seek-track">
+          <div class="seek-progress" style="width: {$duration > 0 ? ((isSeeking ? seekValue : $seek) / $duration) * 100 : 0}%"></div>
+          <input
+            id="mobile-seek-slider"
+            type="range"
+            class="seek-slider"
+            min="0"
+            max={$duration || 100}
+            value={isSeeking ? seekValue : $seek}
+            on:mousedown={handleSeekStart}
+            on:touchstart={handleSeekStart}
+            on:mouseup={handleSeekEnd}
+            on:touchend={handleSeekEnd}
+            on:input={handleSeekInput}
+          />
+        </div>
+        <span class="time duration-time">{formatTime($duration)}</span>
       </div>
-      <span class="time duration-time">{formatTime($duration)}</span>
-    </div>
 
-    <!-- Transport controls -->
-    <div class="transport-controls">
-      <button
-        class="control-btn secondary"
-        class:active={$shuffle}
-        on:click={playerActions.toggleShuffle}
-        aria-label="Shuffle"
-      >
-        <Icon name="shuffle" size={24} />
-      </button>
+      <!-- Transport controls -->
+      <div class="transport-controls">
+        <button
+          class="control-btn secondary"
+          class:active={$shuffle}
+          on:click={playerActions.toggleShuffle}
+          aria-label="Shuffle"
+        >
+          <Icon name="shuffle" size={24} />
+        </button>
 
-      <button class="control-btn" on:click={playerActions.prev} aria-label="Previous">
-        <Icon name="skip-back" size={32} />
-      </button>
+        <button class="control-btn" on:click={playerActions.prev} aria-label="Previous">
+          <Icon name="skip-back" size={32} />
+        </button>
 
-      <button
-        class="control-btn play-btn"
-        on:click={handlePlayPause}
-        aria-label={$isPlaying ? 'Pause' : 'Play'}
-      >
-        <Icon name={$isPlaying ? 'pause' : 'play'} size={36} />
-      </button>
+        <button
+          class="control-btn play-btn"
+          on:click={handlePlayPause}
+          aria-label={$isPlaying ? 'Pause' : 'Play'}
+        >
+          <Icon name={$isPlaying ? 'pause' : 'play'} size={36} />
+        </button>
 
-      <button class="control-btn" on:click={playerActions.next} aria-label="Next">
-        <Icon name="skip-forward" size={32} />
-      </button>
+        <button class="control-btn" on:click={playerActions.next} aria-label="Next">
+          <Icon name="skip-forward" size={32} />
+        </button>
 
-      <button
-        class="control-btn secondary"
-        class:active={$repeat !== 'off'}
-        on:click={handleRepeat}
-        aria-label="Repeat"
-      >
-        <Icon name={$repeat === 'one' ? 'repeat-1' : 'repeat'} size={24} />
-      </button>
+        <button
+          class="control-btn secondary"
+          class:active={$repeat !== 'off'}
+          on:click={handleRepeat}
+          aria-label="Repeat"
+        >
+          <Icon name={$repeat === 'one' ? 'repeat-1' : 'repeat'} size={24} />
+        </button>
+      </div>
     </div>
   </div>
 </div>
@@ -247,7 +250,7 @@
     bottom: -40px;
     background-size: cover;
     background-position: center;
-    filter: blur(60px) brightness(0.25) saturate(1.3);
+    filter: blur(60px) brightness(0.2) saturate(1.3);
     transform: scale(1.2);
   }
 
@@ -259,10 +262,10 @@
     bottom: 0;
     background: linear-gradient(
       180deg,
-      rgba(18, 18, 22, 0.7) 0%,
-      rgba(18, 18, 22, 0.5) 30%,
-      rgba(18, 18, 22, 0.7) 70%,
-      rgba(18, 18, 22, 0.9) 100%
+      rgba(28, 17, 18, 0.75) 0%,
+      rgba(28, 17, 18, 0.5) 30%,
+      rgba(28, 17, 18, 0.6) 70%,
+      rgba(28, 17, 18, 0.9) 100%
     );
   }
 
@@ -294,32 +297,33 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--md-surface-container-high);
     border: none;
-    border-radius: 12px;
-    color: rgba(255, 255, 255, 0.8);
+    border-radius: var(--md-shape-medium);
+    color: var(--md-on-surface-variant);
     cursor: pointer;
     transition: all 0.15s ease;
     -webkit-tap-highlight-color: transparent;
   }
 
   .header-btn:hover {
-    background: rgba(255, 255, 255, 0.15);
+    background: var(--md-surface-container-highest);
   }
 
   .header-btn:active {
     transform: scale(0.95);
   }
 
-  .source-label {
-    font-size: 11px;
+  /* Source chip — MD3 style */
+  .source-chip {
+    font-size: var(--md-label-small);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    padding: 6px 12px;
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 6px;
-    color: rgba(255, 255, 255, 0.6);
+    padding: 6px 14px;
+    background: var(--md-surface-container-highest);
+    border-radius: var(--md-shape-full);
+    color: var(--md-on-surface-variant);
   }
 
   /* Artwork */
@@ -335,12 +339,12 @@
   .artwork {
     width: auto;
     height: auto;
-    max-width: min(240px, 60vw);
-    max-height: min(240px, 35dvh);
+    max-width: min(220px, 60vw);
+    max-height: min(220px, 35dvh);
     aspect-ratio: 1;
-    border-radius: 12px;
+    border-radius: var(--md-shape-extra-large);
     overflow: hidden;
-    background: rgba(40, 40, 45, 0.5);
+    background: var(--md-surface-container);
     box-shadow:
       0 12px 36px rgba(0, 0, 0, 0.5),
       0 4px 12px rgba(0, 0, 0, 0.3);
@@ -358,7 +362,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(145deg, #1a1a1c 0%, #2a2a2e 50%, #1c1c1e 100%);
+    background: var(--md-surface-container-low);
   }
 
   .vinyl-icon {
@@ -406,7 +410,7 @@
     width: 32%;
     aspect-ratio: 1;
     border-radius: 50%;
-    background: linear-gradient(145deg, #e86a8a 0%, #c94466 100%);
+    background: linear-gradient(145deg, var(--md-primary) 0%, #9e1d3f 100%);
     box-shadow:
       0 1px 3px rgba(0, 0, 0, 0.3),
       inset 0 1px 1px rgba(255, 255, 255, 0.2);
@@ -432,9 +436,9 @@
   }
 
   .track-title {
-    font-size: 18px;
+    font-size: var(--md-title-large);
     font-weight: 600;
-    color: white;
+    color: var(--md-on-surface);
     margin: 0 0 4px 0;
     white-space: nowrap;
     overflow: hidden;
@@ -443,8 +447,8 @@
   }
 
   .track-artist {
-    font-size: 14px;
-    color: rgba(255, 255, 255, 0.7);
+    font-size: var(--md-body-medium);
+    color: var(--md-on-surface-variant);
     margin: 0 0 2px 0;
     white-space: nowrap;
     overflow: hidden;
@@ -452,14 +456,16 @@
   }
 
   .track-album {
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.5);
+    font-size: var(--md-body-small);
+    color: var(--md-on-surface-variant);
     margin: 0;
+    opacity: 0.7;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
+  /* Format badges — MD3 tertiary chip style */
   .format-badges {
     display: flex;
     justify-content: center;
@@ -468,29 +474,37 @@
   }
 
   .badge {
-    font-size: 10px;
+    font-size: var(--md-label-small);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.3px;
-    padding: 4px 8px;
-    border-radius: 4px;
-    background: rgba(255, 255, 255, 0.08);
-    color: rgba(255, 255, 255, 0.6);
+    padding: 4px 10px;
+    border-radius: var(--md-shape-small);
+    background: var(--md-tertiary-container);
+    color: var(--md-on-tertiary-container);
   }
 
-  /* Progress section - LCD mini player style */
-  .progress-section {
+  /* Controls card — MD3 surface card */
+  .controls-card {
     flex-shrink: 0;
+    background: var(--md-surface-container);
+    border-radius: var(--md-shape-extra-large);
+    padding: 20px 24px;
+    margin-top: auto;
+  }
+
+  /* Progress section */
+  .progress-section {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 4px 0;
+    padding: 0 0 12px;
   }
 
   .time {
-    font-size: 12px;
+    font-size: var(--md-body-small);
     font-weight: 500;
-    color: rgba(255, 255, 255, 0.5);
+    color: var(--md-on-surface-variant);
     min-width: 40px;
     font-variant-numeric: tabular-nums;
   }
@@ -503,24 +517,23 @@
     text-align: left;
   }
 
-  /* Custom progress bar track - thicker with slight roundness */
+  /* Seek bar — MD3 primary track */
   .seek-track {
     flex: 1;
-    height: 16px;
-    background: rgba(255, 255, 255, 0.12);
-    border-radius: 3px;
+    height: 6px;
+    background: var(--md-surface-container-highest);
+    border-radius: var(--md-shape-full);
     position: relative;
     overflow: visible;
   }
 
-  /* Progress fill - warm coral/orange color */
   .seek-progress {
     position: absolute;
     top: 0;
     left: 0;
     height: 100%;
-    background: linear-gradient(90deg, #e07850 0%, #d86040 100%);
-    border-radius: 3px 0 0 3px;
+    background: var(--md-primary);
+    border-radius: var(--md-shape-full);
     pointer-events: none;
   }
 
@@ -539,31 +552,31 @@
 
   .seek-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
-    width: 20px;
-    height: 20px;
-    background: white;
+    width: 16px;
+    height: 16px;
+    background: var(--md-primary);
     cursor: pointer;
-    border-radius: 5px;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
-    margin-top: -2px;
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    margin-top: -5px;
   }
 
   .seek-slider::-moz-range-thumb {
-    width: 20px;
-    height: 20px;
-    background: white;
+    width: 16px;
+    height: 16px;
+    background: var(--md-primary);
     cursor: pointer;
     border: none;
-    border-radius: 5px;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
   }
 
   .seek-slider::-webkit-slider-runnable-track {
-    height: 16px;
+    height: 6px;
   }
 
   .seek-slider::-moz-range-track {
-    height: 16px;
+    height: 6px;
     background: transparent;
   }
 
@@ -574,7 +587,7 @@
     align-items: center;
     justify-content: center;
     gap: 6px;
-    padding: 8px 0;
+    padding: 4px 0 0;
   }
 
   .control-btn {
@@ -586,14 +599,14 @@
     background: transparent;
     border: none;
     border-radius: 50%;
-    color: white;
+    color: var(--md-on-surface);
     cursor: pointer;
     transition: all 0.15s ease;
     -webkit-tap-highlight-color: transparent;
   }
 
   .control-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.08);
   }
 
   .control-btn:active {
@@ -603,23 +616,25 @@
   .control-btn.secondary {
     width: 44px;
     height: 44px;
-    color: rgba(255, 255, 255, 0.5);
+    color: var(--md-on-surface-variant);
   }
 
   .control-btn.secondary.active {
-    color: var(--color-accent, #e86a8a);
+    color: var(--md-primary);
   }
 
+  /* Play button — MD3 primary filled */
   .control-btn.play-btn {
-    width: 64px;
-    height: 64px;
-    background: white;
-    color: #1a1a1c;
-    margin: 0 6px;
+    width: 72px;
+    height: 72px;
+    background: var(--md-primary);
+    color: var(--md-on-primary);
+    margin: 0 8px;
   }
 
   .control-btn.play-btn:hover {
-    background: rgba(255, 255, 255, 0.9);
+    opacity: 0.92;
+    background: var(--md-primary);
   }
 
   /* Landscape adjustments */
@@ -651,8 +666,7 @@
     }
 
     .track-info,
-    .progress-section,
-    .transport-controls {
+    .controls-card {
       flex: 1;
     }
 
@@ -665,17 +679,9 @@
       justify-content: flex-start;
     }
 
-    .track-title {
-      font-size: 20px;
-    }
-
-    .track-artist {
-      font-size: 14px;
-    }
-
-    .control-btn.play-btn {
-      width: 64px;
-      height: 64px;
+    .controls-card {
+      margin-top: 0;
+      padding: 16px 20px;
     }
   }
 </style>
