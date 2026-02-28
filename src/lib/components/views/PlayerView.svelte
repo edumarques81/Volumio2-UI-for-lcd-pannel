@@ -4,6 +4,7 @@
   import { selectedBackground } from '$lib/stores/settings';
   import { navigationActions } from '$lib/stores/navigation';
   import { classifySource, getSourceLabel, shouldShowSource } from '$lib/utils/sourceClassifier';
+  import { activeEngine } from '$lib/stores/audioEngine';
   import { fixVolumioAssetUrl } from '$lib/config';
   import Icon from '../Icon.svelte';
 
@@ -14,6 +15,8 @@
   $: sourceType = classifySource($playerState?.uri, $playerState?.service);
   $: showSource = shouldShowSource(sourceType);
   $: sourceLabel = getSourceLabel(sourceType);
+  $: isAudirvana = sourceType === 'AUDIRVANA' || $activeEngine === 'audirvana';
+  $: audirvanaNoTrack = isAudirvana && $playerState?.status === 'stop' && !$playerState?.title;
 
   // Image error handling
   let imageError = false;
@@ -137,7 +140,9 @@
 
   <!-- Floating controls in top-right corner (no layout space) -->
   <div class="floating-controls">
-    {#if showSource}
+    {#if isAudirvana}
+      <span class="source-label source-audirvana">AUDIRVANA</span>
+    {:else if showSource}
       <span class="source-label">{sourceLabel}</span>
     {/if}
     <button
@@ -176,9 +181,14 @@
     <div class="info-controls-section">
       <!-- Track info -->
       <div class="track-info">
-        <span class="track-title">{$currentTrack.title || 'Not Playing'}</span>
-        <span class="track-artist">{$currentTrack.artist || 'Unknown Artist'}</span>
-        <span class="track-album">{$currentTrack.album || ''}</span>
+        {#if audirvanaNoTrack}
+          <span class="track-title">Audirvana Active</span>
+          <span class="track-artist audirvana-hint">No track info available</span>
+        {:else}
+          <span class="track-title">{$currentTrack.title || 'Not Playing'}</span>
+          <span class="track-artist">{$currentTrack.artist || 'Unknown Artist'}</span>
+          <span class="track-album">{$currentTrack.album || ''}</span>
+        {/if}
 
         <!-- Format badges -->
         <div class="format-badges">
@@ -386,6 +396,17 @@
     background: rgba(255, 255, 255, 0.08);
     border-radius: 8px;
     color: rgba(255, 255, 255, 0.7);
+  }
+
+  .source-audirvana {
+    background: rgba(107, 78, 160, 0.3);
+    color: #c4a8ff;
+    border: 1px solid rgba(107, 78, 160, 0.4);
+  }
+
+  .audirvana-hint {
+    font-style: italic;
+    color: rgba(196, 168, 255, 0.6);
   }
 
   .minimize-btn {

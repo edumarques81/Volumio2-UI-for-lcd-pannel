@@ -3,6 +3,7 @@
   import { queue, queueActions } from '$lib/stores/queue';
   import { navigationActions } from '$lib/stores/navigation';
   import { classifySource, getSourceLabel, shouldShowSource } from '$lib/utils/sourceClassifier';
+  import { activeEngine } from '$lib/stores/audioEngine';
   import Icon from '../Icon.svelte';
   import MiniPlayerQueueStrip from './MiniPlayerQueueStrip.svelte';
 
@@ -10,6 +11,8 @@
   $: sourceType = classifySource($playerState?.uri, $playerState?.service);
   $: showSource = shouldShowSource(sourceType);
   $: sourceLabel = getSourceLabel(sourceType);
+  $: isAudirvana = sourceType === 'AUDIRVANA' || $activeEngine === 'audirvana';
+  $: audirvanaNoTrack = isAudirvana && $playerState?.status === 'stop' && !$playerState?.title;
 
   // Image error handling
   let imageError = false;
@@ -109,7 +112,9 @@
       <!-- Empty for balance -->
     </div>
     <div class="header-right">
-      {#if showSource}
+      {#if isAudirvana}
+        <span class="source-label source-audirvana" data-testid="miniplayer-source">AUDIRVANA</span>
+      {:else if showSource}
         <span class="source-label" data-testid="miniplayer-source">{sourceLabel}</span>
       {/if}
       <button
@@ -150,9 +155,14 @@
     <div class="info-controls-column">
       <!-- Track info -->
       <div class="track-info" data-testid="miniplayer-track-info">
-        <span class="track-title">{$currentTrack.title || 'Not Playing'}</span>
-        <span class="track-artist">{$currentTrack.artist || 'Unknown Artist'}</span>
-        <span class="track-album">{$currentTrack.album || ''}</span>
+        {#if audirvanaNoTrack}
+          <span class="track-title">Audirvana Active</span>
+          <span class="track-artist audirvana-hint">No track info available</span>
+        {:else}
+          <span class="track-title">{$currentTrack.title || 'Not Playing'}</span>
+          <span class="track-artist">{$currentTrack.artist || 'Unknown Artist'}</span>
+          <span class="track-album">{$currentTrack.album || ''}</span>
+        {/if}
 
         <!-- Format badges -->
         <div class="format-badges" data-testid="miniplayer-quality">
@@ -338,6 +348,17 @@
     background: rgba(255, 255, 255, 0.08);
     border-radius: 8px;
     color: rgba(255, 255, 255, 0.7);
+  }
+
+  .source-audirvana {
+    background: rgba(107, 78, 160, 0.3);
+    color: #c4a8ff;
+    border: 1px solid rgba(107, 78, 160, 0.4);
+  }
+
+  .audirvana-hint {
+    font-style: italic;
+    color: rgba(196, 168, 255, 0.6);
   }
 
   .expand-btn {
