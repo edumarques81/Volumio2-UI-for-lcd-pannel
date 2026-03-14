@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { browseStack, currentBrowseLocation, navigationActions } from '$lib/stores/navigation';
   import { browseItems, browseSources, browseLists, browseLoading, browseActions, browseViewMode, type BrowseItem } from '$lib/stores/browse';
+  import { isQobuzLoggedIn, initQobuzListeners } from '$lib/stores/qobuz';
   import { uiActions } from '$lib/stores/ui';
   import Icon from '../Icon.svelte';
   import BrowseList from '../BrowseList.svelte';
@@ -12,6 +13,9 @@
 
   // Check if we're at the root (empty URI means show sources)
   $: isAtRoot = !$currentBrowseLocation?.uri;
+
+  // Detect Qobuz view
+  $: isQobuzView = $currentBrowseLocation?.uri?.includes('qobuz') ?? false;
 
   // Get items to display - either sources (at root) or browse items (in folder)
   $: displayItems = isAtRoot ? $browseSources : $browseItems;
@@ -85,6 +89,8 @@
     if (!$currentBrowseLocation) {
       navigationActions.browseRoot();
     }
+    // Ensure Qobuz status listeners are active
+    initQobuzListeners();
   });
 </script>
 
@@ -124,15 +130,26 @@
     {#if $browseLoading && displayItems.length === 0}
       <SkeletonList count={8} variant="browse" />
     {:else if displayItems.length === 0}
-      <div class="empty">
-        <Icon name={$currentBrowseLocation?.uri === 'favourites' ? 'favorite' : 'folder-open'} size={64} />
-        {#if $currentBrowseLocation?.uri === 'favourites'}
-          <p>No favorites yet</p>
-          <p class="empty-hint">Heart a track to save it here</p>
-        {:else}
-          <p>No items found</p>
-        {/if}
-      </div>
+      {#if isQobuzView && !$isQobuzLoggedIn}
+        <div class="qobuz-unauth">
+          <div class="qobuz-icon">
+            <Icon name="music-note" size={64} />
+          </div>
+          <h2 class="qobuz-title">Not connected to Qobuz</h2>
+          <p class="qobuz-message">Open the Stellar app on your iPhone and sign in to Qobuz in Settings.</p>
+          <p class="qobuz-hint">Your library will appear here once connected. 🎵</p>
+        </div>
+      {:else}
+        <div class="empty">
+          <Icon name={$currentBrowseLocation?.uri === 'favourites' ? 'favorite' : 'folder-open'} size={64} />
+          {#if $currentBrowseLocation?.uri === 'favourites'}
+            <p>No favorites yet</p>
+            <p class="empty-hint">Heart a track to save it here</p>
+          {:else}
+            <p>No items found</p>
+          {/if}
+        </div>
+      {/if}
     {:else}
       {#if $browseViewMode === 'list'}
         <BrowseList
@@ -292,6 +309,51 @@
   .empty-hint {
     font-size: var(--font-size-sm);
     color: var(--color-text-tertiary);
+  }
+
+  /* Qobuz not-connected panel */
+  .qobuz-unauth {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    gap: 16px;
+    padding: 48px 40px;
+    text-align: center;
+  }
+
+  .qobuz-icon {
+    width: 100px;
+    height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(107, 78, 160, 0.15);
+    border: 1px solid rgba(107, 78, 160, 0.3);
+    border-radius: 28px;
+    color: rgba(196, 168, 255, 0.85);
+  }
+
+  .qobuz-title {
+    font-size: var(--font-size-2xl);
+    font-weight: 700;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .qobuz-message {
+    font-size: var(--font-size-lg);
+    color: var(--color-text-secondary);
+    max-width: 460px;
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  .qobuz-hint {
+    font-size: var(--font-size-base);
+    color: rgba(196, 168, 255, 0.6);
+    margin: 0;
   }
 
   /* Mobile responsive adjustments */

@@ -18,7 +18,8 @@ export type ViewType =
   | 'artistAlbums'
   | 'albumDetail'
   | 'radio'
-  | 'playlists';
+  | 'playlists'
+  | 'favorites';
 
 /**
  * Layout modes:
@@ -79,7 +80,10 @@ export const navigationActions = {
    */
   goToBrowse(uri?: string, title?: string) {
     if (uri && title) {
-      browseStack.update(stack => [...stack, { uri, title }]);
+      // Reset stack to just this item so "back" returns to home, not Browse root
+      browseStack.set([{ uri, title }]);
+    } else {
+      browseStack.set([{ uri: '', title: 'Browse' }]);
     }
     currentView.set('browse');
   },
@@ -159,6 +163,13 @@ export const navigationActions = {
    */
   goToPlaylists() {
     currentView.set('playlists');
+  },
+
+  /**
+   * Navigate to favorites view
+   */
+  goToFavorites() {
+    currentView.set('favorites');
   },
 
   /**

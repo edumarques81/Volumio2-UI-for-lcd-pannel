@@ -1,15 +1,11 @@
 <script lang="ts">
-  import StatusBar from '../StatusBar.svelte';
   import AppLauncher from '../AppLauncher.svelte';
   import DockedMiniPlayer from '../miniplayer/DockedMiniPlayer.svelte';
 </script>
 
 <div class="home-screen">
-  <!-- Content with CSS Grid layout -->
+  <!-- Content fills the full height — no top status bar -->
   <div class="content">
-    <!-- Status Bar spans full width -->
-    <StatusBar />
-
     <!-- Main area: Docked Mini Player (left) + App Launcher (right) -->
     <div class="main-area">
       <!-- Docked Mini Player (40% width) -->
@@ -48,6 +44,7 @@
     flex: 1;
     display: grid;
     grid-template-columns: 40% 1fr;
+    grid-template-rows: 100%;   /* gives grid items a definite height to resolve % against */
     min-height: 0;
     overflow: hidden;
   }

@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { navigationActions } from '$lib/stores/navigation';
   import {
     radioStations,
     radioLoading,
@@ -11,10 +10,7 @@
   } from '$lib/stores/library';
   import Icon from '../Icon.svelte';
   import SkeletonList from '../SkeletonList.svelte';
-
-  function handleBack() {
-    navigationActions.goHome();
-  }
+  import ViewHeader from '../ViewHeader.svelte';
 
   function handleStationClick(station: RadioStation) {
     libraryActions.playRadioStation(station);
@@ -27,15 +23,7 @@
 </script>
 
 <div class="radio-view" data-view="radio">
-  <!-- Header -->
-  <header class="view-header">
-    <div class="header-left">
-      <button class="back-btn" data-testid="back-button" on:click={handleBack} aria-label="Go back">
-        <Icon name="chevron-left" size={28} />
-      </button>
-      <h1 class="title">Web Radio</h1>
-    </div>
-  </header>
+  <ViewHeader title="Web Radio" />
 
   <!-- Content -->
   <div class="view-content">
@@ -99,66 +87,12 @@
     background: transparent;
   }
 
-  .view-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    height: var(--header-height-slim);
-    padding: var(--spacing-sm) var(--spacing-xl);
-    background: rgba(45, 45, 50, 0.7);
-    backdrop-filter: blur(1.5px) saturate(135%);
-    -webkit-backdrop-filter: blur(1.5px) saturate(135%);
-    flex-shrink: 0;
-    box-shadow:
-      0 1px 4px rgba(0, 0, 0, 0.15),
-      inset 0 1px 0 rgba(255, 255, 255, 0.06);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  }
-
-  .header-left {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-md);
-  }
-
-  .back-btn {
-    width: 44px;
-    height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: none;
-    border-radius: var(--radius-full);
-    background: rgba(255, 255, 255, 0.1);
-    color: #ffffff;
-    cursor: pointer;
-    transition: all 0.2s;
-    flex-shrink: 0;
-  }
-
-  .back-btn :global(svg) {
-    stroke-width: 3;
-  }
-
-  .back-btn:hover {
-    background: rgba(255, 255, 255, 0.2);
-  }
-
-  .back-btn:active {
-    transform: scale(0.95);
-  }
-
-  .title {
-    font-size: var(--font-size-2xl);
-    font-weight: 600;
-    color: var(--color-text-primary);
-    margin: 0;
-  }
-
   .view-content {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
-    padding: var(--spacing-lg);
+    overflow-x: hidden;
+    padding: var(--spacing-md) var(--spacing-xl);
   }
 
   .empty {
@@ -201,11 +135,11 @@
     opacity: 0.9;
   }
 
-  /* Stations Grid */
+  /* Stations Grid — fills the LCD width, fixed short card height */
   .stations-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: var(--spacing-lg);
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: var(--spacing-md);
   }
 
   .station-card {
@@ -213,22 +147,20 @@
     flex-direction: column;
     gap: var(--spacing-sm);
     padding: var(--spacing-md);
-    background: rgba(45, 45, 50, 0.6);
-    backdrop-filter: blur(1px);
+    background: var(--md-surface-container, rgba(45, 30, 35, 0.8));
     border-radius: var(--radius-lg);
-    border: none;
+    border: 1px solid rgba(255, 255, 255, 0.06);
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background 0.18s, transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1);
     text-align: left;
   }
 
   .station-card:hover {
-    background: rgba(55, 55, 60, 0.7);
-    transform: translateY(-2px);
+    background: var(--md-surface-container-high, rgba(55, 38, 43, 0.9));
   }
 
   .station-card:active {
-    transform: scale(0.98);
+    transform: scale(0.96);
   }
 
   .station-icon {
@@ -309,24 +241,4 @@
     text-overflow: ellipsis;
   }
 
-  /* LCD panel optimization */
-  @media (max-height: 500px) {
-    .stations-grid {
-      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-      gap: var(--spacing-md);
-    }
-
-    .station-name {
-      font-size: var(--font-size-sm);
-    }
-
-    .station-genre {
-      font-size: var(--font-size-xs);
-    }
-
-    .play-indicator {
-      width: 44px;
-      height: 44px;
-    }
-  }
 </style>

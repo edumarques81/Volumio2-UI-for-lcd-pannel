@@ -1,6 +1,8 @@
 <script lang="ts">
-  import { currentTrack, isPlaying, seek, duration, playerActions } from '$lib/stores/player';
+  import { currentTrack, isPlaying, seek, duration, playerActions, playerState } from '$lib/stores/player';
   import { navigationActions } from '$lib/stores/navigation';
+  import { activeEngine } from '$lib/stores/audioEngine';
+  import { classifySource } from '$lib/utils/sourceClassifier';
   import Icon from './Icon.svelte';
 
   let imageError = false;
@@ -29,6 +31,10 @@
   }
 
   $: showPlaceholder = !$currentTrack.albumart || imageError;
+
+  // Audirvana mode detection
+  $: sourceType = classifySource($playerState?.uri, $playerState?.service);
+  $: isAudirvana = sourceType === 'AUDIRVANA' || $activeEngine === 'audirvana';
 </script>
 
 <div class="mobile-mini-player">
@@ -40,14 +46,16 @@
   <div class="mini-content">
     <!-- Track section (clickable to open player) -->
     <button class="track-section" on:click={openPlayer}>
-      <div class="mini-art">
-        {#if !showPlaceholder}
+      <div class="mini-art" class:audirvana-mode={isAudirvana}>
+        {#if isAudirvana}
+          <div class="art-placeholder audirvana-bg">
+            <img src="/audirvana-logo.svg" alt="Audirvana" class="audirvana-logo-img" />
+          </div>
+        {:else if !showPlaceholder}
           <img src={$currentTrack.albumart} alt={$currentTrack.title} on:error={handleImageError} />
         {:else}
-          <div class="art-placeholder">
-            <svg viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
-            </svg>
+          <div class="art-placeholder stellar-mini-bg">
+            <img src="/stellar-logo.svg" alt="Stellar" class="stellar-mini-img" />
           </div>
         {/if}
       </div>
@@ -169,6 +177,35 @@
   .art-placeholder svg {
     width: 20px;
     height: 20px;
+  }
+
+  .stellar-mini-bg {
+    background: linear-gradient(145deg,
+      color-mix(in srgb, var(--md-primary) 10%, var(--md-surface-container)) 0%,
+      var(--md-surface-container) 100%
+    );
+  }
+
+  .stellar-mini-img {
+    width: 80%;
+    height: 80%;
+    object-fit: contain;
+    opacity: 0.78;
+  }
+
+  .audirvana-bg {
+    background: linear-gradient(145deg, rgba(107, 78, 160, 0.35) 0%, rgba(61, 40, 112, 0.5) 100%);
+  }
+
+  .audirvana-logo-img {
+    width: 65%;
+    height: 65%;
+    object-fit: contain;
+    filter: drop-shadow(0 2px 6px rgba(107, 78, 160, 0.7));
+  }
+
+  .mini-art.audirvana-mode {
+    box-shadow: 0 0 12px rgba(107, 78, 160, 0.4);
   }
 
   .track-info {

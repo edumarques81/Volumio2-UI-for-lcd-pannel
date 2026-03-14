@@ -14,6 +14,7 @@
   import ArtistsView from '../views/ArtistsView.svelte';
   import RadioView from '../views/RadioView.svelte';
   import PlaylistsView from '../views/PlaylistsView.svelte';
+  import FavoritesView from '../views/FavoritesView.svelte';
   import MiniPlayer from '../MiniPlayer.svelte';
   import StandbyOverlay from '../StandbyOverlay.svelte';
 
@@ -60,6 +61,8 @@
         <RadioView />
       {:else if $currentView === 'playlists'}
         <PlaylistsView />
+      {:else if $currentView === 'favorites'}
+        <FavoritesView />
       {:else}
         <!-- Fallback for unknown views -->
         <BrowseView />
@@ -103,10 +106,10 @@
     right: 0;
     bottom: 0;
     background: linear-gradient(180deg,
-      rgba(0, 0, 0, 0.15) 0%,
-      rgba(0, 0, 0, 0.05) 40%,
-      rgba(0, 0, 0, 0.05) 60%,
-      rgba(0, 0, 0, 0.25) 100%
+      rgba(0, 0, 0, 0.55) 0%,
+      rgba(0, 0, 0, 0.45) 40%,
+      rgba(0, 0, 0, 0.45) 60%,
+      rgba(0, 0, 0, 0.65) 100%
     );
     z-index: 1;
   }
@@ -117,7 +120,11 @@
     overflow: hidden;
     position: relative;
     z-index: 2;
-    transform: translateZ(0); /* GPU layer — prevent layout repaint propagation */
+    transform: translateZ(0);
+    /* Frosted panel — surface colour at 82% over the wallpaper */
+    background: var(--md-overlay-bg, rgba(20, 11, 14, 0.82));
+    backdrop-filter: blur(6px) saturate(130%);
+    -webkit-backdrop-filter: blur(6px) saturate(130%);
   }
 
   .mini-player-section {

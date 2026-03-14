@@ -152,6 +152,45 @@ export function formatTime(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
+/**
+ * Format a raw Volumio samplerate string for display.
+ *
+ * Volumio sends samplerate in various formats depending on the file type:
+ *   - PCM:         "44100", "96000", "192000"  (numeric Hz)
+ *   - DSD native:  "DSD64", "DSD128", "2822400" (numeric Hz) or "2.8224MHz"
+ *   - Already fmt: "44.1kHz", "352.8kHz"
+ *
+ * Using parseInt() directly causes NaN when the string starts with a letter
+ * (e.g. "DSD64") and wrong values when divided by 1000 on DSD Hz values.
+ */
+export function formatSampleRate(raw: string | null | undefined): string {
+  if (!raw) return '';
+  const trimmed = raw.trim();
+  if (!trimmed) return '';
+
+  // Already contains letters → already a formatted string (DSD64, 44.1kHz, 2.8MHz…)
+  if (/[a-zA-Z]/.test(trimmed)) {
+    return trimmed;
+  }
+
+  // Pure numeric — treat as Hz
+  const hz = parseFloat(trimmed);
+  if (isNaN(hz) || hz <= 0) return '';
+
+  // DSD rates are ≥ 1 MHz (2,822,400 Hz = DSD64, 5,644,800 = DSD128, etc.)
+  if (hz >= 1_000_000) {
+    const mult = Math.round(hz / 44100);
+    if (mult >= 512) return 'DSD512';
+    if (mult >= 256) return 'DSD256';
+    if (mult >= 128) return 'DSD128';
+    return 'DSD64';
+  }
+
+  // PCM → kHz
+  const kHz = hz / 1000;
+  return kHz % 1 === 0 ? `${kHz}kHz` : `${kHz.toFixed(1)}kHz`;
+}
+
 // Start client-side seek interpolation (updates every second while playing)
 function startSeekInterpolation() {
   if (seekIntervalId) return; // Already running
@@ -210,7 +249,7 @@ export function initPlayerStore() {
     }
 
     // Sync audio engine state from service field
-    syncEngineFromPushState(state.service);
+    syncEngineFromPushState(state.service, state.status);
 
     // Change-gated updates: only set stores whose values actually changed
     if (state.volume !== undefined && state.volume !== get(volume)) volume.set(state.volume);

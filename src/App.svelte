@@ -19,6 +19,34 @@
   import { socketService as socket } from '$lib/services/socket';
   import { performanceActions, performanceMetrics, fpsEnabled } from '$lib/stores/performance';
   import { get } from 'svelte/store';
+  import { currentTheme, applyThemeCssVars, applyDynamicPalette } from '$lib/stores/theme';
+  import { currentTrack } from '$lib/stores/player';
+  import { extractSeedColor } from '$lib/utils/colorExtractor';
+  import { generateDarkPalette } from '$lib/utils/md3Palette';
+
+  // Apply colour theme whenever it changes (reactive, also fires on mount)
+  $: applyThemeCssVars($currentTheme);
+
+  // ── Dynamic colour: extract palette from album art on every track change ──
+  let _lastDynamicArt = '';
+
+  $: if ($currentTheme === 'dynamic') {
+    const art = $currentTrack.albumart;
+    if (art && art !== _lastDynamicArt) {
+      _lastDynamicArt = art;
+      extractSeedColor(art).then(seed => {
+        if ($currentTheme === 'dynamic') {
+          applyDynamicPalette(generateDarkPalette(seed));
+        }
+      });
+    } else if (!art && _lastDynamicArt !== '__rose__') {
+      // No art playing — fall back to rose colours so the UI isn't blank
+      _lastDynamicArt = '__rose__';
+      if ($currentTheme === 'dynamic') {
+        applyDynamicPalette(generateDarkPalette('#B5264C'));
+      }
+    }
+  }
 
   // Layouts
   import LCDLayout from '$lib/components/layouts/LCDLayout.svelte';

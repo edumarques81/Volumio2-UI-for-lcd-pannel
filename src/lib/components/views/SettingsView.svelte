@@ -64,6 +64,7 @@
     cleanupQobuzListeners
   } from '$lib/stores/qobuz';
   import Icon from '../Icon.svelte';
+  import { currentTheme, THEMES, type StellarTheme } from '$lib/stores/theme';
 
   let bitPerfectLoading = false;
 
@@ -321,6 +322,46 @@
         {/each}
       </div>
     {:else if $currentSettingsCategory === 'appearance'}
+      <!-- Colour Theme -->
+      <div class="settings-section">
+        <h2 class="section-title">Colour Theme</h2>
+        <p class="section-hint">Choose the accent colour for the whole interface</p>
+        <div class="theme-options">
+          <!-- Dynamic option — always first -->
+          <button
+            class="theme-option theme-option-dynamic"
+            class:selected={$currentTheme === 'dynamic'}
+            on:click={() => currentTheme.setTheme('dynamic')}
+          >
+            <span class="theme-dot theme-dot-dynamic"></span>
+            <span class="theme-emoji">🎨</span>
+            <span class="theme-name">Dynamic</span>
+            <span class="theme-hint">From album art</span>
+            {#if $currentTheme === 'dynamic'}
+              <span class="theme-check">✓</span>
+            {/if}
+          </button>
+          <!-- Preset themes -->
+          {#each THEMES as theme}
+            <button
+              class="theme-option"
+              class:selected={$currentTheme === theme.id}
+              on:click={() => currentTheme.setTheme(theme.id)}
+            >
+              <span
+                class="theme-dot"
+                style="background: {theme.primary};"
+              ></span>
+              <span class="theme-emoji">{theme.emoji}</span>
+              <span class="theme-name">{theme.name}</span>
+              {#if $currentTheme === theme.id}
+                <span class="theme-check">✓</span>
+              {/if}
+            </button>
+          {/each}
+        </div>
+      </div>
+
       <!-- Appearance Settings -->
       <div class="settings-section">
         <h2 class="section-title">Background</h2>
@@ -1371,6 +1412,96 @@
     width: 100%;
     height: 100%;
     background: transparent;
+  }
+
+  /* ---- Colour Theme picker ---- */
+  .theme-options {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+  }
+
+  .theme-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 20px;
+    background: var(--md-surface-container);
+    border: 2px solid var(--md-outline-variant);
+    border-radius: var(--md-shape-extra-large);
+    color: var(--md-on-surface);
+    cursor: pointer;
+    font-size: var(--md-body-medium);
+    transition: background 0.15s, border-color 0.15s, transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .theme-option:hover {
+    background: var(--md-surface-container-high);
+  }
+
+  .theme-option:active {
+    transform: scale(0.95);
+  }
+
+  .theme-option.selected {
+    border-color: var(--md-primary);
+    background: color-mix(in srgb, var(--md-primary) 12%, var(--md-surface-container));
+  }
+
+  .theme-dot {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  }
+
+  .theme-emoji {
+    font-size: 18px;
+  }
+
+  .theme-name {
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .theme-check {
+    color: var(--md-primary);
+    font-weight: 700;
+    font-size: var(--md-label-large);
+  }
+
+  /* Dynamic (album art) theme tile */
+  .theme-option-dynamic {
+    background: linear-gradient(135deg,
+      rgba(181, 38, 76, 0.15) 0%,
+      rgba(77, 187, 122, 0.12) 33%,
+      rgba(192, 132, 252, 0.15) 66%,
+      rgba(120, 190, 142, 0.12) 100%
+    );
+    border-color: rgba(255,255,255,0.12);
+  }
+  .theme-option-dynamic.selected {
+    border-color: rgba(255,255,255,0.25);
+    background: linear-gradient(135deg,
+      rgba(181, 38, 76, 0.25) 0%,
+      rgba(77, 187, 122, 0.20) 33%,
+      rgba(192, 132, 252, 0.25) 66%,
+      rgba(120, 190, 142, 0.20) 100%
+    );
+  }
+  .theme-dot-dynamic {
+    background: conic-gradient(
+      #B5264C 0deg, #4DBB7A 90deg, #C084FC 180deg, #78BE8E 270deg, #B5264C 360deg
+    );
+  }
+  .theme-hint {
+    font-size: var(--md-label-small);
+    color: var(--md-on-surface-variant);
+    opacity: 0.75;
+    white-space: nowrap;
   }
 
   .settings-header {

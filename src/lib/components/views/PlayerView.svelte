@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { playerState, currentTrack, isPlaying, seek, duration, shuffle, repeat, playerActions } from '$lib/stores/player';
+  import { playerState, currentTrack, isPlaying, seek, duration, shuffle, repeat, playerActions, formatSampleRate } from '$lib/stores/player';
   import { queue, queueActions } from '$lib/stores/queue';
   import { selectedBackground } from '$lib/stores/settings';
   import { navigationActions } from '$lib/stores/navigation';
@@ -122,9 +122,7 @@
 
   // Format info for badge
   $: formatBadge = $playerState?.trackType?.toUpperCase() || '';
-  $: sampleRateBadge = $playerState?.samplerate
-    ? `${(parseInt($playerState.samplerate) / 1000).toFixed(1)}kHz`
-    : '';
+  $: sampleRateBadge = formatSampleRate($playerState?.samplerate);
   $: bitDepthBadge = $playerState?.bitdepth ? `${$playerState.bitdepth}bit` : '';
 </script>
 
@@ -135,13 +133,8 @@
     <div class="background-overlay"></div>
   </div>
 
-  <!-- Floating controls in top-right corner (no layout space) -->
+  <!-- Floating minimize button (top-right, source label removed for cleaner layout) -->
   <div class="floating-controls">
-    {#if isAudirvana}
-      <span class="source-label source-audirvana">AUDIRVANA</span>
-    {:else if showSource}
-      <span class="source-label">{sourceLabel}</span>
-    {/if}
     <button
       class="minimize-btn"
       on:click={goToHome}
@@ -155,8 +148,12 @@
   <div class="player-zones">
     <!-- Zone 1: Art -->
     <div class="zone-art">
-      <div class="artwork-section">
-        {#if !showPlaceholder}
+      <div class="artwork-section" class:audirvana-mode={isAudirvana}>
+        {#if isAudirvana}
+          <div class="art-placeholder audirvana-bg">
+            <img src="/audirvana-logo.svg" alt="Audirvana" class="audirvana-logo-img" />
+          </div>
+        {:else if !showPlaceholder}
           <img
             src={$currentTrack.albumart}
             alt={$currentTrack.title}
@@ -359,26 +356,6 @@
     z-index: 10;
   }
 
-  .source-label {
-    height: 44px;
-    display: flex;
-    align-items: center;
-    font-size: var(--md-label-large);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    padding: 0 16px;
-    background: var(--md-surface-container-highest);
-    border-radius: var(--md-shape-medium);
-    color: var(--md-on-surface-variant);
-  }
-
-  .source-audirvana {
-    background: rgba(107, 78, 160, 0.25);
-    color: #c4a8ff;
-    border: 1px solid rgba(107, 78, 160, 0.3);
-  }
-
   .audirvana-hint {
     font-style: italic;
     color: rgba(196, 168, 255, 0.6);
@@ -395,7 +372,7 @@
     border-radius: var(--md-shape-medium);
     color: var(--md-on-surface-variant);
     cursor: pointer;
-    transition: background 0.15s, color 0.15s;
+    transition: background 0.15s, color 0.15s, transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
   .minimize-btn:hover {
@@ -404,7 +381,7 @@
   }
 
   .minimize-btn:active {
-    transform: scale(0.95);
+    transform: scale(0.90);
   }
 
   /* 3-zone layout */
@@ -453,6 +430,22 @@
     align-items: center;
     justify-content: center;
     background: var(--md-surface-container-low);
+  }
+
+  .audirvana-bg {
+    background: linear-gradient(145deg, rgba(107, 78, 160, 0.25) 0%, rgba(61, 40, 112, 0.35) 100%);
+    border: 1px solid rgba(107, 78, 160, 0.3);
+  }
+
+  .audirvana-logo-img {
+    width: 60%;
+    height: 60%;
+    object-fit: contain;
+    filter: drop-shadow(0 6px 24px rgba(107, 78, 160, 0.7));
+  }
+
+  .artwork-section.audirvana-mode {
+    box-shadow: 0 12px 48px rgba(107, 78, 160, 0.4);
   }
 
   .vinyl-icon {
@@ -593,16 +586,16 @@
     border-radius: var(--md-shape-full);
     color: var(--md-on-surface-variant);
     cursor: pointer;
-    transition: background 0.15s, color 0.15s;
+    transition: background 0.15s, color 0.15s, transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
   .control-btn:hover {
-    background: rgba(239, 224, 225, 0.1);
+    background: color-mix(in srgb, var(--md-on-surface) 10%, transparent);
     color: var(--md-on-surface);
   }
 
   .control-btn:active {
-    transform: scale(0.9);
+    transform: scale(0.88);
   }
 
   .control-btn.play-btn {
@@ -611,7 +604,13 @@
     background: var(--md-primary);
     color: var(--md-on-primary);
     margin: 0 12px;
-    box-shadow: 0 4px 20px rgba(181, 38, 76, 0.4);
+    box-shadow: 0 4px 20px color-mix(in srgb, var(--md-primary) 40%, transparent);
+    transition: background 0.15s, filter 0.15s, transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.15s;
+  }
+
+  .control-btn.play-btn:active {
+    transform: scale(0.92);
+    filter: brightness(0.9);
   }
 
   .control-btn.play-btn:hover {
@@ -692,7 +691,7 @@
     cursor: pointer;
     border-radius: var(--md-shape-full);
     border: 2px solid white;
-    box-shadow: 0 2px 8px rgba(181, 38, 76, 0.5);
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--md-primary) 40%, transparent);
   }
 
   .seek-slider::-moz-range-thumb {
@@ -702,7 +701,7 @@
     cursor: pointer;
     border: 2px solid white;
     border-radius: var(--md-shape-full);
-    box-shadow: 0 2px 8px rgba(181, 38, 76, 0.5);
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--md-primary) 40%, transparent);
   }
 
   .seek-slider::-webkit-slider-runnable-track {
@@ -759,7 +758,7 @@
     border-radius: var(--md-shape-medium);
     border: none;
     cursor: pointer;
-    transition: background 0.15s;
+    transition: background 0.15s, transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1);
     text-align: left;
     width: 100%;
     color: var(--md-on-surface);
@@ -768,6 +767,11 @@
 
   .queue-tile:hover {
     background: var(--md-surface-container-high);
+  }
+
+  .queue-tile:active {
+    transform: scale(0.97);
+    background: var(--md-surface-container-highest);
   }
 
   .tile-art {

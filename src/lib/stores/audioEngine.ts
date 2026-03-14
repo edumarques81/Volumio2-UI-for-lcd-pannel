@@ -305,45 +305,96 @@ function startAudirvana(): Promise<void> {
 // ============================================================================
 
 let initialized = false;
+let audirvanaServiceUnsubscribe: (() => void) | null = null;
 
 /**
- * Sync active engine from pushState service field.
- * Called by the player store when pushState arrives with service info.
+ * Sync active engine from pushState service + status fields.
+ * Called by the player store when pushState arrives.
+ *
+ * Reset rules:
+ *   audirvana → mpd  : ONLY when a non-audirvana service is actively playing (play/pause).
+ *                      A stopped/idle MPD state while Audirvana is the active engine is
+ *                      normal — Audirvana manages its own playback outside Volumio, so
+ *                      Volumio's own state will often report service:'mpd', status:'stop'.
+ *                      We must NOT reset on that or the mini player breaks every time
+ *                      Volumio pushes its idle state.
+ *   mpd → audirvana  : whenever pushState.service === 'audirvana' (Audirvana pushed state).
  */
-export function syncEngineFromPushState(service: string | undefined): void {
+export function syncEngineFromPushState(service: string | undefined, status?: string): void {
   if (!service) return;
   const lower = service.toLowerCase();
   const current = get(audioEngineState);
   if (lower === 'audirvana' && current.active !== 'audirvana' && !current.switching) {
+    console.log('[AudioEngine] pushState detected audirvana service → setting active engine');
     audioEngineState.update((s) => ({ ...s, active: 'audirvana' }));
   } else if (lower !== 'audirvana' && current.active === 'audirvana' && !current.switching) {
-    // Service changed away from audirvana (e.g. mpd), sync back
-    audioEngineState.update((s) => ({ ...s, active: 'mpd' }));
+    // Only reset if MPD is genuinely playing or paused — not just reporting idle/stop
+    if (status === 'play' || status === 'pause') {
+      console.log('[AudioEngine] pushState: MPD is playing while engine=audirvana → resetting to mpd');
+      audioEngineState.update((s) => ({ ...s, active: 'mpd' }));
+    }
+    // status === 'stop' while engine=audirvana is expected — Audirvana is active,
+    // Volumio's MPD is just idle. Do nothing.
   }
 }
 
+// ============================================================================
+// localStorage Persistence
+// ============================================================================
+
+const STORAGE_KEY = 'stellar-active-engine';
+
+function saveEngineToStorage(engine: AudioEngineType): void {
+  try { localStorage.setItem(STORAGE_KEY, engine); } catch {}
+}
+
+function loadEngineFromStorage(): AudioEngineType | null {
+  try {
+    const v = localStorage.getItem(STORAGE_KEY);
+    return v === 'audirvana' ? 'audirvana' : v === 'mpd' ? 'mpd' : null;
+  } catch { return null; }
+}
+
 /**
- * Initialize the audio engine store
+ * Initialize the audio engine store.
  * Determines initial state based on what's currently running,
- * and listens for pushAudioEngineState from the backend.
+ * subscribes reactively to audirvanaService changes, and
+ * listens for pushAudioEngineState from the backend.
  */
 export function initAudioEngineStore(): void {
   if (initialized) {
     return;
   }
 
-  // Listen for Audirvana status to determine if it should be the active engine
-  const $audirvanaService = get(audirvanaService);
-
-  if ($audirvanaService.running) {
-    // Audirvana is running, it's likely the active engine
-    audioEngineState.update((s) => ({
-      ...s,
-      active: 'audirvana'
-    }));
+  // Restore last known engine from localStorage so Audirvana mode
+  // survives kiosk restarts without waiting for socket detection.
+  const saved = loadEngineFromStorage();
+  if (saved) {
+    console.log(`[AudioEngine] Restoring engine from localStorage: ${saved}`);
+    audioEngineState.update((s) => ({ ...s, active: saved }));
   }
 
-  // Listen for explicit audio engine state from backend (if supported)
+  // --- Reactive subscription to audirvanaService store ---
+  // Only used to DETECT that Audirvana has started (running: true → set active engine).
+  // We intentionally do NOT reset to 'mpd' here when running becomes false.
+  // Reason: the systemd service health check is unreliable — it can return running:false
+  // even when Audirvana is active (e.g. when AudirvanaView fires getAudirvanaStatus
+  // on mount and the backend responds with stale/partial data). A false reset here
+  // kills the mini player's Audirvana state even though the user hasn't switched back.
+  //
+  // Engine resets mpd ← audirvana happen only via:
+  //   1. syncEngineFromPushState() — pushState.service changes to a non-audirvana value
+  //   2. audioEngineActions.switchTo('mpd') — explicit user action
+  audirvanaServiceUnsubscribe = audirvanaService.subscribe(($svc) => {
+    const current = get(audioEngineState);
+    if ($svc.running && current.active !== 'audirvana' && !current.switching) {
+      console.log('[AudioEngine] audirvanaService.running → switching active engine to audirvana');
+      audioEngineState.update((s) => ({ ...s, active: 'audirvana' }));
+    }
+    // No else branch: do not reset to mpd based on service status alone.
+  });
+
+  // Listen for explicit audio engine state pushed from the backend (if supported)
   socketService.on<{ active: string }>('pushAudioEngineState', (data) => {
     if (data?.active) {
       const engine: AudioEngineType = data.active === 'audirvana' ? 'audirvana' : 'mpd';
@@ -354,8 +405,16 @@ export function initAudioEngineStore(): void {
     }
   });
 
-  // Request initial engine state from backend
+  // Persist engine to localStorage whenever it changes
+  audioEngineState.subscribe(($state) => {
+    if (!$state.switching) {
+      saveEngineToStorage($state.active);
+    }
+  });
+
+  // Request initial engine state from backend (also triggers audirvanaService refresh)
   socketService.emit('getAudioEngineState');
+  socketService.emit('getAudirvanaStatus');
 
   initialized = true;
 }
@@ -364,6 +423,10 @@ export function initAudioEngineStore(): void {
  * Cleanup the audio engine store
  */
 export function cleanupAudioEngineStore(): void {
+  if (audirvanaServiceUnsubscribe) {
+    audirvanaServiceUnsubscribe();
+    audirvanaServiceUnsubscribe = null;
+  }
   audioEngineState.set(initialState);
   initialized = false;
 }

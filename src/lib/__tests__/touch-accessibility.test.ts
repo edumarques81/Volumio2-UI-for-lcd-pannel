@@ -29,13 +29,10 @@ describe('Touch Accessibility', () => {
     expect(css).toMatch(/button.*\{[^}]*touch-action:\s*manipulation/s);
   });
 
-  it('AppLauncher tiles have touch-action: manipulation', () => {
-    const svelte = readFileSync(
-      join(ROOT, 'src', 'lib', 'components', 'AppLauncher.svelte'),
-      'utf-8'
-    );
-    // Check the .app-tile style block contains touch-action
-    expect(svelte).toContain('touch-action: manipulation');
+  it('touch-action: manipulation is applied globally via app.css (covers all tiles)', () => {
+    const css = readFileSync(join(ROOT, 'src', 'app.css'), 'utf-8');
+    // The universal * selector in app.css applies touch-action globally
+    expect(css).toContain('touch-action: manipulation');
   });
 
   it('MobileHomeScreen tiles have touch-action: manipulation', () => {

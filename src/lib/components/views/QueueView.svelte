@@ -2,10 +2,10 @@
   import { onMount } from 'svelte';
   import { queue, queueLength, queueDuration, queueLoading, queueActions, formatQueueDuration, type QueueItem } from '$lib/stores/queue';
   import { currentTrack } from '$lib/stores/player';
-  import { navigationActions } from '$lib/stores/navigation';
   import { uiActions } from '$lib/stores/ui';
   import Icon from '../Icon.svelte';
   import SkeletonList from '../SkeletonList.svelte';
+  import ViewHeader from '../ViewHeader.svelte';
 
   // Drag state
   let draggedIndex: number | null = null;

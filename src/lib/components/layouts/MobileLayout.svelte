@@ -15,6 +15,7 @@
   import ArtistsView from '../views/ArtistsView.svelte';
   import RadioView from '../views/RadioView.svelte';
   import PlaylistsView from '../views/PlaylistsView.svelte';
+  import FavoritesView from '../views/FavoritesView.svelte';
   import MobileMiniPlayer from '../MobileMiniPlayer.svelte';
 
   type TabId = 'home' | 'player' | 'queue' | 'settings';
@@ -97,6 +98,8 @@
       <RadioView />
     {:else if $currentView === 'playlists'}
       <PlaylistsView />
+    {:else if $currentView === 'favorites'}
+      <FavoritesView />
     {:else}
       <!-- Fallback to home for unknown views -->
       <MobileHomeScreen />

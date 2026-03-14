@@ -101,7 +101,7 @@
       <button class="back-btn" data-testid="back-button" on:click={handleBack} aria-label="Go back">
         <Icon name="chevron-left" size={28} />
       </button>
-      <h1 class="title">Music Library</h1>
+      <h1 class="title">My Music</h1>
     </div>
 
     <div class="header-right">

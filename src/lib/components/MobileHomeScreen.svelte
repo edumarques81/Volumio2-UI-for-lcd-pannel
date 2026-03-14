@@ -38,30 +38,22 @@
   // Same app tiles as AppLauncher but optimized for mobile grid
   const staticApps: AppTile[] = [
     {
-      id: 'local-music',
-      title: 'Local',
-      subtitle: 'USB + Internal',
+      id: 'my-music',
+      title: 'My Music',
+      subtitle: 'All sources',
       icon: 'folder',
       gradient: 'linear-gradient(180deg, #f5a623 0%, #c47f0a 100%)',
       iconGradient: { from: '#fffaf0', to: '#ffe4b3' },
-      action: () => navigationActions.goToLocalMusic()
+      action: () => navigationActions.goToAllAlbums()
     },
     {
-      id: 'nas',
-      title: 'NAS',
-      subtitle: 'Network storage',
-      icon: 'storage',
-      gradient: 'linear-gradient(180deg, #5ba3e0 0%, #2d7cc4 100%)',
-      iconGradient: { from: '#f0f8ff', to: '#c9e4f9' },
-      action: () => navigationActions.goToNASAlbums()
-    },
-    {
-      id: 'library',
-      title: 'Albums',
+      id: 'local-music',
+      title: 'Local',
+      subtitle: 'Local files only',
       icon: 'music-note',
       gradient: 'linear-gradient(180deg, #e8576d 0%, #c43550 100%)',
       iconGradient: { from: '#fff5f6', to: '#ffd4db' },
-      action: () => navigationActions.goToAllAlbums()
+      action: () => navigationActions.goToLocalMusic()
     },
     {
       id: 'playlists',
@@ -77,10 +69,7 @@
       icon: 'favorite',
       gradient: 'linear-gradient(180deg, #e74c3c 0%, #c0392b 100%)',
       iconGradient: { from: '#fff5f5', to: '#ffd4d4' },
-      action: () => {
-        browseActions.browse('favourites');
-        navigationActions.goToBrowse('favourites', 'Favorites');
-      }
+      action: () => navigationActions.goToFavorites()
     },
     {
       id: 'webradio',

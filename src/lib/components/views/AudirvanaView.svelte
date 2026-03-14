@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import BackHeader from '../BackHeader.svelte';
   import Icon from '../Icon.svelte';
   import {
@@ -16,10 +17,12 @@
     audioEngineActions
   } from '$lib/stores/audioEngine';
 
-  // Refresh status when view loads
-  $: {
+  // Refresh status once when view mounts — NOT a reactive $: block,
+  // because that re-runs on every render cycle and can trigger a
+  // pushAudirvanaStatus response that falsely resets the active engine.
+  onMount(() => {
     audirvanaActions.refresh();
-  }
+  });
 
   function handleSwitchToAudirvana() {
     audioEngineActions.switchTo('audirvana');

@@ -1,17 +1,13 @@
 <script lang="ts">
-  import { playerState, currentTrack, isPlaying, seek, duration, shuffle, repeat, playerActions } from '$lib/stores/player';
+  import { playerState, currentTrack, isPlaying, seek, duration, shuffle, repeat, playerActions, formatSampleRate } from '$lib/stores/player';
   import { selectedBackground } from '$lib/stores/settings';
   import { navigationActions } from '$lib/stores/navigation';
-  import { classifySource, getSourceLabel, shouldShowSource } from '$lib/utils/sourceClassifier';
+  import { activeEngine } from '$lib/stores/audioEngine';
+  import { classifySource } from '$lib/utils/sourceClassifier';
   import Icon from './Icon.svelte';
 
   // Background
   $: backgroundImage = $selectedBackground || $currentTrack.albumart || '/backgrounds/default.svg';
-
-  // Source info
-  $: sourceType = classifySource($playerState?.uri, $playerState?.service);
-  $: showSource = shouldShowSource(sourceType);
-  $: sourceLabel = getSourceLabel(sourceType);
 
   // Image error handling
   let imageError = false;
@@ -25,6 +21,10 @@
   }
 
   $: showPlaceholder = !$currentTrack.albumart || imageError;
+
+  // Audirvana mode detection
+  $: sourceType = classifySource($playerState?.uri, $playerState?.service);
+  $: isAudirvana = sourceType === 'AUDIRVANA' || $activeEngine === 'audirvana';
 
   // Format time helper
   function formatTime(seconds: number): string {
@@ -84,9 +84,7 @@
 
   // Format badges
   $: formatBadge = $playerState?.trackType?.toUpperCase() || '';
-  $: sampleRateBadge = $playerState?.samplerate
-    ? `${(parseInt($playerState.samplerate) / 1000).toFixed(1)}kHz`
-    : '';
+  $: sampleRateBadge = formatSampleRate($playerState?.samplerate);
   $: bitDepthBadge = $playerState?.bitdepth ? `${$playerState.bitdepth}bit` : '';
 </script>
 
@@ -104,9 +102,6 @@
       <button class="header-btn" on:click={goToHome} aria-label="Close player">
         <Icon name="chevron-down" size={28} />
       </button>
-      {#if showSource}
-        <span class="source-chip">{sourceLabel}</span>
-      {/if}
       <button class="header-btn" on:click={goToQueue} aria-label="View queue">
         <Icon name="queue" size={24} />
       </button>
@@ -114,21 +109,20 @@
 
     <!-- Album artwork -->
     <div class="artwork-container">
-      <div class="artwork">
-        {#if !showPlaceholder}
+      <div class="artwork" class:audirvana-mode={isAudirvana}>
+        {#if isAudirvana}
+          <div class="art-placeholder audirvana-bg">
+            <img src="/audirvana-logo.svg" alt="Audirvana" class="audirvana-logo-img" />
+          </div>
+        {:else if !showPlaceholder}
           <img
             src={$currentTrack.albumart}
             alt={$currentTrack.title}
             on:error={handleImageError}
           />
         {:else}
-          <div class="art-placeholder">
-            <div class="vinyl-icon">
-              <div class="vinyl-outer"></div>
-              <div class="vinyl-grooves"></div>
-              <div class="vinyl-label"></div>
-              <div class="vinyl-center"></div>
-            </div>
+          <div class="art-placeholder stellar-bg">
+            <img src="/stellar-logo.svg" alt="Stellar" class="stellar-logo-img" />
           </div>
         {/if}
       </div>
@@ -315,17 +309,6 @@
   }
 
   /* Source chip — MD3 style */
-  .source-chip {
-    font-size: var(--md-label-small);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    padding: 6px 14px;
-    background: var(--md-surface-container-highest);
-    border-radius: var(--md-shape-full);
-    color: var(--md-on-surface-variant);
-  }
-
   /* Artwork */
   .artwork-container {
     flex: 0 1 auto;
@@ -363,6 +346,37 @@
     align-items: center;
     justify-content: center;
     background: var(--md-surface-container-low);
+  }
+
+  .stellar-bg {
+    background: linear-gradient(145deg,
+      color-mix(in srgb, var(--md-primary) 8%, var(--md-surface-container-low)) 0%,
+      var(--md-surface-container-low) 100%
+    );
+  }
+
+  .stellar-logo-img {
+    width: 78%;
+    height: 78%;
+    object-fit: contain;
+    opacity: 0.80;
+    filter: drop-shadow(0 3px 16px color-mix(in srgb, var(--md-primary) 28%, transparent));
+  }
+
+  .audirvana-bg {
+    background: linear-gradient(145deg, rgba(107, 78, 160, 0.25) 0%, rgba(61, 40, 112, 0.4) 100%);
+    border: 1px solid rgba(107, 78, 160, 0.25);
+  }
+
+  .audirvana-logo-img {
+    width: 58%;
+    height: 58%;
+    object-fit: contain;
+    filter: drop-shadow(0 4px 20px rgba(107, 78, 160, 0.7));
+  }
+
+  .artwork.audirvana-mode {
+    box-shadow: 0 12px 40px rgba(107, 78, 160, 0.35);
   }
 
   .vinyl-icon {

@@ -35,12 +35,10 @@ describe('AppLauncher tiles', () => {
 
   it('has renamed tiles with clear subtitles', () => {
     // Check the simplified tile names exist
-    expect(source).toContain("title: 'Albums'");
-    expect(source).toContain("subtitle: 'All albums'");
+    expect(source).toContain("title: 'My Music'");
+    expect(source).toContain("subtitle: 'All sources'");
     expect(source).toContain("title: 'Local'");
-    expect(source).toContain("subtitle: 'USB + Internal'");
-    expect(source).toContain("title: 'NAS'");
-    expect(source).toContain("subtitle: 'Network storage'");
+    expect(source).toContain("subtitle: 'Local files only'");
   });
 });
 

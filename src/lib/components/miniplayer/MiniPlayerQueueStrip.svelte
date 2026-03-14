@@ -85,6 +85,7 @@
     display: flex;
     flex-direction: column;
     padding-top: 8px;
+    padding-bottom: 8px;
     border-top: 1px solid var(--md-outline-variant);
     position: relative;
     z-index: 1;

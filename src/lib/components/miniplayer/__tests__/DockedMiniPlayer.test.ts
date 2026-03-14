@@ -45,6 +45,7 @@ vi.mock('$lib/stores/player', () => ({
     toggleShuffle: vi.fn(),
     setRepeat: vi.fn(),
   },
+  formatSampleRate: (sr: string | undefined) => sr ? `${(parseInt(sr) / 1000).toFixed(1)}kHz` : '',
 }));
 
 vi.mock('$lib/stores/queue', () => ({
@@ -63,6 +64,26 @@ vi.mock('$lib/stores/navigation', () => ({
     goToPlayer: vi.fn(),
     goToQueue: vi.fn(),
   },
+}));
+
+vi.mock('$lib/stores/audioEngine', () => ({
+  activeEngine: writable('mpd'),
+}));
+
+vi.mock('$lib/stores/favorites', () => ({
+  isFavorite: writable(false),
+  favoritesActions: {
+    toggleCurrentFavorite: vi.fn(),
+  },
+}));
+
+vi.mock('$lib/utils/sourceClassifier', () => ({
+  classifySource: (uri: string) => {
+    if (uri?.startsWith('NAS/')) return 'NAS';
+    return 'UNKNOWN';
+  },
+  getSourceLabel: (type: string) => type,
+  shouldShowSource: (type: string) => type !== 'UNKNOWN',
 }));
 
 // Import after mocks
