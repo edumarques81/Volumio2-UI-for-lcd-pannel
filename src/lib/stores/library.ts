@@ -4,9 +4,32 @@
  * Replaces folder-based browsing with metadata-based queries
  */
 
-import { writable, derived } from 'svelte/store';
-import { socketService } from '$lib/services/socket';
+import { writable, derived, get } from 'svelte/store';
+import { socketService, connectionState } from '$lib/services/socket';
 import { fixVolumioAssetUrl } from '$lib/config';
+
+/**
+ * Emit a socket event only when the socket is connected.
+ * If not connected yet, waits for the 'connected' state before emitting.
+ * Also re-emits on reconnect if a reconnect handler is provided.
+ */
+function emitWhenConnected(event: string, data?: any): void {
+  if (socketService.isConnected) {
+    socketService.emit(event, data);
+    return;
+  }
+
+  // Wait for connection
+  const unsubscribe = connectionState.subscribe((state) => {
+    if (state === 'connected') {
+      // Use setTimeout to ensure we unsubscribe before emitting (avoids re-entrant issues)
+      setTimeout(() => {
+        unsubscribe();
+        socketService.emit(event, data);
+      }, 0);
+    }
+  });
+}
 
 // Types
 export type Scope = 'all' | 'nas' | 'local' | 'usb';
@@ -261,6 +284,22 @@ export function initLibraryStore() {
       libraryActions.getCacheStatus();
     }
   });
+
+  // Re-fetch library data on reconnect (socket may have dropped the initial fetch)
+  let wasConnected = false;
+  connectionState.subscribe((state) => {
+    if (state === 'connected') {
+      if (wasConnected) {
+        // This is a reconnect — re-fetch albums if the store is empty
+        const currentAlbums = get(libraryAlbums);
+        if (currentAlbums.length === 0) {
+          console.log('[Library] Reconnected with empty albums, re-fetching...');
+          libraryActions.fetchAlbums();
+        }
+      }
+      wasConnected = true;
+    }
+  });
 }
 
 /**
@@ -289,7 +328,7 @@ export const libraryActions = {
     };
 
     console.log('[Library] Fetching albums:', payload);
-    socketService.emit('library:albums:list', payload);
+    emitWhenConnected('library:albums:list', payload);
   },
 
   /**
@@ -320,7 +359,7 @@ export const libraryActions = {
     };
 
     console.log('[Library] Fetching artists:', payload);
-    socketService.emit('library:artists:list', payload);
+    emitWhenConnected('library:artists:list', payload);
   },
 
   /**
@@ -373,7 +412,7 @@ export const libraryActions = {
     };
 
     console.log('[Library] Fetching radio stations:', payload);
-    socketService.emit('library:radio:list', payload);
+    emitWhenConnected('library:radio:list', payload);
   },
 
   /**

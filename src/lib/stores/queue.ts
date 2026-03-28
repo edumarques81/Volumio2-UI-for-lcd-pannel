@@ -9,6 +9,7 @@ export interface QueueItem {
   uri: string;
   service: string;
   name: string;
+  title?: string;
   artist?: string;
   album?: string;
   albumart?: string;

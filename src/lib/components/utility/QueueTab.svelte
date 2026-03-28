@@ -105,7 +105,7 @@
               {index + 1}
             {/if}
           </span>
-          <span class="q-title">{item.name}</span>
+          <span class="q-title">{item.name || item.title || 'Untitled'}</span>
           {#if item.artist}
             <span class="q-artist">{item.artist}</span>
           {/if}

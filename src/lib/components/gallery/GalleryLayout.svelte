@@ -48,22 +48,13 @@
 	<!-- Background visualisation canvas -->
 	<VizBackground opacity={isViz ? 0.85 : 0.18} />
 
-	<!-- Main content grid -->
+	<!-- Main content grid — all three zones always in DOM, CSS handles VIZ transitions -->
 	<div class="main-layout" class:viz={isViz}>
-		{#if !isViz}
-			<!-- Default layout: Art | Now Playing | Utility -->
-			<ArtHero />
-			<NowPlayingPanel />
-			<div class="utility-zone">
-				<UtilityPanel bind:activeTab={galleryTab} />
-			</div>
-		{:else}
-			<!-- VIZ mode: compact bar at top, viz canvas fills the rest -->
-			<div class="viz-compact-bar">
-				<ArtHero />
-				<NowPlayingPanel />
-			</div>
-		{/if}
+		<ArtHero />
+		<NowPlayingPanel />
+		<div class="utility-zone">
+			<UtilityPanel bind:activeTab={galleryTab} />
+		</div>
 	</div>
 
 	<!-- Global seek bar at bottom -->
@@ -101,13 +92,16 @@
 		min-width: 0;
 		display: flex;
 		flex-direction: column;
+		transition: opacity 400ms cubic-bezier(0.4, 0, 0.2, 1),
+		            background 400ms cubic-bezier(0.4, 0, 0.2, 1);
 	}
 
-	/* ── VIZ mode: compact bar ── */
-	.viz-compact-bar {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-		width: 100%;
+	/* ── VIZ mode: right panel darkened glass ── */
+	.main-layout.viz .utility-zone {
+		background: rgba(0, 0, 0, 0.3);
+		backdrop-filter: blur(20px);
+		-webkit-backdrop-filter: blur(20px);
+		border-radius: 12px;
+		border: 1px solid rgba(255, 255, 255, 0.04);
 	}
 </style>
