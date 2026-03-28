@@ -150,6 +150,7 @@
           bind:value={brightness}
           on:input={handleBrightnessChange}
           class="slider"
+          aria-label="LCD Brightness"
         />
         <span class="slider-value">{brightness}%</span>
       </div>

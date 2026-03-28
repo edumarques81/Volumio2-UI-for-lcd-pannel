@@ -124,13 +124,14 @@
 		<div class="audirvana-control-hint">Control via Audirvana app</div>
 	{/if}
 	<div class="transport" class:disabled={isAudirvana}>
-		<button class="t-btn sm" on:click={playerActions.prev} title="Previous" type="button" disabled={isAudirvana}>
+		<button class="t-btn sm" on:click={playerActions.prev} title="Previous" aria-label="Previous track" type="button" disabled={isAudirvana}>
 			<IconPrevious size={20} />
 		</button>
 		<button
 			class="t-btn play"
 			on:click={() => playing ? playerActions.pause() : playerActions.play()}
 			title={playing ? 'Pause' : 'Play'}
+			aria-label={playing ? 'Pause' : 'Play'}
 			type="button"
 			disabled={isAudirvana}
 		>
@@ -140,7 +141,7 @@
 				<IconPlay size={20} />
 			{/if}
 		</button>
-		<button class="t-btn sm" on:click={playerActions.next} title="Next" type="button" disabled={isAudirvana}>
+		<button class="t-btn sm" on:click={playerActions.next} title="Next" aria-label="Next track" type="button" disabled={isAudirvana}>
 			<IconNext size={20} />
 		</button>
 	</div>
@@ -152,6 +153,7 @@
 			class:active={$shuffle}
 			on:click={playerActions.toggleShuffle}
 			title="Shuffle"
+			aria-label={$shuffle ? 'Shuffle on' : 'Shuffle off'}
 			type="button"
 		>
 			<IconShuffle size={20} />
@@ -161,6 +163,7 @@
 			class:active={$repeat !== 'off'}
 			on:click={cycleRepeat}
 			title="Repeat {$repeat}"
+			aria-label={$repeat === 'off' ? 'Repeat off' : $repeat === 'all' ? 'Repeat all' : 'Repeat one'}
 			type="button"
 		>
 			{#if $repeat === 'one'}
@@ -175,6 +178,7 @@
 				class="vol-icon"
 				on:click={playerActions.toggleMute}
 				title={$mute ? 'Unmute' : 'Mute'}
+				aria-label={$mute ? 'Unmute' : 'Mute'}
 				type="button"
 			>
 				{#if $mute || $volume === 0}

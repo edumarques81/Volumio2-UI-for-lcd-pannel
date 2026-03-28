@@ -70,7 +70,7 @@
 	on:mouseenter={() => (hovering = true)}
 	on:mouseleave={() => (hovering = false)}
 	role="slider"
-	aria-label="Seek"
+	aria-label="Seek position"
 	aria-valuenow={$seek}
 	aria-valuemin={0}
 	aria-valuemax={$duration}

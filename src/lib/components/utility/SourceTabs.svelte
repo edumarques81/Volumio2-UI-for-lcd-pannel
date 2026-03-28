@@ -25,7 +25,9 @@
       class="source-tab"
       class:active={activeTab === tab.id}
       role="tab"
+      id="tab-source-{tab.id}"
       aria-selected={activeTab === tab.id}
+      aria-controls="panel-source-{tab.id}"
       on:click={() => selectTab(tab.id)}
     >
       {tab.label}

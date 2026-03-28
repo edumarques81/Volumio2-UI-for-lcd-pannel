@@ -46,11 +46,11 @@
 
 | # | Issue | Source | Status |
 |---|-------|--------|--------|
-| 15 | **Now-playing shows raw filenames** — `._` macOS files, missing metadata | U-25, TC-019 | 🔘 Pending |
-| 16 | **Library stats show zeros** — Settings shows 0 albums/artists/tracks | U-37, TC-055 | 🔘 Pending |
-| 17 | **Network status "Offline"** — contradicts active connection | U-39, TC-020 | 🔘 Pending |
-| 18 | **Audio output "No outputs detected"** | U-36, TC-054 | 🔘 Pending |
-| 19 | **Duplicate event handlers** — fire 5-9x per backend push | U-32, TC-005 | 🔘 Pending |
+| 15 | **Filename parsing** | U-25, TC-019 | ✅ Fixed (620fe01f) |
+| 16 | **Library stats** | U-37, TC-055 | ✅ Fixed (620fe01f) — track count needs rescan |
+| 17 | **Network status** | U-39, TC-020 | ✅ Fixed (620fe01f) |
+| 18 | **Audio output** | U-36, TC-054 | ✅ Fixed (620fe01f) |
+| 19 | **Event handler dedup** | U-32, TC-005 | ✅ Fixed (620fe01f) — pushBitPerfect still 2x |
 
 ### Batch 5 — Accessibility
 

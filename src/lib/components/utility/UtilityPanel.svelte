@@ -51,7 +51,9 @@
         class="right-tab"
         class:active={activeTab === tab.id}
         role="tab"
+        id="tab-{tab.id}"
         aria-selected={activeTab === tab.id}
+        aria-controls="panel-{tab.id}"
         on:click={() => selectTab(tab.id)}
       >
         {tab.label}
@@ -61,7 +63,7 @@
 
   <div class="right-body">
     {#if activeTab === 'library'}
-      <div class="right-view" class:hidden={!!selectedAlbum || !!selectedArtistName}>
+      <div class="right-view" class:hidden={!!selectedAlbum || !!selectedArtistName} role="tabpanel" id="panel-library" aria-labelledby="tab-library">
         <LibraryTab on:albumSelect={handleAlbumSelect} />
       </div>
       {#if selectedAlbum}
@@ -79,11 +81,11 @@
         </div>
       {/if}
     {:else if activeTab === 'queue'}
-      <div class="right-view">
+      <div class="right-view" role="tabpanel" id="panel-queue" aria-labelledby="tab-queue">
         <QueueTab />
       </div>
     {:else if activeTab === 'settings'}
-      <div class="right-view">
+      <div class="right-view" role="tabpanel" id="panel-settings" aria-labelledby="tab-settings">
         <SettingsTab />
       </div>
     {/if}
