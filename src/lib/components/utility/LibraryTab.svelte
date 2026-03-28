@@ -213,7 +213,7 @@
     background: none;
     border: none;
     color: var(--md-on-surface);
-    font-size: 11px;
+    font-size: 13px;
     font-family: inherit;
     outline: none;
     min-width: 0;
@@ -283,14 +283,14 @@
     background: rgba(26, 17, 20, 0.8);
   }
   .lib-album-title {
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 600;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
   .lib-album-artist {
-    font-size: 9px;
+    font-size: 11px;
     color: var(--md-outline);
     white-space: nowrap;
     overflow: hidden;

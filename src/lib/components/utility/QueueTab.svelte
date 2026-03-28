@@ -235,7 +235,7 @@
   }
 
   .q-title {
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 500;
     flex: 1;
     white-space: nowrap;
@@ -245,7 +245,7 @@
   }
 
   .q-artist {
-    font-size: 11px;
+    font-size: 13px;
     color: var(--md-outline);
     white-space: nowrap;
     overflow: hidden;
@@ -256,7 +256,7 @@
 
   .q-dur {
     font-family: 'Roboto Mono', monospace;
-    font-size: 10px;
+    font-size: 12px;
     color: var(--md-outline);
     flex-shrink: 0;
   }

@@ -125,7 +125,7 @@
 	{/if}
 	<div class="transport" class:disabled={isAudirvana}>
 		<button class="t-btn sm" on:click={playerActions.prev} title="Previous" type="button" disabled={isAudirvana}>
-			<IconPrevious size={14} />
+			<IconPrevious size={20} />
 		</button>
 		<button
 			class="t-btn play"
@@ -141,7 +141,7 @@
 			{/if}
 		</button>
 		<button class="t-btn sm" on:click={playerActions.next} title="Next" type="button" disabled={isAudirvana}>
-			<IconNext size={14} />
+			<IconNext size={20} />
 		</button>
 	</div>
 
@@ -154,7 +154,7 @@
 			title="Shuffle"
 			type="button"
 		>
-			<IconShuffle size={16} />
+			<IconShuffle size={20} />
 		</button>
 		<button
 			class="t-btn sm"
@@ -164,9 +164,9 @@
 			type="button"
 		>
 			{#if $repeat === 'one'}
-				<IconRepeatOne size={16} />
+				<IconRepeatOne size={20} />
 			{:else}
-				<IconRepeat size={16} />
+				<IconRepeat size={20} />
 			{/if}
 		</button>
 
@@ -396,8 +396,8 @@
 	}
 
 	.t-btn.sm {
-		width: 40px;
-		height: 40px;
+		width: 48px;
+		height: 48px;
 		color: var(--md-outline, #9E8C91);
 	}
 
@@ -412,6 +412,8 @@
 
 	.t-btn.active {
 		color: var(--md-primary, #FFB1C8);
+		filter: drop-shadow(0 0 6px rgba(255, 177, 200, 0.4));
+		background: rgba(123, 41, 73, 0.25);
 	}
 
 	/* ── Shuffle / Repeat / Volume row ── */

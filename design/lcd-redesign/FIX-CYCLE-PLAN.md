@@ -17,9 +17,9 @@
 
 | # | Issue | Source | Status |
 |---|-------|--------|--------|
-| 1 | **VIZ mode destroys right panel** — `GalleryLayout.svelte` uses `{#if}/{:else}` instead of CSS transitions. Must keep all 3 zones in DOM. | QA-001, TC-060 | 🔘 Pending |
-| 2 | **Queue track titles empty** — `QueueTab.svelte` uses `item.name` but Volumio API returns `title`. Fix field mapping. | QA-007, U-24 | 🔘 Pending |
-| 3 | **Library fetch before socket init** — albums request fires before socket connects, silently dropped. | U-23, TC-004 | 🔘 Pending |
+| 1 | **VIZ mode destroys right panel** | QA-001, TC-060 | ✅ Fixed (c516b5b3) |
+| 2 | **Queue track titles empty** | QA-007, U-24 | ✅ Fixed (c516b5b3) |
+| 3 | **Library fetch before socket init** | U-23, TC-004 | ✅ Fixed (c516b5b3) |
 
 ### Batch 2 — Touch Target & Font Sizing (LCD usability)
 

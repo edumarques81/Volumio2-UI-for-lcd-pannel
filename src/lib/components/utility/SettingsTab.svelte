@@ -268,7 +268,7 @@
   }
 
   .section-header {
-    font-size: 10px;
+    font-size: 13px;
     font-weight: 700;
     letter-spacing: 1.5px;
     text-transform: uppercase;
@@ -307,7 +307,7 @@
   }
 
   .setting-label {
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 500;
     color: var(--md-on-surface);
     white-space: nowrap;
@@ -318,7 +318,7 @@
   }
 
   .setting-value {
-    font-size: 12px;
+    font-size: 14px;
     color: var(--md-on-surface-variant);
   }
   .setting-value.mono {

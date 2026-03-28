@@ -46,9 +46,9 @@
     display: none;
   }
   .source-tab {
-    padding: 5px 12px;
+    padding: 10px 16px;
     border-radius: var(--md-shape-full, 9999px);
-    font-size: 10px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--md-on-surface-variant);
     cursor: pointer;
@@ -56,7 +56,7 @@
     white-space: nowrap;
     border: none;
     background: transparent;
-    min-height: 36px;
+    min-height: 44px;
     display: flex;
     align-items: center;
     justify-content: center;

@@ -114,7 +114,7 @@
   .right-tab {
     flex: 1;
     padding: 12px 16px;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 700;
     letter-spacing: 1.5px;
     text-transform: uppercase;
