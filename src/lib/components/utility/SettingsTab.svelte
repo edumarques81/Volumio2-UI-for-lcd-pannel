@@ -191,8 +191,11 @@
         </button>
       {/each}
     {:else}
-      <div class="setting-row">
-        <span class="setting-label muted">No outputs detected</span>
+      <div class="setting-row selected">
+        <span class="setting-label">System Default (MPD)</span>
+        <svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none">
+          <path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
       </div>
     {/if}
   </div>
@@ -229,13 +232,13 @@
     <div class="setting-row">
       <span class="setting-label">Status</span>
       <span class="setting-value" class:online={$networkStatus?.online}>
-        {$networkStatus?.online ? 'Online' : 'Offline'}
+        {$networkStatus?.online ? 'Connected' : 'Offline'}
       </span>
     </div>
-    {#if $networkStatus?.ip}
+    {#if $networkStatus?.ip || $systemInfo?.host}
       <div class="setting-row">
-        <span class="setting-label">IP</span>
-        <span class="setting-value mono">{$networkStatus.ip}</span>
+        <span class="setting-label">Host</span>
+        <span class="setting-value mono">{$networkStatus?.ip || $systemInfo?.host || ''}</span>
       </div>
     {/if}
   </div>

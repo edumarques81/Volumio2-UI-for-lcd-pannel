@@ -34,13 +34,13 @@
 
 | # | Issue | Source | Status |
 |---|-------|--------|--------|
-| 8 | **Playlist click plays immediately** — should show track listing first | U-27, TC-025 | 🔘 Pending |
-| 9 | **No queue clear confirmation** — one tap clears everything | U-30, TC-044 | 🔘 Pending |
-| 10 | **Queue remove overlaps play target** — accidental deletions | U-31, TC-083 | 🔘 Pending |
-| 11 | **Missing track action icons** — like, add to queue, favorites | QA-005 | 🔘 Pending |
-| 12 | **Settings panel hidden content** — no scroll indicator, 60% below fold | U-28, TC-084 | 🔘 Pending |
-| 13 | **Search: no clear button, no "no results" message** | U-34, U-40 | 🔘 Pending |
-| 14 | **Album art error fallback** — broken img when URL 404s | QA-019 | 🔘 Pending |
+| 8 | **Playlist browse-first** | U-27, TC-025 | ✅ Fixed (8e577389) |
+| 9 | **Queue clear confirmation** | U-30, TC-044 | ✅ Fixed (8e577389) |
+| 10 | **Queue remove safety** | U-31, TC-083 | ✅ Fixed (8e577389) |
+| 11 | **Track action icons** | QA-005 | ✅ Fixed (8e577389) |
+| 12 | **Settings scroll indicator** | U-28, TC-084 | ✅ Fixed (8e577389) |
+| 13 | **Search clear + no results** | U-34, U-40 | ✅ Fixed (8e577389) |
+| 14 | **Album art error fallback** | QA-019 | ✅ Fixed (8e577389) |
 
 ### Batch 4 — Data & Backend Issues
 

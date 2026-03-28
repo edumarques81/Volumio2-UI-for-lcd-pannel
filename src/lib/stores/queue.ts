@@ -106,7 +106,12 @@ export const queueActions = {
 /**
  * Initialize queue store - set up socket listeners
  */
+let queueInitialized = false;
+
 export function initQueueStore() {
+  if (queueInitialized) return;
+  queueInitialized = true;
+
   // Listen for queue updates
   socketService.on<QueueItem[]>('pushQueue', (data) => {
     // Fix albumart URLs to point to Volumio backend

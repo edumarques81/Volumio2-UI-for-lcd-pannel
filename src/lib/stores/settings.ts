@@ -1,5 +1,5 @@
-import { writable, get } from 'svelte/store';
-import { socketService } from '$lib/services/socket';
+import { writable, derived, get } from 'svelte/store';
+import { socketService, connectionState } from '$lib/services/socket';
 import { layoutMode, type LayoutMode } from './navigation';
 import { getVolumioHost } from '$lib/config';
 
@@ -85,8 +85,30 @@ export interface SettingsCategory {
 // System info
 export const systemInfo = writable<SystemInfo | null>(null);
 
-// Network status
-export const networkStatus = writable<NetworkStatus | null>(null);
+// Network status (raw from backend)
+const rawNetworkStatus = writable<NetworkStatus | null>(null);
+
+// Effective network status: derives online state from Socket.IO connection
+// so we show "Connected" when the socket is active, even if the backend
+// never pushes a networkStatus event.
+export const networkStatus = derived(
+  [rawNetworkStatus, connectionState],
+  ([$raw, $connState]) => {
+    const socketOnline = $connState === 'connected';
+    if ($raw) {
+      return {
+        ...$raw,
+        online: socketOnline || $raw.online
+      };
+    }
+    // No backend data — derive entirely from socket state
+    return {
+      status: socketOnline ? 'connected' : 'disconnected',
+      online: socketOnline,
+      ip: undefined
+    } as NetworkStatus;
+  }
+);
 
 // Audio outputs
 export const audioOutputs = writable<AudioOutput[]>([]);
@@ -343,7 +365,12 @@ export const settingsActions = {
 /**
  * Initialize settings store - set up socket listeners
  */
+let settingsInitialized = false;
+
 export function initSettingsStore() {
+  if (settingsInitialized) return;
+  settingsInitialized = true;
+
   // Listen for system info
   socketService.on<SystemInfo>('pushSystemInfo', (data) => {
     systemInfo.set(data);
@@ -351,7 +378,7 @@ export function initSettingsStore() {
 
   // Listen for network status
   socketService.on('pushNetworkStatus', (data: any) => {
-    networkStatus.set(data);
+    rawNetworkStatus.set(data);
   });
 
   // Listen for audio outputs
