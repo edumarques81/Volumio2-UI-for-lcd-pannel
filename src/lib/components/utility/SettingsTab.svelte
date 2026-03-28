@@ -21,10 +21,16 @@
   } from '$lib/stores/audioEngine';
   import { audirvanaInstalled, audirvanaService } from '$lib/stores/audirvana';
   import { IconAudirvana, IconMusicNote } from '$lib/components/icons';
+  import NasManager from './NasManager.svelte';
+  import { socketService } from '$lib/services/socket';
 
   let brightness = 100;
   let showScrollIndicator = true;
   let settingsContainer: HTMLDivElement;
+
+  // Max external client connections
+  // TODO: Wire to backend when setMaxClients/pushMaxClients events are implemented
+  let maxClients = 2;
 
   function handleSettingsScroll() {
     if (!settingsContainer) return;
@@ -50,6 +56,12 @@
 
   function handleAudioOutput(outputId: string) {
     settingsActions.setAudioOutput(outputId);
+  }
+
+  function handleMaxClientsChange() {
+    // TODO: Emit socket event when backend supports it
+    // socketService.emit('setMaxClients', { value: maxClients });
+    console.log('[Settings] Max clients set to:', maxClients);
   }
 
   function handleRebuildCache() {
@@ -224,6 +236,36 @@
       <button class="action-btn" on:click={handleRescan}>
         Rescan Library
       </button>
+    </div>
+  </div>
+
+  <!-- Sources (NAS) Section -->
+  <div class="settings-section">
+    <div class="section-header">Sources</div>
+    <NasManager />
+  </div>
+
+  <!-- Connections Section -->
+  <div class="settings-section">
+    <div class="section-header">Connections</div>
+    <div class="setting-row">
+      <div class="max-clients-field">
+        <label class="setting-label" for="settings-max-clients">Max External Clients</label>
+        <span class="setting-description">Maximum number of devices that can connect simultaneously</span>
+      </div>
+      <div class="slider-wrap">
+        <input
+          id="settings-max-clients"
+          type="range"
+          min="1"
+          max="10"
+          bind:value={maxClients}
+          on:change={handleMaxClientsChange}
+          class="slider"
+          aria-label="Max External Clients"
+        />
+        <span class="slider-value">{maxClients}</span>
+      </div>
     </div>
   </div>
 
@@ -524,5 +566,17 @@
   .action-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  .max-clients-field {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .setting-description {
+    font-size: 10px;
+    color: var(--md-outline);
+    line-height: 1.3;
   }
 </style>

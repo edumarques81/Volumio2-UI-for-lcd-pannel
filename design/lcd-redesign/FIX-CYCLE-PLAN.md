@@ -56,9 +56,9 @@
 
 | # | Issue | Source | Status |
 |---|-------|--------|--------|
-| 20 | **No ARIA labels on playback buttons** | TC-090 | 🔘 Pending |
-| 21 | **No ARIA on sliders** (volume, seek, brightness) | TC-091-093 | 🔘 Pending |
-| 22 | **No ARIA tab roles** on utility panel | TC-094 | 🔘 Pending |
+| 20 | **ARIA labels on buttons** | TC-090 | ✅ Fixed (390d0c1d) |
+| 21 | **ARIA on sliders** | TC-091-093 | ✅ Fixed (390d0c1d) |
+| 22 | **ARIA tab roles** | TC-094 | ✅ Fixed (390d0c1d) |
 
 ### Batch 6 — Settings Completeness
 
