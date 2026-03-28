@@ -10,11 +10,17 @@ Items to implement:
 - [x] **Playlists menu from the main screen** Dedicated PlaylistsView with search bar below header, create/delete functionality with confirmation modals. Accessed via Playlists tile from home screen. Navigation action: `goToPlaylists()`.
 - [x] **Album Tile** AlbumGrid component updated with more button (3-dots) overlay, larger touch targets (64px play button, 220px grid min-width). LibraryContextMenu component provides options: Play Now, Play Next, Add to Queue, Add to Playlist. Integrated in AllAlbumsView, ArtistsView, NASAlbumsView.
 - [x] **Song Tile** TrackItem component created for reusable track rows with more button. LibraryContextMenu supports both Album and Track types with context-aware options (View Info for tracks only). PlaylistSelector updated to handle Album/Track types.
+- [ ] **Max client connections setting** - Add a setting in the Settings tab to configure the maximum number of external clients that can connect to the streamer simultaneously. Backend already has `ConnectionLimiter` (currently set to 100 for dev). Wire this to a config value exposed via Socket.IO so users can set it from the UI (e.g., 1–10). Default: 2.
 - [ ] **Screen timeout settings** - Add configurable auto-standby timeout in settings
 - [ ] **Wake on touch** - Implement touch-to-wake when display is in standby
 - [ ] **Music booklet** Use some 3rd party service or online free service or AI or available booklet in the album dir to get information about the album that is playing. You are going to show that information on the right side of the LCD. Put an icon in the miniplayer control indicating that there is a booklet available, and bring that information to the screen if the icon is clicked.
 - [x] **Take over the code repository** Project restructured: legacy AngularJS code removed, Stellar Volumio now at repository root. Legacy code preserved in `legacy/angularjs-backup` branch.
 - [ ] **Add heart to liked albums/songs** Add an heard lickable heart icon to liked albuns and songs, so it is visually easy to see when an album was liked/favorited
+
+## Design Rules
+
+### Album Format = Separate Album
+Eduardo's library contains the same album in multiple formats (e.g., FLAC 96kHz/24bit, FLAC 44.1kHz/16bit, DSD). Each format is a **separate album** — do NOT merge or deduplicate them. They live in different folders on the NAS. The format badge (FLAC, DSD, sample rate, bit depth) is how the user distinguishes between versions. Display them as individual albums in the library grid.
 
 ## Streaming Services
 

@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1920">
+<title>Study 1 — Ambient Command (Cinematic Utility)</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --primary:#FFB1C8;--on-primary:#5D1133;--primary-container:#7B2949;--on-primary-container:#FFD9E3;
+  --secondary:#E3BDC6;--on-secondary:#422931;
+  --surface:#1A1114;--surface-container:#261A1E;--surface-container-high:#312228;--surface-container-low:#201318;
+  --on-surface:#F0DEE2;--on-surface-variant:#D5BFC4;--outline:#9E8C91;--outline-variant:#514347;
+  --bg:#1A1114;--error:#FFB4AB;
+  --shape-xs:4px;--shape-sm:8px;--shape-md:12px;--shape-lg:16px;--shape-xl:28px;--shape-full:9999px;
+  --glass-bg:rgba(26,17,20,0.55);--glass-border:rgba(81,67,71,0.6);--glass-blur:blur(24px) saturate(1.3);
+  --transition-panel:400ms cubic-bezier(0.4,0,0.2,1);--transition-fast:200ms ease-out;
+}
+html,body{width:1920px;height:440px;overflow:hidden;background:var(--bg);font-family:'Plus Jakarta Sans','Roboto',sans-serif;color:var(--on-surface);user-select:none;-webkit-user-select:none;position:relative}
+
+/* ── Study Label ── */
+.study-label{position:absolute;top:10px;left:14px;z-index:100;font-size:10px;font-weight:600;letter-spacing:1.5px;
+  text-transform:uppercase;color:var(--outline);opacity:0.7;pointer-events:none}
+
+/* ── Atmosphere Background ── */
+.atmosphere{position:absolute;inset:0;z-index:0;
+  background:
+    radial-gradient(ellipse 900px 400px at 30% 60%,rgba(93,17,51,0.55) 0%,transparent 70%),
+    radial-gradient(ellipse 700px 350px at 75% 30%,rgba(40,20,80,0.45) 0%,transparent 70%),
+    radial-gradient(ellipse 500px 300px at 50% 80%,rgba(123,41,73,0.25) 0%,transparent 60%),
+    radial-gradient(ellipse 1400px 440px at 50% 50%,rgba(15,8,25,0.85) 0%,var(--bg) 100%);
+  transition:opacity 0.6s ease-out}
+.atmosphere::after{content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse 400px 250px at 20% 40%,rgba(255,177,200,0.05) 0%,transparent 70%),
+    radial-gradient(ellipse 300px 200px at 80% 70%,rgba(140,100,200,0.04) 0%,transparent 70%);
+  animation:lightDrift 10s ease-in-out infinite alternate}
+@keyframes lightDrift{0%{transform:translate(0,0) scale(1)}100%{transform:translate(25px,-8px) scale(1.04)}}
+
+/* ── Viz Canvas ── */
+#vizCanvas{position:absolute;top:0;left:0;width:1920px;height:360px;z-index:1;opacity:0;transition:opacity 0.5s ease-out;pointer-events:none}
+body.viz-mode #vizCanvas{opacity:1;pointer-events:auto;cursor:pointer}
+
+/* ── VIZ Toggle ── */
+.viz-toggle{position:absolute;top:12px;right:16px;z-index:60;padding:6px 18px;border-radius:var(--shape-full);
+  border:1px solid var(--glass-border);background:var(--glass-bg);backdrop-filter:var(--glass-blur);
+  color:var(--on-surface-variant);font-size:11px;font-weight:700;letter-spacing:1.5px;cursor:pointer;
+  transition:all var(--transition-fast)}
+.viz-toggle:hover{background:rgba(123,41,73,0.5);color:var(--primary);border-color:var(--primary)}
+body.viz-mode .viz-toggle{background:var(--primary-container);color:var(--on-primary-container);border-color:var(--primary)}
+
+/* ── Three-Panel Container (default mode) ── */
+.panels-container{position:absolute;top:0;left:0;right:0;bottom:28px;z-index:10;display:flex;gap:10px;padding:12px 16px;
+  transition:all var(--transition-panel)}
+body.viz-mode .panels-container{top:360px;bottom:0;padding:4px 16px;gap:8px}
+
+/* ── Glass Panel Base ── */
+.glass-panel{background:var(--glass-bg);backdrop-filter:var(--glass-blur);border:1px solid var(--glass-border);
+  border-radius:var(--shape-lg);overflow:hidden;display:flex;flex-direction:column;
+  transition:flex var(--transition-panel),opacity var(--transition-panel),border-radius var(--transition-panel)}
+.glass-panel:hover{border-color:rgba(81,67,71,0.85)}
+
+/* Panel headers */
+.panel-header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;flex-shrink:0;
+  border-bottom:1px solid rgba(81,67,71,0.3);cursor:pointer;min-height:44px;transition:all var(--transition-fast)}
+body.viz-mode .panel-header{padding:4px 12px;min-height:36px}
+.panel-header:hover{background:rgba(255,177,200,0.04)}
+.panel-title{font-size:11px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;color:var(--outline)}
+.panel-chevron{font-size:14px;color:var(--outline);transition:transform var(--transition-fast);cursor:pointer;
+  width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:50%}
+.panel-chevron:hover{background:var(--surface-container-high)}
+.panel-body{flex:1;overflow:hidden;padding:12px 16px;transition:all var(--transition-panel)}
+body.viz-mode .panel-body{padding:0 8px}
+
+/* ── Panel Flex Ratios ── */
+.panel-now-playing{flex:3;min-width:0}
+.panel-queue{flex:3;min-width:0}
+.panel-library{flex:4;min-width:0}
+
+/* Expanded states */
+body.library-expanded .panel-now-playing{flex:2}
+body.library-expanded .panel-queue{flex:1.5}
+body.library-expanded .panel-library{flex:6.5}
+body.queue-expanded .panel-now-playing{flex:2}
+body.queue-expanded .panel-queue{flex:6}
+body.queue-expanded .panel-library{flex:2}
+
+/* VIZ mode: slim bar */
+body.viz-mode .glass-panel{border-radius:var(--shape-sm)}
+body.viz-mode .panel-body.np-body-full{display:none}
+body.viz-mode .np-viz-bar{display:flex!important}
+body.viz-mode .panel-queue .panel-body,body.viz-mode .panel-library .panel-body{display:none}
+body.viz-mode .panel-queue .panel-header,body.viz-mode .panel-library .panel-header{display:none}
+body.viz-mode .panel-queue,body.viz-mode .panel-library{flex:0;border:none;background:transparent;backdrop-filter:none}
+
+/* ── NOW PLAYING PANEL ── */
+.np-content{display:flex;gap:14px;height:100%}
+.np-art{width:200px;height:200px;border-radius:var(--shape-md);flex-shrink:0;position:relative;overflow:hidden;
+  background:linear-gradient(135deg,#0a0a2e 0%,#1a0533 30%,#2d1b69 50%,#0a0a2e 70%,#000 100%);
+  box-shadow:0 8px 32px rgba(0,0,0,0.4)}
+.np-art::before{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:0;height:0;border-left:28px solid transparent;border-right:28px solid transparent;
+  border-bottom:48px solid rgba(255,255,255,0.04)}
+.np-art::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,transparent 60%,rgba(0,0,0,0.3))}
+.np-info{display:flex;flex-direction:column;justify-content:center;min-width:0;flex:1}
+.np-track{font-size:22px;font-weight:700;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.np-artist{font-size:14px;color:var(--on-surface-variant);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.np-album-name{font-size:11px;color:var(--outline);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.np-badges{display:flex;gap:5px;margin-top:10px;flex-wrap:wrap}
+.badge{padding:2px 8px;border-radius:var(--shape-full);font-family:'Roboto Mono',monospace;font-size:10px;font-weight:500;
+  background:var(--primary-container);color:var(--on-primary-container);white-space:nowrap}
+.badge.src{background:var(--surface-container-high);color:var(--on-surface-variant)}
+
+/* Transport */
+.np-transport{display:flex;align-items:center;gap:2px;margin-top:12px}
+.t-btn{width:44px;height:44px;border-radius:50%;border:none;background:transparent;color:var(--on-surface);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:17px;transition:all var(--transition-fast)}
+.t-btn:hover{background:var(--surface-container-high)}
+.t-btn:active{transform:scale(0.92)}
+.t-btn.play{width:48px;height:48px;background:var(--primary);color:var(--on-primary);font-size:20px}
+.t-btn.play:hover{background:var(--on-primary-container);color:var(--primary)}
+.t-btn.active{color:var(--primary)}
+.t-btn.sm{width:34px;height:34px;font-size:13px;color:var(--outline)}
+.t-btn.sm:hover{color:var(--on-surface)}
+
+/* Seek within panel */
+.np-seek{display:flex;align-items:center;gap:6px;margin-top:8px}
+.seek-time{font-family:'Roboto Mono',monospace;font-size:10px;color:var(--outline);min-width:30px}
+.seek-track{flex:1;height:4px;background:var(--outline-variant);border-radius:2px;cursor:pointer;position:relative}
+.seek-fill{height:100%;width:36.2%;background:var(--primary);border-radius:2px;transition:width 0.1s;position:relative}
+.seek-dot{position:absolute;right:-5px;top:50%;transform:translateY(-50%);width:10px;height:10px;
+  border-radius:50%;background:var(--primary);opacity:0;transition:opacity 0.15s}
+.seek-track:hover .seek-dot{opacity:1}
+.seek-track:hover{height:6px}
+
+/* VIZ-mode slim bar for now-playing */
+.np-viz-bar{display:none;align-items:center;gap:12px;padding:4px 12px;height:100%}
+.np-viz-thumb{width:44px;height:44px;border-radius:var(--shape-sm);flex-shrink:0;
+  background:linear-gradient(135deg,#0a0a2e,#2d1b69,#000);overflow:hidden;position:relative}
+.np-viz-thumb::before{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:14px solid rgba(255,255,255,0.05)}
+.np-viz-track{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px}
+.np-viz-artist{font-size:11px;color:var(--on-surface-variant);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px}
+.np-viz-controls{display:flex;align-items:center;gap:2px;margin-left:auto}
+.np-viz-seek{flex:1;min-width:100px;max-width:300px;height:3px;background:var(--outline-variant);border-radius:2px;cursor:pointer;margin:0 12px}
+.np-viz-seek-fill{height:100%;width:36.2%;background:var(--primary);border-radius:2px}
+
+/* ── QUEUE PANEL ── */
+.queue-list{display:flex;flex-direction:column;gap:2px;overflow-y:auto;height:100%;
+  scrollbar-width:thin;scrollbar-color:var(--outline-variant) transparent}
+.q-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:var(--shape-sm);cursor:pointer;
+  transition:background var(--transition-fast);min-height:48px;flex-shrink:0}
+.q-item:hover{background:rgba(255,177,200,0.06)}
+.q-item.active{background:rgba(123,41,73,0.35)}
+.q-item.active .q-title{color:var(--on-primary-container)}
+.q-drag{color:var(--outline-variant);font-size:14px;cursor:grab;padding:0 2px;opacity:0;transition:opacity 0.15s}
+.q-item:hover .q-drag{opacity:1}
+.q-num{font-family:'Roboto Mono',monospace;font-size:11px;color:var(--outline);min-width:16px;text-align:right}
+.q-title{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+.q-artist{font-size:11px;color:var(--outline);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px}
+.q-dur{font-family:'Roboto Mono',monospace;font-size:10px;color:var(--outline);flex-shrink:0}
+
+/* ── LIBRARY PANEL ── */
+.lib-tabs{display:flex;gap:2px;padding:0 0 10px;flex-shrink:0;flex-wrap:wrap}
+.lib-tab{padding:6px 14px;border-radius:var(--shape-full);font-size:11px;font-weight:600;
+  color:var(--on-surface-variant);cursor:pointer;transition:all var(--transition-fast);border:1px solid transparent;
+  white-space:nowrap}
+.lib-tab:hover{background:rgba(255,177,200,0.06)}
+.lib-tab.active{background:var(--primary-container);color:var(--on-primary-container);border-color:transparent}
+.lib-search{display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:var(--shape-full);
+  background:var(--surface-container-high);border:1px solid var(--outline-variant);margin-bottom:10px;
+  transition:border-color var(--transition-fast)}
+.lib-search:focus-within{border-color:var(--primary)}
+.lib-search-icon{font-size:14px;color:var(--outline)}
+.lib-search input{background:none;border:none;outline:none;color:var(--on-surface);font-family:inherit;font-size:12px;width:100%}
+.lib-search input::placeholder{color:var(--outline)}
+
+.album-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;overflow-y:auto;
+  max-height:220px;scrollbar-width:thin;scrollbar-color:var(--outline-variant) transparent}
+.album-card{border-radius:var(--shape-sm);overflow:hidden;cursor:pointer;transition:all var(--transition-fast);
+  position:relative}
+.album-card:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,0.3)}
+.album-card:active{transform:scale(0.97)}
+.album-art-tile{width:100%;aspect-ratio:1;position:relative}
+.album-art-tile .art-bg{width:100%;height:100%;display:block}
+.album-card-info{padding:5px 6px;background:rgba(26,17,20,0.8)}
+.album-card-title{font-size:10px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.album-card-artist{font-size:9px;color:var(--outline);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Album detail (track list in library) */
+.album-detail{display:none;flex-direction:column;height:100%;overflow:hidden}
+body.album-detail-open .album-grid{display:none}
+body.album-detail-open .album-detail{display:flex}
+.album-detail-header{display:flex;align-items:center;gap:12px;padding-bottom:10px;border-bottom:1px solid var(--outline-variant);margin-bottom:8px}
+.album-detail-back{width:32px;height:32px;border-radius:50%;border:none;background:var(--surface-container-high);
+  color:var(--on-surface);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;
+  transition:all var(--transition-fast)}
+.album-detail-back:hover{background:var(--primary-container);color:var(--on-primary-container)}
+.album-detail-art{width:60px;height:60px;border-radius:var(--shape-sm);flex-shrink:0}
+.album-detail-meta{min-width:0}
+.album-detail-title{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.album-detail-artist{font-size:11px;color:var(--on-surface-variant)}
+.album-detail-tracks{flex:1;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--outline-variant) transparent}
+.ad-track{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:var(--shape-xs);cursor:pointer;
+  transition:background var(--transition-fast);min-height:36px}
+.ad-track:hover{background:rgba(255,177,200,0.06)}
+.ad-track-num{font-family:'Roboto Mono',monospace;font-size:10px;color:var(--outline);min-width:18px;text-align:right}
+.ad-track-title{font-size:12px;font-weight:500;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ad-track-dur{font-family:'Roboto Mono',monospace;font-size:10px;color:var(--outline)}
+
+/* ── Global Seek Bar (bottom edge) ── */
+.global-seek{position:absolute;bottom:0;left:0;right:0;height:4px;z-index:50;cursor:pointer;
+  transition:height 0.15s ease-out;background:rgba(81,67,71,0.3)}
+.global-seek:hover{height:8px}
+.global-seek-fill{height:100%;width:36.2%;background:var(--primary);transition:width 0.1s;position:relative}
+.global-seek-fill::after{content:'';position:absolute;right:-4px;top:50%;transform:translateY(-50%);
+  width:8px;height:8px;border-radius:50%;background:var(--primary);opacity:0;transition:opacity 0.15s}
+.global-seek:hover .global-seek-fill::after{opacity:1}
+
+/* ── Scrollbar styling ── */
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--outline-variant);border-radius:2px}
+::-webkit-scrollbar-thumb:hover{background:var(--outline)}
+</style>
+</head>
+<body>
+<div class="study-label">Study 1 · Ambient Command</div>
+
+<!-- Atmospheric BG -->
+<div class="atmosphere"></div>
+
+<!-- Viz Canvas (hidden until VIZ mode) -->
+<canvas id="vizCanvas" width="1920" height="360"></canvas>
+
+<!-- VIZ Toggle -->
+<button class="viz-toggle" id="vizToggle">VIZ</button>
+
+<!-- Three Glass Panels -->
+<div class="panels-container" id="panelsContainer">
+
+  <!-- NOW PLAYING -->
+  <div class="glass-panel panel-now-playing" id="panelNP">
+    <div class="panel-header" data-panel="np">
+      <span class="panel-title">Now Playing</span>
+      <span class="panel-chevron" id="chevNP">‹</span>
+    </div>
+    <!-- Full body (default mode) -->
+    <div class="panel-body np-body-full">
+      <div class="np-content">
+        <div class="np-art" title="Album Art"></div>
+        <div class="np-info">
+          <div class="np-track">Time</div>
+          <div class="np-artist">Pink Floyd</div>
+          <div class="np-album-name">The Dark Side of the Moon</div>
+          <div class="np-badges">
+            <span class="badge">FLAC</span>
+            <span class="badge">96kHz</span>
+            <span class="badge">24bit</span>
+            <span class="badge src">NAS</span>
+          </div>
+          <div class="np-transport">
+            <button class="t-btn sm active" title="Shuffle">⇌</button>
+            <button class="t-btn" title="Previous">⏮</button>
+            <button class="t-btn play" id="playBtn" title="Play/Pause">▶</button>
+            <button class="t-btn" title="Next">⏭</button>
+            <button class="t-btn sm" title="Repeat">🔁</button>
+          </div>
+          <div class="np-seek">
+            <span class="seek-time">2:34</span>
+            <div class="seek-track" id="seekTrack">
+              <div class="seek-fill" id="seekFill"><span class="seek-dot"></span></div>
+            </div>
+            <span class="seek-time">7:04</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- VIZ mode slim bar -->
+    <div class="np-viz-bar">
+      <div class="np-viz-thumb"></div>
+      <div style="min-width:0">
+        <div class="np-viz-track">Time</div>
+        <div class="np-viz-artist">Pink Floyd</div>
+      </div>
+      <div class="np-viz-controls">
+        <button class="t-btn sm" style="width:32px;height:32px">⏮</button>
+        <button class="t-btn play" id="playBtnViz" style="width:36px;height:36px;font-size:16px">▶</button>
+        <button class="t-btn sm" style="width:32px;height:32px">⏭</button>
+      </div>
+      <div class="np-viz-seek"><div class="np-viz-seek-fill"></div></div>
+      <span style="font-family:'Roboto Mono',monospace;font-size:10px;color:var(--outline)">2:34 / 7:04</span>
+    </div>
+  </div>
+
+  <!-- QUEUE -->
+  <div class="glass-panel panel-queue" id="panelQueue">
+    <div class="panel-header" data-panel="queue">
+      <span class="panel-title">Up Next</span>
+      <span class="panel-chevron">›</span>
+    </div>
+    <div class="panel-body">
+      <div class="queue-list" id="queueList">
+        <div class="q-item active">
+          <span class="q-drag">⋮⋮</span>
+          <span class="q-num">1</span>
+          <span class="q-title">The Great Gig in the Sky</span>
+          <span class="q-artist">Pink Floyd</span>
+          <span class="q-dur">5:43</span>
+        </div>
+        <div class="q-item">
+          <span class="q-drag">⋮⋮</span>
+          <span class="q-num">2</span>
+          <span class="q-title">Money</span>
+          <span class="q-artist">Pink Floyd</span>
+          <span class="q-dur">6:22</span>
+        </div>
+        <div class="q-item">
+          <span class="q-drag">⋮⋮</span>
+          <span class="q-num">3</span>
+          <span class="q-title">Us and Them</span>
+          <span class="q-artist">Pink Floyd</span>
+          <span class="q-dur">7:49</span>
+        </div>
+        <div class="q-item">
+          <span class="q-drag">⋮⋮</span>
+          <span class="q-num">4</span>
+          <span class="q-title">Any Colour You Like</span>
+          <span class="q-artist">Pink Floyd</span>
+          <span class="q-dur">3:25</span>
+        </div>
+        <div class="q-item">
+          <span class="q-drag">⋮⋮</span>
+          <span class="q-num">5</span>
+          <span class="q-title">Brain Damage</span>
+          <span class="q-artist">Pink Floyd</span>
+          <span class="q-dur">3:50</span>
+        </div>
+        <div class="q-item">
+          <span class="q-drag">⋮⋮</span>
+          <span class="q-num">6</span>
+          <span class="q-title">Eclipse</span>
+          <span class="q-artist">Pink Floyd</span>
+          <span class="q-dur">2:06</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LIBRARY -->
+  <div class="glass-panel panel-library" id="panelLibrary">
+    <div class="panel-header" data-panel="library">
+      <span class="panel-title">Library</span>
+      <span class="panel-chevron">›</span>
+    </div>
+    <div class="panel-body">
+      <div class="lib-tabs" id="libTabs">
+        <span class="lib-tab active" data-source="nas">NAS</span>
+        <span class="lib-tab" data-source="local">Local</span>
+        <span class="lib-tab" data-source="playlists">Playlists</span>
+        <span class="lib-tab" data-source="radio">Radio</span>
+        <span class="lib-tab" data-source="favorites">Favorites</span>
+      </div>
+      <div class="lib-search">
+        <span class="lib-search-icon">🔍</span>
+        <input type="text" placeholder="Search library…">
+      </div>
+      <div class="album-grid" id="albumGrid"></div>
+      <div class="album-detail" id="albumDetail">
+        <div class="album-detail-header">
+          <button class="album-detail-back" id="albumBack">←</button>
+          <div class="album-detail-art" id="albumDetailArt"></div>
+          <div class="album-detail-meta">
+            <div class="album-detail-title" id="albumDetailTitle">Album Title</div>
+            <div class="album-detail-artist" id="albumDetailArtist">Artist</div>
+          </div>
+        </div>
+        <div class="album-detail-tracks" id="albumDetailTracks"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Global Seek Bar -->
+<div class="global-seek" id="globalSeek">
+  <div class="global-seek-fill" id="globalSeekFill"></div>
+</div>
+
+<script>
+(function(){
+  // ── Mock Data ──
+  const albums = [
+    {title:'The Dark Side of the Moon',artist:'Pink Floyd',grad:'linear-gradient(135deg,#0a0a2e,#1a0533,#2d1b69,#000)',
+     tracks:[{n:1,t:'Speak to Me',d:'1:30'},{n:2,t:'Breathe',d:'2:43'},{n:3,t:'On the Run',d:'3:36'},
+             {n:4,t:'Time',d:'7:04'},{n:5,t:'The Great Gig in the Sky',d:'5:43'},{n:6,t:'Money',d:'6:22'},
+             {n:7,t:'Us and Them',d:'7:49'},{n:8,t:'Any Colour You Like',d:'3:25'},{n:9,t:'Brain Damage',d:'3:50'},{n:10,t:'Eclipse',d:'2:06'}]},
+    {title:'Wish You Were Here',artist:'Pink Floyd',grad:'linear-gradient(135deg,#1a2a1a,#0a1a30,#2a1a0a)',
+     tracks:[{n:1,t:'Shine On You Crazy Diamond (I-V)',d:'13:30'},{n:2,t:'Welcome to the Machine',d:'7:31'},{n:3,t:'Have a Cigar',d:'5:08'},{n:4,t:'Wish You Were Here',d:'5:34'},{n:5,t:'Shine On You Crazy Diamond (VI-IX)',d:'12:31'}]},
+    {title:'OK Computer',artist:'Radiohead',grad:'linear-gradient(135deg,#1a1a2e,#2e1a2e,#0a0a15)',
+     tracks:[{n:1,t:'Airbag',d:'4:44'},{n:2,t:'Paranoid Android',d:'6:23'},{n:3,t:'Subterranean Homesick Alien',d:'4:27'},{n:4,t:'Exit Music',d:'4:24'},{n:5,t:'Let Down',d:'4:59'}]},
+    {title:'Kind of Blue',artist:'Miles Davis',grad:'linear-gradient(135deg,#0a1525,#152540,#0a0a20)',
+     tracks:[{n:1,t:'So What',d:'9:22'},{n:2,t:'Freddie Freeloader',d:'9:46'},{n:3,t:'Blue in Green',d:'5:27'},{n:4,t:'All Blues',d:'11:33'},{n:5,t:'Flamenco Sketches',d:'9:26'}]},
+    {title:'Abbey Road',artist:'The Beatles',grad:'linear-gradient(135deg,#2a2015,#1a1520,#0a1015)',
+     tracks:[{n:1,t:'Come Together',d:'4:20'},{n:2,t:'Something',d:'3:02'},{n:3,t:'Here Comes the Sun',d:'3:05'}]},
+    {title:'Random Access Memories',artist:'Daft Punk',grad:'linear-gradient(135deg,#1a0a25,#25152a,#0a0515)',
+     tracks:[{n:1,t:'Give Life Back to Music',d:'4:34'},{n:2,t:'Giorgio by Moroder',d:'9:04'},{n:3,t:'Get Lucky',d:'6:09'}]},
+    {title:'In Rainbows',artist:'Radiohead',grad:'linear-gradient(135deg,#2a1010,#1a0a0a,#150505)',
+     tracks:[{n:1,t:'15 Step',d:'3:58'},{n:2,t:'Bodysnatchers',d:'4:02'},{n:3,t:'Nude',d:'4:15'}]},
+    {title:'Rumours',artist:'Fleetwood Mac',grad:'linear-gradient(135deg,#201520,#151020,#0a0a15)',
+     tracks:[{n:1,t:'Second Hand News',d:'2:56'},{n:2,t:'Dreams',d:'4:14'},{n:3,t:'Go Your Own Way',d:'3:43'}]},
+    {title:'A Love Supreme',artist:'John Coltrane',grad:'linear-gradient(135deg,#1a1508,#0a0a05,#151008)',
+     tracks:[{n:1,t:'Acknowledgement',d:'7:43'},{n:2,t:'Resolution',d:'7:20'},{n:3,t:'Pursuance',d:'10:42'},{n:4,t:'Psalm',d:'7:05'}]},
+    {title:'Currents',artist:'Tame Impala',grad:'linear-gradient(135deg,#2a0a1a,#1a052a,#0a0515)',
+     tracks:[{n:1,t:'Let It Happen',d:'7:46'},{n:2,t:'Nangs',d:'1:47'},{n:3,t:'The Moment',d:'4:15'}]},
+    {title:'Homework',artist:'Daft Punk',grad:'linear-gradient(135deg,#1a1a05,#0a150a,#050a15)',
+     tracks:[{n:1,t:'Daftendirekt',d:'2:44'},{n:2,t:'Around the World',d:'7:09'}]},
+    {title:'The Bends',artist:'Radiohead',grad:'linear-gradient(135deg,#151525,#0a0a18,#1a1a2a)',
+     tracks:[{n:1,t:'Planet Telex',d:'4:19'},{n:2,t:'The Bends',d:'4:06'},{n:3,t:'Fake Plastic Trees',d:'4:50'}]}
+  ];
+
+  // ── Populate Album Grid ──
+  const grid = document.getElementById('albumGrid');
+  albums.forEach((a, i) => {
+    const card = document.createElement('div');
+    card.className = 'album-card';
+    card.dataset.idx = i;
+    card.innerHTML = `<div class="album-art-tile"><div class="art-bg" style="width:100%;height:100%;background:${a.grad}"></div></div>
+      <div class="album-card-info"><div class="album-card-title">${a.title}</div><div class="album-card-artist">${a.artist}</div></div>`;
+    card.addEventListener('click', () => openAlbumDetail(i));
+    grid.appendChild(card);
+  });
+
+  // ── Album Detail ──
+  function openAlbumDetail(idx) {
+    const a = albums[idx];
+    document.getElementById('albumDetailTitle').textContent = a.title;
+    document.getElementById('albumDetailArtist').textContent = a.artist;
+    document.getElementById('albumDetailArt').style.background = a.grad;
+    const tracks = document.getElementById('albumDetailTracks');
+    tracks.innerHTML = a.tracks.map(t =>
+      `<div class="ad-track"><span class="ad-track-num">${t.n}</span><span class="ad-track-title">${t.t}</span><span class="ad-track-dur">${t.d}</span></div>`
+    ).join('');
+    document.body.classList.add('album-detail-open','library-expanded');
+  }
+  document.getElementById('albumBack').addEventListener('click', () => {
+    document.body.classList.remove('album-detail-open','library-expanded');
+  });
+
+  // ── Source Tabs ──
+  document.getElementById('libTabs').addEventListener('click', e => {
+    if (!e.target.classList.contains('lib-tab')) return;
+    document.querySelectorAll('.lib-tab').forEach(t => t.classList.remove('active'));
+    e.target.classList.add('active');
+  });
+
+  // ── Panel Header: Double-tap to expand ──
+  let lastTapTime = {};
+  document.querySelectorAll('.panel-header').forEach(header => {
+    header.addEventListener('click', e => {
+      const panel = header.dataset.panel;
+      const now = Date.now();
+      if (lastTapTime[panel] && now - lastTapTime[panel] < 400) {
+        // Double-tap: expand this panel
+        document.body.classList.remove('library-expanded','queue-expanded','album-detail-open');
+        if (panel === 'queue') document.body.classList.toggle('queue-expanded');
+        if (panel === 'library') document.body.classList.toggle('library-expanded');
+      }
+      lastTapTime[panel] = now;
+    });
+  });
+
+  // ── Play/Pause Toggle ──
+  let playing = true;
+  function togglePlay() {
+    playing = !playing;
+    document.getElementById('playBtn').textContent = playing ? '▶' : '⏸';
+    document.getElementById('playBtnViz').textContent = playing ? '▶' : '⏸';
+  }
+  document.getElementById('playBtn').addEventListener('click', togglePlay);
+  document.getElementById('playBtnViz').addEventListener('click', togglePlay);
+
+  // ── Seek Bars ──
+  function handleSeek(trackEl, fillEl) {
+    trackEl.addEventListener('click', e => {
+      const rect = trackEl.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      fillEl.style.width = (pct * 100) + '%';
+      // Sync all seek bars
+      document.querySelectorAll('.seek-fill,.global-seek-fill,.np-viz-seek-fill').forEach(f => f.style.width = (pct*100)+'%');
+    });
+  }
+  handleSeek(document.getElementById('seekTrack'), document.getElementById('seekFill'));
+  handleSeek(document.getElementById('globalSeek'), document.getElementById('globalSeekFill'));
+
+  // ── VIZ Toggle ──
+  const vizToggle = document.getElementById('vizToggle');
+  const vizCanvas = document.getElementById('vizCanvas');
+  vizToggle.addEventListener('click', () => {
+    document.body.classList.toggle('viz-mode');
+    document.body.classList.remove('library-expanded','queue-expanded','album-detail-open');
+  });
+  vizCanvas.addEventListener('click', () => {
+    document.body.classList.remove('viz-mode');
+  });
+
+  // ── Canvas Visualisation ──
+  const ctx = vizCanvas.getContext('2d');
+  const W = 1920, H = 360;
+  const barCount = 96;
+  const barW = W / barCount;
+  let bars = new Float32Array(barCount);
+  let targets = new Float32Array(barCount);
+  let phase = 0;
+
+  function updateTargets() {
+    phase += 0.02;
+    for (let i = 0; i < barCount; i++) {
+      const freq = i / barCount;
+      const wave1 = Math.sin(phase * 1.5 + i * 0.15) * 0.3;
+      const wave2 = Math.sin(phase * 0.7 + i * 0.08) * 0.25;
+      const wave3 = Math.cos(phase * 2.1 + i * 0.22) * 0.15;
+      const noise = (Math.random() - 0.5) * 0.1;
+      const envelope = Math.sin(freq * Math.PI) * 0.8 + 0.2;
+      targets[i] = Math.max(0.03, Math.min(1, (0.35 + wave1 + wave2 + wave3 + noise) * envelope));
+    }
+  }
+
+  function renderViz() {
+    ctx.clearRect(0, 0, W, H);
+    updateTargets();
+    for (let i = 0; i < barCount; i++) {
+      bars[i] += (targets[i] - bars[i]) * 0.12;
+      const h = bars[i] * H * 0.85;
+      const x = i * barW;
+      const grad = ctx.createLinearGradient(x, H, x, H - h);
+      grad.addColorStop(0, 'rgba(255,177,200,0.7)');
+      grad.addColorStop(0.4, 'rgba(123,41,73,0.5)');
+      grad.addColorStop(1, 'rgba(93,17,51,0.1)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.roundRect(x + 1, H - h, barW - 2, h, [3, 3, 0, 0]);
+      ctx.fill();
+    }
+    // Glow line at top of bars
+    ctx.beginPath();
+    ctx.moveTo(0, H);
+    for (let i = 0; i < barCount; i++) {
+      const h = bars[i] * H * 0.85;
+      ctx.lineTo(i * barW + barW / 2, H - h);
+    }
+    ctx.strokeStyle = 'rgba(255,177,200,0.15)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    requestAnimationFrame(renderViz);
+  }
+  renderViz();
+})();
+</script>
+</body>
+</html>

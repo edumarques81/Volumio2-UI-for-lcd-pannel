@@ -1,0 +1,9 @@
+/Users/eduardomarques/workspace/Volumio2-UI/src/lib/wasm/stellar-viz/target/debug/deps/serde_wasm_bindgen-33d0053ad502d061.d: /Users/eduardomarques/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-wasm-bindgen-0.6.5/src/lib.rs /Users/eduardomarques/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-wasm-bindgen-0.6.5/src/de.rs /Users/eduardomarques/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-wasm-bindgen-0.6.5/src/error.rs /Users/eduardomarques/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-wasm-bindgen-0.6.5/src/ser.rs /Users/eduardomarques/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-wasm-bindgen-0.6.5/src/../README.md
+
+/Users/eduardomarques/workspace/Volumio2-UI/src/lib/wasm/stellar-viz/target/debug/deps/libserde_wasm_bindgen-33d0053ad502d061.rmeta: /Users/eduardomarques/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-wasm-bindgen-0.6.5/src/lib.rs /Users/eduardomarques/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-wasm-bindgen-0.6.5/src/de.rs /Users/eduardomarques/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-wasm-bindgen-0.6.5/src/error.rs /Users/eduardomarques/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-wasm-bindgen-0.6.5/src/ser.rs /Users/eduardomarques/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-wasm-bindgen-0.6.5/src/../README.md
+
+/Users/eduardomarques/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-wasm-bindgen-0.6.5/src/lib.rs:
+/Users/eduardomarques/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-wasm-bindgen-0.6.5/src/de.rs:
+/Users/eduardomarques/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-wasm-bindgen-0.6.5/src/error.rs:
+/Users/eduardomarques/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-wasm-bindgen-0.6.5/src/ser.rs:
+/Users/eduardomarques/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-wasm-bindgen-0.6.5/src/../README.md:

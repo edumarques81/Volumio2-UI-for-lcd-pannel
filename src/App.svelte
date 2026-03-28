@@ -52,6 +52,11 @@
   import LCDLayout from '$lib/components/layouts/LCDLayout.svelte';
   import DesktopLayout from '$lib/components/layouts/DesktopLayout.svelte';
   import MobileLayout from '$lib/components/layouts/MobileLayout.svelte';
+  import GalleryLayout from '$lib/components/gallery/GalleryLayout.svelte';
+
+  // Feature flag: ?layout=gallery activates the Living Gallery layout
+  const useGalleryLayout = typeof window !== 'undefined'
+    && new URLSearchParams(window.location.search).get('layout') === 'gallery';
 
   // Components (global modals)
   import LibraryContextMenu from '$lib/components/LibraryContextMenu.svelte';
@@ -331,7 +336,9 @@
        Connection issues are reported via the issues system (status button)
        after a 5-second grace period. -->
   <div class="app-container">
-    {#if $isLcdPanel}
+    {#if useGalleryLayout}
+      <GalleryLayout />
+    {:else if $isLcdPanel}
       <LCDLayout />
     {:else if $isDesktop}
       <DesktopLayout />
