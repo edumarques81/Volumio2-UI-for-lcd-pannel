@@ -26,7 +26,8 @@
   } from '$lib/stores/favorites';
   import Skeleton from '../Skeleton.svelte';
   import SourceTabs from './SourceTabs.svelte';
-  import { IconSearch, IconPlay, IconPlaylist, IconRadio, IconFavoriteFilled } from '$lib/components/icons';
+  import { IconSearch, IconClose, IconPlay, IconPlaylist, IconRadio, IconFavoriteFilled } from '$lib/components/icons';
+  import PlaylistDetailOverlay from './PlaylistDetailOverlay.svelte';
 
   const dispatch = createEventDispatcher<{
     albumSelect: Album;
@@ -34,6 +35,7 @@
 
   let searchQuery = '';
   let activeSource = 'nas';
+  let selectedPlaylist: string | null = null;
 
   const scopeMap: Record<string, Scope> = {
     nas: 'nas',
@@ -69,7 +71,16 @@
   }
 
   function handlePlaylistClick(name: string) {
-    playlistActions.playPlaylist(name);
+    selectedPlaylist = name;
+  }
+
+  function handlePlaylistBack() {
+    selectedPlaylist = null;
+  }
+
+  function clearSearch() {
+    searchQuery = '';
+    loadContent();
   }
 
   function handleRadioClick(station: { id: string; name: string; uri: string }) {
@@ -88,9 +99,16 @@
     loadContent();
   });
 
+  function handleArtError(e: Event) {
+    const img = e.target as HTMLImageElement;
+    // Replace broken image with empty string to trigger the CSS background fallback
+    img.style.display = 'none';
+  }
+
   $: isAlbumView = !['playlists', 'radio', 'favorites'].includes(activeSource);
   $: loading = isAlbumView ? $libraryAlbumsLoading : activeSource === 'playlists' ? $playlistsLoading : activeSource === 'radio' ? $radioLoading : $favoritesLoading;
   $: error = isAlbumView ? $libraryAlbumsError : null;
+  $: hasSearchQuery = searchQuery.trim().length > 0;
 </script>
 
 <div class="library-tab">
@@ -106,6 +124,11 @@
       bind:value={searchQuery}
       on:input={handleSearch}
     />
+    {#if hasSearchQuery}
+      <button class="search-clear" on:click={clearSearch} aria-label="Clear search">
+        <IconClose size={12} />
+      </button>
+    {/if}
   </div>
 
   {#if error}
@@ -129,12 +152,16 @@
     <div class="lib-album-grid">
       {#each $libraryAlbums as album (album.id)}
         <button class="lib-album" on:click={() => handleAlbumClick(album)}>
-          <img
-            class="lib-album-art"
-            src={album.albumArt}
-            alt={album.title}
-            loading="lazy"
-          />
+          <div class="lib-album-art-wrap">
+            <img
+              class="lib-album-art"
+              src={album.albumArt}
+              alt={album.title}
+              loading="lazy"
+              on:error={handleArtError}
+            />
+            <div class="lib-album-art-fallback"></div>
+          </div>
           <div class="lib-album-hover">
             <IconPlay size={24} />
           </div>
@@ -144,20 +171,30 @@
           </div>
         </button>
       {:else}
-        <div class="empty-state">No albums found</div>
+        <div class="empty-state">
+          {#if hasSearchQuery}
+            No albums matching '{searchQuery}'
+          {:else}
+            No albums found
+          {/if}
+        </div>
       {/each}
     </div>
   {:else if activeSource === 'playlists'}
-    <div class="list-view">
-      {#each $playlists as name (name)}
-        <button class="list-item" on:click={() => handlePlaylistClick(name)}>
-          <span class="list-icon"><IconPlaylist size={16} /></span>
-          <span class="list-title">{name}</span>
-        </button>
-      {:else}
-        <div class="empty-state">No playlists</div>
-      {/each}
-    </div>
+    {#if selectedPlaylist}
+      <PlaylistDetailOverlay playlistName={selectedPlaylist} on:back={handlePlaylistBack} />
+    {:else}
+      <div class="list-view">
+        {#each $playlists as name (name)}
+          <button class="list-item" on:click={() => handlePlaylistClick(name)}>
+            <span class="list-icon"><IconPlaylist size={16} /></span>
+            <span class="list-title">{name}</span>
+          </button>
+        {:else}
+          <div class="empty-state">No playlists</div>
+        {/each}
+      </div>
+    {/if}
   {:else if activeSource === 'radio'}
     <div class="list-view">
       {#each $radioStations as station (station.id)}
@@ -222,6 +259,25 @@
     color: var(--md-outline);
   }
 
+  .search-clear {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    margin: -6px -10px -6px 0;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: var(--md-outline);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color 200ms ease-out;
+  }
+  .search-clear:hover {
+    color: var(--md-on-surface);
+  }
+
   .lib-album-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(95px, 1fr));
@@ -252,12 +308,26 @@
     transform: scale(0.97);
   }
 
-  .lib-album-art {
+  .lib-album-art-wrap {
+    position: relative;
     width: 100%;
     aspect-ratio: 1;
+  }
+
+  .lib-album-art {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
     display: block;
     object-fit: cover;
     background: var(--md-surface-container, #261A1E);
+  }
+
+  .lib-album-art-fallback {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, #0a0a2e 0%, #1a0533 30%, #2d1b69 50%, #0a0a2e 70%, #000 100%);
   }
 
   .lib-album-hover {

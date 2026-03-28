@@ -1,20 +1,18 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
-  import {
-    libraryAlbumTracks,
-    libraryAlbumTracksLoading,
-    libraryAlbumTracksError,
-    libraryAlbumTotalDuration,
-    libraryActions,
-    type Album,
-    type Track
-  } from '$lib/stores/library';
+  import { createEventDispatcher, onMount } from 'svelte';
+  import { socketService } from '$lib/services/socket';
+  import { playlistActions } from '$lib/stores/playlist';
+  import { libraryActions, type Track } from '$lib/stores/library';
   import Skeleton from '../Skeleton.svelte';
-  import { IconBack, IconPlay, IconAddToQueue, IconFavorite } from '$lib/components/icons';
+  import { IconBack, IconPlay, IconAddToQueue } from '$lib/components/icons';
 
-  export let album: Album;
+  export let playlistName: string;
 
   const dispatch = createEventDispatcher<{ back: void }>();
+
+  let tracks: Track[] = [];
+  let loading = true;
+  let error: string | null = null;
 
   function formatDuration(seconds: number): string {
     if (!seconds) return '';
@@ -24,86 +22,123 @@
   }
 
   function formatTotalDuration(seconds: number): string {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
+    const total = tracks.reduce((sum, t) => sum + (t.duration || 0), 0);
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
     if (hours > 0) return `${hours}h ${minutes}m`;
     return `${minutes} min`;
   }
 
   function handleBack() {
-    libraryActions.clearSelectedAlbum();
     dispatch('back');
   }
 
   function handlePlayAll() {
-    libraryActions.playAlbum(album);
+    playlistActions.playPlaylist(playlistName);
   }
 
-  function handleAddToQueue() {
-    libraryActions.addAlbumToQueue(album);
+  function handleAddAllToQueue() {
+    playlistActions.enqueuePlaylist(playlistName);
   }
 
-  function handlePlayTrack(track: Track) {
-    libraryActions.playTrack(track);
+  function handlePlayTrack(track: Track, index: number) {
+    // Play the playlist starting from this track
+    // Use replaceAndPlay for individual track
+    socketService.emit('replaceAndPlay', {
+      service: track.source || 'mpd',
+      type: 'song',
+      title: track.title,
+      uri: track.uri
+    });
   }
 
   function handleAddTrackToQueue(track: Track) {
     libraryActions.addTrackToQueue(track);
   }
 
-  function handleRetry() {
-    libraryActions.fetchAlbumTracks(album);
-  }
+  onMount(() => {
+    loading = true;
+    error = null;
 
-  // Fetch tracks on mount
-  libraryActions.fetchAlbumTracks(album);
+    // Browse the playlist URI to get its contents
+    const playlistUri = `playlists/${playlistName}`;
+
+    // Listen for the browse response
+    const handler = (data: any) => {
+      try {
+        const lists = data?.navigation?.lists;
+        if (lists && lists.length > 0) {
+          const items = lists[0].items || [];
+          tracks = items.map((item: any, idx: number) => ({
+            id: item.uri || `${idx}`,
+            title: item.title || item.name || 'Untitled',
+            artist: item.artist || '',
+            album: item.album || '',
+            uri: item.uri,
+            trackNumber: idx + 1,
+            duration: item.duration || 0,
+            albumArt: item.albumart || '',
+            source: item.service || 'mpd'
+          }));
+        } else {
+          tracks = [];
+        }
+      } catch {
+        error = 'Failed to load playlist';
+      }
+      loading = false;
+    };
+
+    // Use on + unsubscribe pattern
+    let unsubscribe: (() => void) | null = null;
+    const wrappedHandler = (data: any) => {
+      handler(data);
+      if (unsubscribe) unsubscribe();
+    };
+
+    unsubscribe = socketService.on('pushBrowseLibrary', wrappedHandler);
+    socketService.emit('browseLibrary', { uri: playlistUri });
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  });
 </script>
 
-<div class="lib-detail">
-  <div class="lib-detail-header">
-    <button class="lib-detail-back" on:click={handleBack} aria-label="Back to albums">
+<div class="pl-detail">
+  <div class="pl-detail-header">
+    <button class="pl-detail-back" on:click={handleBack} aria-label="Back to playlists">
       <IconBack size={14} />
     </button>
-    <div class="lib-detail-art-wrap">
-      <img
-        class="lib-detail-art"
-        src={album.albumArt}
-        alt={album.title}
-        on:error={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-      />
-      <div class="lib-detail-art-fallback"></div>
-    </div>
-    <div class="lib-detail-meta">
-      <div class="lib-detail-title">{album.title}</div>
-      <div class="lib-detail-artist">{album.artist}</div>
-      {#if !$libraryAlbumTracksLoading}
-        <div class="lib-detail-info">
-          {$libraryAlbumTracks.length} tracks · {formatTotalDuration($libraryAlbumTotalDuration)}
+    <div class="pl-detail-meta">
+      <div class="pl-detail-title">{playlistName}</div>
+      {#if !loading}
+        <div class="pl-detail-info">
+          {tracks.length} tracks · {formatTotalDuration(0)}
         </div>
       {/if}
     </div>
   </div>
 
-  <div class="lib-detail-actions">
+  <div class="pl-detail-actions">
     <button class="action-btn primary" on:click={handlePlayAll}>
       <IconPlay size={12} />
       Play All
     </button>
-    <button class="action-btn" on:click={handleAddToQueue}>
+    <button class="action-btn" on:click={handleAddAllToQueue}>
       <IconAddToQueue size={14} />
       Add to Queue
     </button>
   </div>
 
-  {#if $libraryAlbumTracksError}
+  {#if error}
     <div class="error-state">
-      <p class="error-text">{$libraryAlbumTracksError}</p>
-      <button class="retry-btn" on:click={handleRetry}>Retry</button>
+      <p class="error-text">{error}</p>
     </div>
-  {:else if $libraryAlbumTracksLoading}
-    <div class="lib-detail-tracks">
+  {:else if loading}
+    <div class="pl-detail-tracks">
       {#each Array(6) as _}
-        <div class="ld-track">
+        <div class="pl-track">
           <Skeleton width="18px" height="12px" />
           <Skeleton width="60%" height="12px" />
           <Skeleton width="30px" height="10px" />
@@ -111,31 +146,34 @@
       {/each}
     </div>
   {:else}
-    <div class="lib-detail-tracks">
-      {#each $libraryAlbumTracks as track (track.id)}
-        <div class="ld-track-row">
-          <button class="ld-track" on:click={() => handlePlayTrack(track)}>
-            <span class="ld-track-num">{track.trackNumber}</span>
-            <span class="ld-track-title">{track.title}</span>
-            <span class="ld-track-dur">{formatDuration(track.duration)}</span>
+    <div class="pl-detail-tracks">
+      {#each tracks as track, index (track.uri + index)}
+        <div class="pl-track">
+          <button class="pl-track-main" on:click={() => handlePlayTrack(track, index)}>
+            <span class="pl-track-num">{index + 1}</span>
+            <span class="pl-track-title">{track.title}</span>
+            {#if track.artist}
+              <span class="pl-track-artist">{track.artist}</span>
+            {/if}
+            <span class="pl-track-dur">{formatDuration(track.duration)}</span>
           </button>
           <button
-            class="ld-track-add"
-            on:click={() => handleAddTrackToQueue(track)}
+            class="pl-track-add"
+            on:click|stopPropagation={() => handleAddTrackToQueue(track)}
             aria-label="Add to queue"
           >
             <IconAddToQueue size={14} />
           </button>
         </div>
       {:else}
-        <div class="empty-text">No tracks found</div>
+        <div class="empty-text">No tracks in playlist</div>
       {/each}
     </div>
   {/if}
 </div>
 
 <style>
-  .lib-detail {
+  .pl-detail {
     display: flex;
     flex-direction: column;
     height: 100%;
@@ -144,7 +182,7 @@
     -webkit-backdrop-filter: blur(12px);
   }
 
-  .lib-detail-header {
+  .pl-detail-header {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -154,7 +192,7 @@
     flex-shrink: 0;
   }
 
-  .lib-detail-back {
+  .pl-detail-back {
     width: 44px;
     height: 44px;
     border-radius: 50%;
@@ -168,56 +206,29 @@
     transition: all 200ms ease-out;
     flex-shrink: 0;
   }
-  .lib-detail-back:hover {
+  .pl-detail-back:hover {
     background: var(--md-primary-container);
     color: var(--md-on-primary-container);
   }
 
-  .lib-detail-art-wrap {
-    width: 54px;
-    height: 54px;
-    border-radius: var(--md-shape-sm, 8px);
-    flex-shrink: 0;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .lib-detail-art {
-    position: relative;
-    z-index: 1;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .lib-detail-art-fallback {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(135deg, #0a0a2e 0%, #1a0533 30%, #2d1b69 50%, #0a0a2e 70%, #000 100%);
-  }
-
-  .lib-detail-meta {
+  .pl-detail-meta {
     min-width: 0;
     flex: 1;
   }
-  .lib-detail-title {
+  .pl-detail-title {
     font-size: 14px;
     font-weight: 700;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .lib-detail-artist {
-    font-size: 11px;
-    color: var(--md-on-surface-variant);
-  }
-  .lib-detail-info {
+  .pl-detail-info {
     font-size: 10px;
     color: var(--md-outline);
     margin-top: 2px;
   }
 
-  .lib-detail-actions {
+  .pl-detail-actions {
     display: flex;
     gap: 8px;
     margin-bottom: 10px;
@@ -253,7 +264,7 @@
     color: var(--md-primary);
   }
 
-  .lib-detail-tracks {
+  .pl-detail-tracks {
     flex: 1;
     overflow-y: auto;
     scrollbar-width: thin;
@@ -262,36 +273,14 @@
     flex-direction: column;
   }
 
-  .ld-track-row {
+  .pl-track {
     display: flex;
     align-items: center;
     gap: 0;
+    min-height: 44px;
   }
 
-  .ld-track-add {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    border: none;
-    background: transparent;
-    color: var(--md-outline-variant);
-    cursor: pointer;
-    opacity: 0;
-    transition: all 200ms ease-out;
-    flex-shrink: 0;
-  }
-  .ld-track-row:hover .ld-track-add {
-    opacity: 1;
-  }
-  .ld-track-add:hover {
-    color: var(--md-primary);
-    background: rgba(255, 177, 200, 0.1);
-  }
-
-  .ld-track {
+  .pl-track-main {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -308,11 +297,11 @@
     flex: 1;
     min-width: 0;
   }
-  .ld-track:hover {
+  .pl-track-main:hover {
     background: rgba(255, 177, 200, 0.06);
   }
 
-  .ld-track-num {
+  .pl-track-num {
     font-family: 'Roboto Mono', monospace;
     font-size: 10px;
     color: var(--md-outline);
@@ -320,19 +309,48 @@
     text-align: right;
     flex-shrink: 0;
   }
-  .ld-track-title {
+  .pl-track-title {
     font-size: 12px;
     font-weight: 500;
     flex: 1;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    min-width: 0;
   }
-  .ld-track-dur {
+  .pl-track-artist {
+    font-size: 11px;
+    color: var(--md-outline);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100px;
+    flex-shrink: 0;
+  }
+  .pl-track-dur {
     font-family: 'Roboto Mono', monospace;
     font-size: 10px;
     color: var(--md-outline);
     flex-shrink: 0;
+  }
+
+  .pl-track-add {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: var(--md-outline-variant);
+    cursor: pointer;
+    transition: all 200ms ease-out;
+    flex-shrink: 0;
+  }
+  .pl-track-add:hover {
+    color: var(--md-primary);
+    background: rgba(255, 177, 200, 0.1);
   }
 
   .error-state {
@@ -345,17 +363,6 @@
   .error-text {
     font-size: 12px;
     color: var(--md-error, #FFB4AB);
-  }
-  .retry-btn {
-    padding: 8px 16px;
-    border-radius: var(--md-shape-full, 9999px);
-    border: 1px solid var(--md-outline-variant);
-    background: transparent;
-    color: var(--md-primary);
-    font-size: 11px;
-    font-weight: 600;
-    cursor: pointer;
-    min-height: 44px;
   }
 
   .empty-text {

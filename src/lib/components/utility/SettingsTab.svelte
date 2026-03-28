@@ -23,6 +23,15 @@
   import { IconAudirvana, IconMusicNote } from '$lib/components/icons';
 
   let brightness = 100;
+  let showScrollIndicator = true;
+  let settingsContainer: HTMLDivElement;
+
+  function handleSettingsScroll() {
+    if (!settingsContainer) return;
+    const { scrollTop, scrollHeight, clientHeight } = settingsContainer;
+    // Hide gradient when within 10px of bottom
+    showScrollIndicator = scrollHeight - scrollTop - clientHeight > 10;
+  }
 
   function handleSwitchEngine(engine: 'mpd' | 'audirvana') {
     audioEngineActions.switchTo(engine);
@@ -58,7 +67,8 @@
   });
 </script>
 
-<div class="settings-tab">
+<div class="settings-wrapper">
+<div class="settings-tab" bind:this={settingsContainer} on:scroll={handleSettingsScroll}>
   <!-- Audio Engine Section -->
   <div class="settings-section">
     <div class="section-header">Audio Engine</div>
@@ -249,8 +259,29 @@
     </div>
   {/if}
 </div>
+{#if showScrollIndicator}
+  <div class="scroll-indicator"></div>
+{/if}
+</div>
 
 <style>
+  .settings-wrapper {
+    position: relative;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .scroll-indicator {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 40px;
+    background: linear-gradient(transparent, var(--md-surface, #1A1114));
+    pointer-events: none;
+    z-index: 1;
+  }
+
   .settings-tab {
     display: flex;
     flex-direction: column;

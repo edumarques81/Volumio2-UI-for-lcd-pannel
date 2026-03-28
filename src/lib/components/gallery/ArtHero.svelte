@@ -16,7 +16,10 @@
 	$: isViz = $vizMode;
 	$: isAudirvana = $activeEngine === 'audirvana';
 	$: albumart = $currentTrack.albumart;
-	$: hasArt = albumart && albumart !== '/default-album.svg';
+	let artError = false;
+	// Reset error state when albumart changes
+	$: if (albumart) artError = false;
+	$: hasArt = !artError && albumart && albumart !== '/default-album.svg';
 </script>
 
 <button
@@ -27,7 +30,7 @@
 	title="Tap to toggle VIZ mode"
 >
 	{#if hasArt}
-		<img class="art-image" src={albumart} alt="Album artwork" />
+		<img class="art-image" src={albumart} alt="Album artwork" on:error={() => { artError = true; }} />
 	{:else if isAudirvana}
 		<!-- Audirvana branding when active with no album art -->
 		<div class="art-placeholder audirvana-placeholder">

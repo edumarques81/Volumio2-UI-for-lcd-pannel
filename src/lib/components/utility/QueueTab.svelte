@@ -2,10 +2,13 @@
   import { onMount } from 'svelte';
   import { queue, queueLoading, queueLength, queueDuration, queueActions, formatQueueDuration, type QueueItem } from '$lib/stores/queue';
   import { playerState } from '$lib/stores/player';
-  import { IconClose, IconQueue, IconDragHandle, IconPlay, IconDelete } from '$lib/components/icons';
+  import { IconClose, IconQueue, IconDragHandle, IconPlay, IconDelete, IconFavorite, IconFavoriteFilled } from '$lib/components/icons';
+  import { favoritesActions, isFavorite } from '$lib/stores/favorites';
 
   let draggedIndex: number | null = null;
   let dropTargetIndex: number | null = null;
+  let clearConfirming = false;
+  let clearTimer: ReturnType<typeof setTimeout> | null = null;
 
   function handlePlay(index: number) {
     queueActions.play(index);
@@ -44,7 +47,24 @@
   }
 
   function handleClear() {
-    queueActions.clear();
+    if (clearConfirming) {
+      // Second click — actually clear
+      queueActions.clear();
+      clearConfirming = false;
+      if (clearTimer) clearTimeout(clearTimer);
+      clearTimer = null;
+    } else {
+      // First click — enter confirmation state
+      clearConfirming = true;
+      clearTimer = setTimeout(() => {
+        clearConfirming = false;
+        clearTimer = null;
+      }, 3000);
+    }
+  }
+
+  function handleFavoriteTrack(item: QueueItem) {
+    favoritesActions.addToFavorites(item.service || 'mpd', item.uri, item.name || item.title);
   }
 
   onMount(() => {
@@ -56,9 +76,9 @@
   {#if $queueLength > 0}
     <div class="queue-header">
       <span class="queue-count">{$queueLength} tracks · {formatQueueDuration($queueDuration)}</span>
-      <button class="clear-btn" on:click={handleClear}>
+      <button class="clear-btn" class:confirming={clearConfirming} on:click={handleClear}>
         <IconDelete size={12} />
-        Clear
+        {clearConfirming ? 'Confirm Clear?' : 'Clear'}
       </button>
     </div>
   {/if}
@@ -110,6 +130,13 @@
             <span class="q-artist">{item.artist}</span>
           {/if}
           <span class="q-dur">{formatDuration(item.duration)}</span>
+          <button
+            class="q-favorite"
+            on:click|stopPropagation={() => handleFavoriteTrack(item)}
+            aria-label="Add to favorites"
+          >
+            <IconFavorite size={12} />
+          </button>
           <button
             class="q-remove"
             on:click|stopPropagation={() => handleRemove(index)}
@@ -164,6 +191,16 @@
   .clear-btn:hover {
     color: var(--md-error, #FFB4AB);
     border-color: var(--md-error, #FFB4AB);
+  }
+  .clear-btn.confirming {
+    color: var(--md-error, #FFB4AB);
+    border-color: var(--md-error, #FFB4AB);
+    background: rgba(255, 180, 171, 0.1);
+    animation: pulse-confirm 1s ease-in-out infinite;
+  }
+  @keyframes pulse-confirm {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
   }
 
   .queue-list {
@@ -261,6 +298,29 @@
     flex-shrink: 0;
   }
 
+  .q-favorite {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: var(--md-outline-variant);
+    cursor: pointer;
+    opacity: 0;
+    transition: all 200ms ease-out;
+    flex-shrink: 0;
+  }
+  .q-item:hover .q-favorite {
+    opacity: 1;
+  }
+  .q-favorite:hover {
+    color: var(--md-primary);
+    background: rgba(255, 177, 200, 0.1);
+  }
+
   .q-remove {
     display: flex;
     align-items: center;
@@ -275,6 +335,7 @@
     opacity: 0;
     transition: all 200ms ease-out;
     flex-shrink: 0;
+    margin-left: 8px;
   }
   .q-item:hover .q-remove {
     opacity: 1;

@@ -25,10 +25,10 @@
 
 | # | Issue | Source | Status |
 |---|-------|--------|--------|
-| 4 | **Prev/Next buttons too small** — 40×40px, need 48×48px minimum | QA-003, U-35 | 🔘 Pending |
-| 5 | **Shuffle/Repeat icons too small** — 40×40px, icons 16px. Need 48px/20px | QA-004 | 🔘 Pending |
-| 6 | **Right panel fonts too small** — all labels need ~20-30% scale up | QA-006 | 🔘 Pending |
-| 7 | **Source tab pills too small** — ~24px height, need 44px min | U-29 | 🔘 Pending |
+| 4 | **Prev/Next buttons too small** | QA-003, U-35 | ✅ Fixed (6f57888d) |
+| 5 | **Shuffle/Repeat icons too small** | QA-004 | ✅ Fixed (6f57888d) |
+| 6 | **Right panel fonts too small** | QA-006 | ✅ Fixed (6f57888d) |
+| 7 | **Source tab pills too small** | U-29 | ✅ Fixed (6f57888d) |
 
 ### Batch 3 — Missing Features & UX
 
