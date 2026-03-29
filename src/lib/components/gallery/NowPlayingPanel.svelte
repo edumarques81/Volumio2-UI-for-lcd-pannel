@@ -22,9 +22,33 @@
 	import {
 		IconPlay, IconPause, IconNext, IconPrevious,
 		IconShuffle, IconRepeat, IconRepeatOne,
-		IconVolumeHigh, IconVolumeMute, IconAudirvana
+		IconVolumeHigh, IconVolumeMute, IconAudirvana,
+		IconAddToQueue, IconFavorite, IconFavoriteFilled
 	} from '$lib/components/icons';
 	import { activeEngine } from '$lib/stores/audioEngine';
+	import { favoritesActions } from '$lib/stores/favorites';
+	import { socketService } from '$lib/services/socket';
+
+	let isFavorited = false;
+
+	function toggleFavorite() {
+		const track = $currentTrack;
+		if (!track?.uri) return;
+		favoritesActions.addToFavorites(track.service || 'mpd', track.uri, track.title);
+		isFavorited = !isFavorited;
+	}
+
+	function addCurrentToQueue() {
+		const track = $currentTrack;
+		if (!track?.uri) return;
+		socketService.emit('addToQueue', {
+			service: track.service || 'mpd',
+			uri: track.uri,
+			title: track.title,
+			artist: track.artist,
+			album: track.album
+		});
+	}
 
 	$: isViz = $vizMode;
 	$: isAudirvana = $activeEngine === 'audirvana';
@@ -171,6 +195,30 @@
 			{:else}
 				<IconRepeat size={24} />
 			{/if}
+		</button>
+
+		<button
+			class="t-btn sm"
+			class:active={isFavorited}
+			on:click={toggleFavorite}
+			title="Add to favorites"
+			aria-label={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
+			type="button"
+		>
+			{#if isFavorited}
+				<IconFavoriteFilled size={24} />
+			{:else}
+				<IconFavorite size={24} />
+			{/if}
+		</button>
+		<button
+			class="t-btn sm"
+			on:click={addCurrentToQueue}
+			title="Add to queue"
+			aria-label="Add to queue"
+			type="button"
+		>
+			<IconAddToQueue size={24} />
 		</button>
 
 		<div class="vol-wrap">
