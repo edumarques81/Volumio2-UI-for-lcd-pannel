@@ -44,6 +44,7 @@ export { default as IconQobuz } from './IconQobuz.svelte';
 
 // Actions
 export { default as IconAddToQueue } from './IconAddToQueue.svelte';
+export { default as IconSpectrum } from './IconSpectrum.svelte';
 export { default as IconPlayNext } from './IconPlayNext.svelte';
 export { default as IconDragHandle } from './IconDragHandle.svelte';
 export { default as IconMore } from './IconMore.svelte';

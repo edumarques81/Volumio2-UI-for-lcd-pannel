@@ -23,9 +23,11 @@
 		IconPlay, IconPause, IconNext, IconPrevious,
 		IconShuffle, IconRepeat, IconRepeatOne,
 		IconVolumeHigh, IconVolumeMute, IconAudirvana,
-		IconAddToQueue, IconFavorite, IconFavoriteFilled
+		IconAddToQueue, IconFavorite, IconFavoriteFilled,
+		IconSpectrum
 	} from '$lib/components/icons';
 	import { activeEngine } from '$lib/stores/audioEngine';
+	import { toggleVizMode } from '$lib/stores/viz';
 	import { favoritesActions } from '$lib/stores/favorites';
 	import { socketService } from '$lib/services/socket';
 
@@ -219,6 +221,16 @@
 			type="button"
 		>
 			<IconAddToQueue size={24} />
+		</button>
+		<button
+			class="t-btn sm"
+			class:active={isViz}
+			on:click={toggleVizMode}
+			title={isViz ? 'Exit spectrum' : 'Spectrum view'}
+			aria-label={isViz ? 'Exit spectrum view' : 'Show spectrum view'}
+			type="button"
+		>
+			<IconSpectrum size={24} />
 		</button>
 
 		<div class="vol-wrap">
@@ -561,41 +573,42 @@
 
 	.seek-track {
 		flex: 1;
-		height: 4px;
+		height: 12px;
 		background: var(--md-outline-variant, #514347);
-		border-radius: 2px;
+		border-radius: 6px;
 		cursor: pointer;
 		position: relative;
 		transition: height 0.15s;
 	}
 
 	.seek-track:hover {
-		height: 6px;
+		height: 14px;
 	}
 
 	.seek-fill {
 		height: 100%;
 		background: var(--md-primary, #FFB1C8);
-		border-radius: 2px;
+		border-radius: 6px;
 		transition: width 0.1s;
 		position: relative;
 	}
 
 	.seek-dot {
 		position: absolute;
-		right: -5px;
+		right: -10px;
 		top: 50%;
 		transform: translateY(-50%);
-		width: 10px;
-		height: 10px;
+		width: 20px;
+		height: 20px;
 		border-radius: 50%;
 		background: var(--md-primary, #FFB1C8);
-		opacity: 0;
-		transition: opacity 0.15s;
+		box-shadow: 0 0 8px rgba(255, 177, 200, 0.5);
+		opacity: 1;
+		transition: transform 0.15s;
 		pointer-events: none;
 	}
 
 	.seek-track:hover .seek-dot {
-		opacity: 1;
+		transform: translateY(-50%) scale(1.2);
 	}
 </style>
