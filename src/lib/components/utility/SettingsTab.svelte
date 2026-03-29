@@ -23,6 +23,7 @@
   import { IconAudirvana, IconMusicNote } from '$lib/components/icons';
   import NasManager from './NasManager.svelte';
   import { socketService } from '$lib/services/socket';
+  import { lcdActions } from '$lib/stores/lcd';
 
   let brightness = 100;
   let showScrollIndicator = true;
@@ -64,6 +65,45 @@
     console.log('[Settings] Max clients set to:', maxClients);
   }
 
+  // Power controls with inline confirm
+  type PowerAction = 'lcdOff' | 'restart' | 'shutdown';
+  let confirmingAction: PowerAction | null = null;
+  let confirmTimeout: ReturnType<typeof setTimeout> | null = null;
+  let shutdownNotice = '';
+
+  function requestPowerAction(action: PowerAction) {
+    if (confirmingAction === action) {
+      // Second tap — execute
+      clearConfirmTimeout();
+      confirmingAction = null;
+      switch (action) {
+        case 'lcdOff':
+          lcdActions.turnOff();
+          break;
+        case 'restart':
+          settingsActions.restart();
+          break;
+        case 'shutdown':
+          settingsActions.shutdown();
+          break;
+      }
+    } else {
+      // First tap — arm confirm
+      clearConfirmTimeout();
+      confirmingAction = action;
+      confirmTimeout = setTimeout(() => {
+        confirmingAction = null;
+      }, 3000);
+    }
+  }
+
+  function clearConfirmTimeout() {
+    if (confirmTimeout) {
+      clearTimeout(confirmTimeout);
+      confirmTimeout = null;
+    }
+  }
+
   function handleRebuildCache() {
     libraryActions.rebuildCache();
   }
@@ -76,6 +116,15 @@
     settingsActions.getSystemInfo();
     settingsActions.getNetworkStatus();
     libraryActions.getCacheStatus();
+
+    // Listen for shutdown/reboot notices
+    socketService.on<{ action: string; message: string }>('pushShutdownNotice', (data) => {
+      shutdownNotice = data.message;
+    });
+
+    return () => {
+      clearConfirmTimeout();
+    };
   });
 </script>
 
@@ -304,6 +353,44 @@
       </div>
     </div>
   {/if}
+
+  <!-- Power Section -->
+  <div class="settings-section">
+    <div class="section-header">⚡ Power</div>
+
+    {#if shutdownNotice}
+      <div class="setting-row shutdown-notice">
+        <span class="setting-label">{shutdownNotice}</span>
+      </div>
+    {/if}
+
+    <div class="setting-row power-row">
+      <button
+        class="power-btn"
+        class:confirming={confirmingAction === 'lcdOff'}
+        on:click={() => requestPowerAction('lcdOff')}
+      >
+        {confirmingAction === 'lcdOff' ? '🌙 Confirm?' : '🌙 LCD Off'}
+      </button>
+      <button
+        class="power-btn"
+        class:confirming={confirmingAction === 'restart'}
+        on:click={() => requestPowerAction('restart')}
+      >
+        {confirmingAction === 'restart' ? '🔄 Confirm?' : '🔄 Restart'}
+      </button>
+      <button
+        class="power-btn danger"
+        class:confirming={confirmingAction === 'shutdown'}
+        on:click={() => requestPowerAction('shutdown')}
+      >
+        {confirmingAction === 'shutdown' ? '⏻ Are you sure?' : '⏻ Shutdown'}
+      </button>
+    </div>
+    <div class="setting-row">
+      <span class="setting-label muted">LCD off → use mobile app to wake. Shutdown → needs physical power cycle.</span>
+    </div>
+  </div>
 </div>
 {#if showScrollIndicator}
   <div class="scroll-indicator"></div>
@@ -578,5 +665,51 @@
     font-size: 10px;
     color: var(--md-outline);
     line-height: 1.3;
+  }
+
+  /* Power section */
+  .power-row {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+  .power-btn {
+    padding: 8px 16px;
+    border-radius: var(--md-shape-full, 9999px);
+    border: 1px solid var(--md-outline-variant);
+    background: transparent;
+    color: var(--md-on-surface-variant);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 200ms ease-out;
+    min-height: 36px;
+    white-space: nowrap;
+  }
+  .power-btn:hover {
+    background: rgba(255, 177, 200, 0.06);
+    border-color: var(--md-primary);
+    color: var(--md-primary);
+  }
+  .power-btn.confirming {
+    background: rgba(255, 177, 200, 0.15);
+    border-color: var(--md-primary);
+    color: var(--md-primary);
+    animation: pulse-confirm 1s ease-in-out infinite;
+  }
+  .power-btn.danger.confirming {
+    background: rgba(255, 80, 80, 0.2);
+    border-color: var(--md-error, #FFB4AB);
+    color: var(--md-error, #FFB4AB);
+  }
+  @keyframes pulse-confirm {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+  .shutdown-notice {
+    background: rgba(255, 177, 200, 0.1);
+    border-radius: var(--md-shape-xs, 4px);
+    animation: pulse-confirm 1.5s ease-in-out infinite;
   }
 </style>

@@ -17,6 +17,7 @@
   import PlaylistsView from '../views/PlaylistsView.svelte';
   import FavoritesView from '../views/FavoritesView.svelte';
   import MobileMiniPlayer from '../MobileMiniPlayer.svelte';
+  import LcdWakeButton from '../LcdWakeButton.svelte';
 
   type TabId = 'home' | 'player' | 'queue' | 'settings';
 
@@ -112,6 +113,9 @@
       <MobileMiniPlayer />
     </div>
   {/if}
+
+  <!-- LCD Wake floating button (appears when LCD is off) -->
+  <LcdWakeButton />
 
   <!-- Bottom navigation — MD3 Navigation Bar -->
   <nav class="bottom-nav">
