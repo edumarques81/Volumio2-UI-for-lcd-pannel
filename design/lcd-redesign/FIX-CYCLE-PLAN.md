@@ -64,8 +64,8 @@
 
 | # | Issue | Source | Status |
 |---|-------|--------|--------|
-| 23 | **Missing NAS/source management** in settings | QA-008 | 🔘 Pending |
-| 24 | **Max client connections setting** | Eduardo request | 🔘 Pending |
+| 23 | **NAS/source management** | QA-008 | ✅ Fixed (92822dbd) |
+| 24 | **Max client connections** | Eduardo request | ✅ Fixed (92822dbd) — backend TODO |
 
 ---
 

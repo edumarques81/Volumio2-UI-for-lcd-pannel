@@ -234,10 +234,18 @@
     background: rgba(255, 177, 200, 0.06);
   }
   .q-item.playing {
-    background: rgba(123, 41, 73, 0.3);
+    background: rgba(123, 41, 73, 0.4);
+    border-left: 3px solid var(--md-primary, #FFB1C8);
   }
   .q-item.playing .q-title {
-    color: var(--md-on-primary-container);
+    color: var(--md-primary, #FFB1C8);
+    font-weight: 700;
+  }
+  .q-item.playing .q-artist {
+    color: rgba(255, 177, 200, 0.7);
+  }
+  .q-item.playing .q-num {
+    color: var(--md-primary, #FFB1C8);
   }
   .q-item.drop-target {
     border-top: 2px solid var(--md-primary);
