@@ -1,0 +1,9 @@
+/Users/eduardomarques/workspace/Volumio2-UI/src/lib/wasm/stellar-viz/target/debug/deps/wasm_bindgen_futures-a3c2fe981136075b.d: /Users/eduardomarques/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wasm-bindgen-futures-0.4.64/src/lib.rs /Users/eduardomarques/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wasm-bindgen-futures-0.4.64/src/queue.rs /Users/eduardomarques/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wasm-bindgen-futures-0.4.64/src/task/singlethread.rs
+
+/Users/eduardomarques/workspace/Volumio2-UI/src/lib/wasm/stellar-viz/target/debug/deps/libwasm_bindgen_futures-a3c2fe981136075b.rlib: /Users/eduardomarques/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wasm-bindgen-futures-0.4.64/src/lib.rs /Users/eduardomarques/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wasm-bindgen-futures-0.4.64/src/queue.rs /Users/eduardomarques/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wasm-bindgen-futures-0.4.64/src/task/singlethread.rs
+
+/Users/eduardomarques/workspace/Volumio2-UI/src/lib/wasm/stellar-viz/target/debug/deps/libwasm_bindgen_futures-a3c2fe981136075b.rmeta: /Users/eduardomarques/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wasm-bindgen-futures-0.4.64/src/lib.rs /Users/eduardomarques/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wasm-bindgen-futures-0.4.64/src/queue.rs /Users/eduardomarques/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wasm-bindgen-futures-0.4.64/src/task/singlethread.rs
+
+/Users/eduardomarques/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wasm-bindgen-futures-0.4.64/src/lib.rs:
+/Users/eduardomarques/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wasm-bindgen-futures-0.4.64/src/queue.rs:
+/Users/eduardomarques/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wasm-bindgen-futures-0.4.64/src/task/singlethread.rs:

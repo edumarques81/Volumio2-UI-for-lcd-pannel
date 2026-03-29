@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1920">
+<title>Approach B — Command Deck</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+--primary:#FFB1C8;--on-primary:#5D1133;--primary-container:#7B2949;--on-primary-container:#FFD9E3;
+--secondary:#E3BDC6;--on-secondary:#422931;
+--surface:#1A1114;--surface-container:#261A1E;--surface-container-high:#312228;--surface-container-low:#201318;
+--on-surface:#F0DEE2;--on-surface-variant:#D5BFC4;--outline:#9E8C91;--outline-variant:#514347;
+--bg:#1A1114;--error:#FFB4AB;
+--shape-sm:8px;--shape-md:12px;--shape-lg:16px;--shape-xl:28px;--shape-full:9999px;
+}
+html,body{width:1920px;height:440px;overflow:hidden;background:var(--bg);font-family:'Plus Jakarta Sans',sans-serif;color:var(--on-surface);user-select:none}
+
+.deck{display:grid;grid-template-columns:1fr 1fr 1fr;height:440px;gap:1px;background:var(--outline-variant)}
+
+/* ZONE COMMON */
+.zone{background:var(--bg);display:flex;flex-direction:column;overflow:hidden}
+.zone-header{height:40px;display:flex;align-items:center;padding:0 20px;background:var(--surface-container-low);
+  font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--outline);flex-shrink:0;
+  border-bottom:1px solid var(--outline-variant)}
+.zone-body{flex:1;overflow:hidden;padding:16px 20px}
+
+/* ZONE 1: NOW PLAYING */
+.np-top{display:flex;gap:16px;margin-bottom:14px}
+.np-art{width:120px;height:120px;border-radius:var(--shape-md);flex-shrink:0;
+  background:linear-gradient(135deg,#0a0a2e 0%,#1a0533 30%,#2d1b69 50%,#0a0a2e 70%,#000 100%);
+  position:relative;overflow:hidden}
+.np-art::before{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:0;height:0;border-left:33px solid transparent;border-right:33px solid transparent;border-bottom:55px solid rgba(255,255,255,0.04)}
+.np-meta{display:flex;flex-direction:column;justify-content:center;min-width:0}
+.np-title{font-size:22px;font-weight:700;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.np-artist{font-size:15px;color:var(--on-surface-variant);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.np-album{font-size:12px;color:var(--outline);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.np-badges{display:flex;gap:6px;margin-top:8px}
+.np-badge{padding:2px 8px;border-radius:var(--shape-full);font-family:'Roboto Mono',monospace;font-size:10px;font-weight:500;
+  background:var(--primary-container);color:var(--on-primary-container)}
+.np-badge.src{background:var(--surface-container-high);color:var(--on-surface-variant)}
+
+/* Seek */
+.np-seek{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.np-seek-time{font-family:'Roboto Mono',monospace;font-size:11px;color:var(--outline);min-width:34px}
+.np-seek-bar{flex:1;height:5px;background:var(--outline-variant);border-radius:3px;cursor:pointer;position:relative}
+.np-seek-fill{height:100%;width:36.2%;background:var(--primary);border-radius:3px;transition:width 0.15s;position:relative}
+.np-seek-dot{position:absolute;right:-6px;top:50%;transform:translateY(-50%);width:12px;height:12px;
+  border-radius:50%;background:var(--primary);opacity:0;transition:opacity 0.2s}
+.np-seek-bar:hover .np-seek-dot{opacity:1}
+
+/* Transport */
+.np-transport{display:flex;align-items:center;gap:4px}
+.t-btn{width:44px;height:44px;border-radius:50%;border:none;background:transparent;color:var(--on-surface);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;transition:all 0.2s ease-out}
+.t-btn:hover{background:var(--surface-container-high)}
+.t-btn:active{transform:scale(0.9)}
+.t-btn.play{width:50px;height:50px;background:var(--primary);color:var(--on-primary);font-size:22px}
+.t-btn.play:hover{background:var(--on-primary-container)}
+.t-btn.active{color:var(--primary)}
+.t-btn.sm{width:36px;height:36px;font-size:14px;color:var(--outline)}
+.t-btn.sm:hover{color:var(--on-surface)}
+.vol-wrap{display:flex;align-items:center;gap:6px;margin-left:auto}
+.vol-icon{font-size:14px;color:var(--outline)}
+.vol-track{width:80px;height:3px;background:var(--outline-variant);border-radius:2px;cursor:pointer}
+.vol-fill{height:100%;width:72%;background:var(--secondary);border-radius:2px;transition:width 0.15s}
+
+/* ZONE 2: QUEUE */
+.queue-list{display:flex;flex-direction:column;gap:2px;overflow-y:auto;height:100%;scrollbar-width:thin;scrollbar-color:var(--outline-variant) transparent}
+.q-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--shape-sm);cursor:pointer;
+  transition:background 0.2s;min-height:52px;flex-shrink:0}
+.q-item:hover{background:var(--surface-container)}
+.q-item.active{background:var(--primary-container)}
+.q-item.active .q-title{color:var(--on-primary-container)}
+.q-item.active .q-num{color:var(--on-primary-container)}
+.q-drag{color:var(--outline-variant);font-size:16px;cursor:grab;padding:0 2px}
+.q-drag:hover{color:var(--outline)}
+.q-num{font-family:'Roboto Mono',monospace;font-size:12px;color:var(--outline);min-width:18px;text-align:right}
+.q-info{flex:1;min-width:0}
+.q-title{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.q-artist{font-size:11px;color:var(--outline);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.q-dur{font-family:'Roboto Mono',monospace;font-size:11px;color:var(--outline)}
+
+/* ZONE 3: LIBRARY */
+.lib-tabs{display:flex;gap:2px;margin-bottom:12px}
+.lib-tab{padding:6px 14px;border-radius:var(--shape-full);border:none;background:transparent;color:var(--outline);
+  font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s;font-family:inherit}
+.lib-tab:hover{background:var(--surface-container);color:var(--on-surface)}
+.lib-tab.active{background:var(--primary-container);color:var(--on-primary-container)}
+.lib-grid{display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:1fr 1fr;gap:10px;height:calc(100% - 38px);overflow:hidden}
+.lib-tile{border-radius:var(--shape-sm);overflow:hidden;cursor:pointer;position:relative;transition:transform 0.2s ease-out}
+.lib-tile:hover{transform:scale(1.04)}
+.lib-tile:active{transform:scale(0.97)}
+.lib-tile-art{width:100%;aspect-ratio:1;display:block}
+.lib-tile-name{font-size:10px;font-weight:600;padding:4px 4px 1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lib-tile-artist{font-size:9px;padding:0 4px 4px;color:var(--outline);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Add-to-queue animation */
+.lib-tile .added-badge{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  background:rgba(123,41,73,0.85);opacity:0;transition:opacity 0.3s;font-size:13px;font-weight:700;color:var(--on-primary-container);pointer-events:none}
+.lib-tile.added .added-badge{opacity:1}
+</style>
+</head>
+<body>
+
+<div class="deck">
+  <!-- ZONE 1: NOW PLAYING -->
+  <div class="zone">
+    <div class="zone-header">▶ Now Playing</div>
+    <div class="zone-body">
+      <div class="np-top">
+        <div class="np-art"></div>
+        <div class="np-meta">
+          <div class="np-title">Time</div>
+          <div class="np-artist">Pink Floyd</div>
+          <div class="np-album">The Dark Side of the Moon</div>
+          <div class="np-badges">
+            <span class="np-badge">FLAC</span>
+            <span class="np-badge">96kHz</span>
+            <span class="np-badge">24bit</span>
+            <span class="np-badge src">NAS</span>
+          </div>
+        </div>
+      </div>
+      <div class="np-seek">
+        <span class="np-seek-time" id="seekCur">2:34</span>
+        <div class="np-seek-bar" id="seekBar"><div class="np-seek-fill" id="seekFill"><div class="np-seek-dot"></div></div></div>
+        <span class="np-seek-time">7:04</span>
+      </div>
+      <div class="np-transport">
+        <button class="t-btn sm" id="btnShuffle" title="Shuffle">⇌</button>
+        <button class="t-btn" title="Previous">⏮</button>
+        <button class="t-btn play" id="btnPlay" title="Play/Pause">▶</button>
+        <button class="t-btn" title="Next">⏭</button>
+        <button class="t-btn sm" id="btnRepeat" title="Repeat">⟳</button>
+        <div class="vol-wrap">
+          <span class="vol-icon">🔊</span>
+          <div class="vol-track" id="volBar"><div class="vol-fill" id="volFill"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ZONE 2: QUEUE -->
+  <div class="zone">
+    <div class="zone-header">☰ Up Next</div>
+    <div class="zone-body" style="padding:8px 12px">
+      <div class="queue-list" id="queueList"></div>
+    </div>
+  </div>
+
+  <!-- ZONE 3: LIBRARY -->
+  <div class="zone">
+    <div class="zone-header">⊞ Library</div>
+    <div class="zone-body">
+      <div class="lib-tabs">
+        <button class="lib-tab active" data-tab="all">All</button>
+        <button class="lib-tab" data-tab="nas">NAS</button>
+        <button class="lib-tab" data-tab="local">Local</button>
+        <button class="lib-tab" data-tab="radio">Radio</button>
+      </div>
+      <div class="lib-grid" id="libGrid"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Queue
+const queueData = [
+  {title:"Time",artist:"Pink Floyd",dur:"7:04",active:true},
+  {title:"The Great Gig in the Sky",artist:"Pink Floyd",dur:"5:43"},
+  {title:"Money",artist:"Pink Floyd",dur:"6:22"},
+  {title:"Us and Them",artist:"Pink Floyd",dur:"7:49"},
+  {title:"Any Colour You Like",artist:"Pink Floyd",dur:"3:25"},
+  {title:"Brain Damage",artist:"Pink Floyd",dur:"3:50"},
+  {title:"Eclipse",artist:"Pink Floyd",dur:"2:06"},
+];
+const ql = document.getElementById('queueList');
+queueData.forEach((t,i) => {
+  const d = document.createElement('div');
+  d.className = 'q-item' + (t.active ? ' active' : '');
+  d.innerHTML = `<span class="q-drag">⠿</span><span class="q-num">${i+1}</span><div class="q-info"><div class="q-title">${t.title}</div><div class="q-artist">${t.artist}</div></div><span class="q-dur">${t.dur}</span>`;
+  ql.appendChild(d);
+});
+
+// Library
+const albums = [
+  {name:"Wish You Were Here",artist:"Pink Floyd",g:"linear-gradient(135deg,#1a3a2a,#0a1a10)"},
+  {name:"Animals",artist:"Pink Floyd",g:"linear-gradient(135deg,#2a2a3a,#1a1a2a)"},
+  {name:"OK Computer",artist:"Radiohead",g:"linear-gradient(135deg,#2a3a4a,#0a1520)"},
+  {name:"Random Access Memories",artist:"Daft Punk",g:"linear-gradient(135deg,#1a1a30,#0a0a18)"},
+  {name:"Rumours",artist:"Fleetwood Mac",g:"linear-gradient(135deg,#3a3020,#1a1810)"},
+  {name:"Abbey Road",artist:"The Beatles",g:"linear-gradient(135deg,#2a3a5a,#102030)"},
+  {name:"Kind of Blue",artist:"Miles Davis",g:"linear-gradient(135deg,#1a2a4a,#0a1020)"},
+  {name:"Head Hunters",artist:"Herbie Hancock",g:"linear-gradient(135deg,#4a3a10,#201a08)"},
+];
+const lg = document.getElementById('libGrid');
+albums.forEach(a => {
+  const d = document.createElement('div');
+  d.className = 'lib-tile';
+  d.innerHTML = `<div class="lib-tile-art" style="background:${a.g}"></div><div class="lib-tile-name">${a.name}</div><div class="lib-tile-artist">${a.artist}</div><div class="added-badge">✓ Added</div>`;
+  d.addEventListener('click', () => {
+    d.classList.add('added');
+    // Add to queue visually
+    const qi = document.createElement('div');
+    qi.className = 'q-item';
+    const n = ql.children.length + 1;
+    qi.innerHTML = `<span class="q-drag">⠿</span><span class="q-num">${n}</span><div class="q-info"><div class="q-title">${a.name}</div><div class="q-artist">${a.artist}</div></div><span class="q-dur">--:--</span>`;
+    ql.appendChild(qi);
+    setTimeout(() => d.classList.remove('added'), 800);
+  });
+  lg.appendChild(d);
+});
+
+// Tab switching
+document.querySelectorAll('.lib-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.lib-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+  });
+});
+
+// Play/pause
+let playing = true;
+const btnPlay = document.getElementById('btnPlay');
+btnPlay.addEventListener('click', () => { playing = !playing; btnPlay.textContent = playing ? '▶' : '⏸'; });
+
+// Shuffle/repeat
+document.getElementById('btnShuffle').addEventListener('click', function(){ this.classList.toggle('active'); });
+document.getElementById('btnRepeat').addEventListener('click', function(){ this.classList.toggle('active'); });
+
+// Seek
+const totalSec = 7*60+4;
+document.getElementById('seekBar').addEventListener('click', function(e){
+  const r = this.getBoundingClientRect();
+  const pct = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+  document.getElementById('seekFill').style.width = (pct*100)+'%';
+  const s = Math.round(pct * totalSec);
+  document.getElementById('seekCur').textContent = Math.floor(s/60)+':'+(s%60<10?'0':'')+(s%60);
+});
+
+// Volume
+document.getElementById('volBar').addEventListener('click', function(e){
+  const r = this.getBoundingClientRect();
+  document.getElementById('volFill').style.width = (Math.max(0,Math.min(1,(e.clientX-r.left)/r.width))*100)+'%';
+});
+</script>
+</body>
+</html>

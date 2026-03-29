@@ -2,6 +2,7 @@ import { writable, derived, get } from 'svelte/store';
 import { socketService } from '$lib/services/socket';
 import { fixVolumioAssetUrl } from '$lib/config';
 import { syncEngineFromPushState } from '$lib/stores/audioEngine';
+import { parseFilename, looksLikeFilename } from '$lib/utils/filenameParsing';
 import type { PlayerState } from '$lib/types';
 
 /**
@@ -48,12 +49,34 @@ let lastSeekUpdate = 0;
 // Derived stores
 export const isPlaying = derived(playerState, $state => $state?.status === 'play');
 export const isPaused = derived(playerState, $state => $state?.status === 'pause');
-export const currentTrack = derived(playerState, $state => ({
-  title: $state?.title || 'No track playing',
-  artist: $state?.artist || 'Unknown artist',
-  album: $state?.album || '',
-  albumart: $state?.albumart || '/default-album.svg'
-}));
+export const currentTrack = derived(playerState, $state => {
+  let title = $state?.title || '';
+  let artist = $state?.artist || '';
+  const album = $state?.album || '';
+  const albumart = $state?.albumart || '/default-album.svg';
+
+  // If title is empty or looks like a raw filename, try to parse metadata from it
+  const rawTitle = title;
+  if (!title || looksLikeFilename(title)) {
+    const parsed = parseFilename(title || $state?.uri || '');
+    title = parsed.title || rawTitle || 'No track playing';
+    // Use parsed artist if current artist is missing or generic
+    if (parsed.artist && (!artist || artist === 'Unknown artist' || artist === '')) {
+      artist = parsed.artist;
+    }
+  }
+
+  // Final fallback for empty values
+  if (!title) title = 'No track playing';
+  if (!artist || artist === 'Unknown artist') {
+    // Try to derive artist from album metadata if available
+    artist = album ? '' : '';
+  }
+  // Keep empty string rather than "Unknown artist" when no info is available
+  if (!artist) artist = '';
+
+  return { title, artist, album, albumart };
+});
 
 export const trackQuality = derived(playerState, $state => {
   const parts: string[] = [];

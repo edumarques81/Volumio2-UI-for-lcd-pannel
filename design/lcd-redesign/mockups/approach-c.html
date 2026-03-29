@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1920">
+<title>Approach C — Cinematic Strip</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --md-primary: #FFB1C8;
+    --md-on-primary: #5D1133;
+    --md-primary-container: #7B2949;
+    --md-on-primary-container: #FFD9E3;
+    --md-secondary: #E3BDC6;
+    --md-on-secondary: #422931;
+    --md-surface: #1A1114;
+    --md-surface-container: #261A1E;
+    --md-surface-container-high: #312228;
+    --md-surface-container-low: #201318;
+    --md-on-surface: #F0DEE2;
+    --md-on-surface-variant: #D5BFC4;
+    --md-outline: #9E8C91;
+    --md-outline-variant: #514347;
+    --md-background: #1A1114;
+    --md-error: #FFB4AB;
+  }
+
+  html, body {
+    width: 1920px;
+    height: 440px;
+    overflow: hidden;
+    background: var(--md-background);
+    font-family: 'Plus Jakarta Sans', 'Roboto', sans-serif;
+    color: var(--md-on-surface);
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+  }
+
+  /* ── Atmospheric Background ── */
+  .atmosphere {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background:
+      radial-gradient(ellipse 900px 400px at 30% 60%, rgba(93,17,51,0.6) 0%, transparent 70%),
+      radial-gradient(ellipse 700px 350px at 75% 30%, rgba(40,20,80,0.5) 0%, transparent 70%),
+      radial-gradient(ellipse 500px 300px at 50% 80%, rgba(123,41,73,0.3) 0%, transparent 60%),
+      radial-gradient(ellipse 1200px 440px at 50% 50%, rgba(15,8,25,0.9) 0%, rgba(26,17,20,1) 100%);
+    transition: opacity 0.6s ease-out;
+  }
+
+  /* Animated subtle light drift */
+  .atmosphere::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 400px 250px at 20% 40%, rgba(255,177,200,0.06) 0%, transparent 70%),
+      radial-gradient(ellipse 300px 200px at 80% 70%, rgba(140,100,200,0.05) 0%, transparent 70%);
+    animation: lightDrift 8s ease-in-out infinite alternate;
+  }
+
+  @keyframes lightDrift {
+    0%   { transform: translate(0, 0) scale(1); }
+    100% { transform: translate(30px, -10px) scale(1.05); }
+  }
+
+  /* ── Glassmorphism Card ── */
+  .glass-card {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10;
+    width: 620px;
+    padding: 36px 44px 32px;
+    background: rgba(38, 26, 30, 0.55);
+    backdrop-filter: blur(40px) saturate(1.4);
+    -webkit-backdrop-filter: blur(40px) saturate(1.4);
+    border: 1px solid rgba(255, 177, 200, 0.12);
+    border-radius: 28px;
+    box-shadow:
+      0 8px 32px rgba(0,0,0,0.4),
+      0 0 80px rgba(123,41,73,0.15),
+      inset 0 1px 0 rgba(255,255,255,0.05);
+    text-align: center;
+    transition: transform 0.4s cubic-bezier(0.2, 0, 0, 1), opacity 0.3s ease-out;
+  }
+
+  .glass-card:hover {
+    transform: translate(-50%, -50%) scale(1.008);
+    box-shadow:
+      0 12px 48px rgba(0,0,0,0.5),
+      0 0 100px rgba(123,41,73,0.2),
+      inset 0 1px 0 rgba(255,255,255,0.07);
+  }
+
+  .track-title {
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+    color: var(--md-on-surface);
+    margin-bottom: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .track-artist {
+    font-size: 17px;
+    font-weight: 400;
+    color: var(--md-on-surface-variant);
+    margin-bottom: 4px;
+    opacity: 0.85;
+  }
+
+  .track-album {
+    font-size: 13px;
+    font-weight: 300;
+    color: var(--md-outline);
+    margin-bottom: 28px;
+  }
+
+  /* ── Transport Controls ── */
+  .transport {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 28px;
+  }
+
+  .transport-btn {
+    width: 48px;
+    height: 48px;
+    border: none;
+    background: transparent;
+    color: var(--md-on-surface-variant);
+    cursor: pointer;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease-out;
+    position: relative;
+  }
+
+  .transport-btn:hover {
+    color: var(--md-on-surface);
+    background: rgba(255,177,200,0.1);
+  }
+  .transport-btn:active {
+    transform: scale(0.92);
+    background: rgba(255,177,200,0.18);
+  }
+
+  .transport-btn svg {
+    width: 24px;
+    height: 24px;
+    fill: currentColor;
+  }
+
+  .play-btn {
+    width: 64px;
+    height: 64px;
+    background: var(--md-primary);
+    color: var(--md-on-primary);
+    border-radius: 50%;
+    box-shadow: 0 4px 20px rgba(255,177,200,0.3);
+    transition: all 0.2s ease-out;
+  }
+  .play-btn:hover {
+    background: var(--md-on-primary-container);
+    color: var(--md-primary-container);
+    transform: scale(1.06);
+    box-shadow: 0 6px 28px rgba(255,177,200,0.4);
+  }
+  .play-btn:active {
+    transform: scale(0.95);
+  }
+  .play-btn svg {
+    width: 28px;
+    height: 28px;
+  }
+
+  /* ── Time Display ── */
+  .time-row {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 20px;
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--md-outline);
+    font-family: 'Roboto', monospace;
+    padding: 0 2px;
+  }
+
+  /* ── Album Art Thumbnail (bottom-left) ── */
+  .album-thumb {
+    position: absolute;
+    bottom: 24px;
+    left: 32px;
+    z-index: 10;
+    width: 120px;
+    height: 120px;
+    border-radius: 16px;
+    background:
+      linear-gradient(135deg, #0a0a2e 0%, #1a0533 30%, #2d1045 50%, #0a0a2e 70%, #000 100%);
+    box-shadow:
+      0 4px 24px rgba(0,0,0,0.5),
+      0 0 40px rgba(93,17,51,0.25);
+    overflow: hidden;
+    transition: transform 0.3s ease-out, box-shadow 0.3s ease-out;
+    cursor: pointer;
+  }
+  .album-thumb:hover {
+    transform: scale(1.05) translateY(-2px);
+    box-shadow:
+      0 8px 36px rgba(0,0,0,0.6),
+      0 0 60px rgba(93,17,51,0.35);
+  }
+
+  /* Prism triangle for DSOTM */
+  .album-thumb::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 0;
+    height: 0;
+    border-left: 30px solid transparent;
+    border-right: 30px solid transparent;
+    border-bottom: 52px solid rgba(255,255,255,0.12);
+    filter: drop-shadow(0 0 8px rgba(255,255,255,0.1));
+  }
+  .album-thumb::after {
+    content: '';
+    position: absolute;
+    top: 30%;
+    right: 15%;
+    width: 50px;
+    height: 3px;
+    background: linear-gradient(90deg, #ff0000, #ff8800, #ffff00, #00ff00, #0088ff, #8800ff);
+    transform: rotate(30deg);
+    opacity: 0.5;
+    border-radius: 2px;
+  }
+
+  /* ── Format Badge (top-right) ── */
+  .format-badge {
+    position: absolute;
+    top: 20px;
+    right: 28px;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: rgba(38, 26, 30, 0.6);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,177,200,0.1);
+    border-radius: 9999px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--md-on-surface-variant);
+    letter-spacing: 0.5px;
+  }
+  .format-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--md-primary);
+    box-shadow: 0 0 8px rgba(255,177,200,0.5);
+  }
+
+  /* ── Volume Indicator (top-left) ── */
+  .volume-indicator {
+    position: absolute;
+    top: 20px;
+    left: 32px;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    background: rgba(38, 26, 30, 0.5);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,177,200,0.08);
+    border-radius: 9999px;
+    font-size: 12px;
+    color: var(--md-outline);
+    cursor: pointer;
+    transition: all 0.2s ease-out;
+  }
+  .volume-indicator:hover {
+    background: rgba(38, 26, 30, 0.7);
+    color: var(--md-on-surface-variant);
+  }
+  .volume-indicator svg {
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+  }
+
+  /* ── Edge-to-Edge Seek Bar ── */
+  .seek-bar-container {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 20;
+    height: 16px;
+    display: flex;
+    align-items: flex-end;
+    cursor: pointer;
+  }
+
+  .seek-track {
+    width: 100%;
+    height: 4px;
+    background: rgba(255,177,200,0.12);
+    position: relative;
+    transition: height 0.2s ease-out;
+    border-radius: 0;
+  }
+
+  .seek-bar-container:hover .seek-track {
+    height: 8px;
+  }
+
+  .seek-fill {
+    height: 100%;
+    width: 36.1%; /* 2:34 of 7:04 */
+    background: linear-gradient(90deg, var(--md-primary-container), var(--md-primary));
+    position: relative;
+    transition: width 0.15s linear;
+    border-radius: 0;
+  }
+
+  .seek-fill::after {
+    content: '';
+    position: absolute;
+    right: -6px;
+    top: 50%;
+    transform: translateY(-50%) scale(0);
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--md-primary);
+    box-shadow: 0 0 12px rgba(255,177,200,0.5);
+    transition: transform 0.2s ease-out;
+  }
+
+  .seek-bar-container:hover .seek-fill::after {
+    transform: translateY(-50%) scale(1);
+  }
+
+  /* ── Navigation Overlay ── */
+  .nav-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 50;
+    background: rgba(26, 17, 20, 0.85);
+    backdrop-filter: blur(30px);
+    -webkit-backdrop-filter: blur(30px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 32px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease-out;
+  }
+  .nav-overlay.visible {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  .nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    padding: 24px 32px;
+    border-radius: 20px;
+    transition: all 0.25s ease-out;
+    background: transparent;
+    border: 1px solid transparent;
+  }
+  .nav-item:hover {
+    background: rgba(255,177,200,0.08);
+    border-color: rgba(255,177,200,0.15);
+    transform: translateY(-4px);
+  }
+  .nav-item:active {
+    transform: translateY(0) scale(0.97);
+  }
+
+  .nav-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    background: var(--md-surface-container-high);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--md-primary);
+    transition: background 0.2s ease-out;
+  }
+  .nav-item:hover .nav-icon {
+    background: var(--md-primary-container);
+    color: var(--md-on-primary-container);
+  }
+  .nav-icon svg {
+    width: 26px;
+    height: 26px;
+    fill: currentColor;
+  }
+
+  .nav-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--md-on-surface-variant);
+  }
+
+  .nav-close-hint {
+    position: absolute;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 12px;
+    color: var(--md-outline);
+    opacity: 0.6;
+  }
+
+  /* ── Queue Panel (slide up) ── */
+  .queue-panel {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 40;
+    height: 300px;
+    background: rgba(32, 19, 24, 0.92);
+    backdrop-filter: blur(40px);
+    -webkit-backdrop-filter: blur(40px);
+    border-top: 1px solid rgba(255,177,200,0.1);
+    border-radius: 28px 28px 0 0;
+    padding: 24px 40px;
+    transform: translateY(100%);
+    transition: transform 0.4s cubic-bezier(0.2, 0, 0, 1);
+  }
+  .queue-panel.visible {
+    transform: translateY(0);
+  }
+
+  .queue-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .queue-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--md-on-surface);
+  }
+  .queue-close {
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: rgba(255,177,200,0.1);
+    color: var(--md-on-surface-variant);
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease-out;
+  }
+  .queue-close:hover {
+    background: rgba(255,177,200,0.2);
+  }
+  .queue-close svg { width: 18px; height: 18px; fill: currentColor; }
+
+  .queue-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .queue-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 16px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background 0.2s ease-out;
+  }
+  .queue-item:hover {
+    background: rgba(255,177,200,0.06);
+  }
+  .queue-num {
+    font-size: 13px;
+    color: var(--md-outline);
+    width: 20px;
+    text-align: right;
+    font-family: 'Roboto', monospace;
+  }
+  .queue-info {
+    flex: 1;
+  }
+  .queue-track-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--md-on-surface);
+  }
+  .queue-track-artist {
+    font-size: 12px;
+    color: var(--md-outline);
+  }
+  .queue-dur {
+    font-size: 12px;
+    color: var(--md-outline);
+    font-family: 'Roboto', monospace;
+  }
+
+  /* ── Source pill ── */
+  .source-pill {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    padding: 6px 18px;
+    background: rgba(38, 26, 30, 0.45);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,177,200,0.06);
+    border-radius: 9999px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--md-outline);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+
+<!-- Atmospheric Background -->
+<div class="atmosphere"></div>
+
+<!-- Source Pill -->
+<div class="source-pill">Playing from NAS</div>
+
+<!-- Volume Indicator -->
+<div class="volume-indicator" id="volumeBtn">
+  <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+  <span>78%</span>
+</div>
+
+<!-- Format Badge -->
+<div class="format-badge">
+  <span class="format-dot"></span>
+  FLAC · 96kHz · 24bit
+</div>
+
+<!-- Album Art Thumbnail -->
+<div class="album-thumb" id="albumThumb" title="View queue"></div>
+
+<!-- Glass Card -->
+<div class="glass-card" id="glassCard">
+  <div class="track-title">Time</div>
+  <div class="track-artist">Pink Floyd</div>
+  <div class="track-album">The Dark Side of the Moon</div>
+
+  <div class="transport">
+    <button class="transport-btn" id="prevBtn" title="Previous">
+      <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+    </button>
+    <button class="transport-btn play-btn" id="playBtn" title="Play/Pause">
+      <svg viewBox="0 0 24 24" id="playIcon"><path d="M8 5v14l11-7z"/></svg>
+    </button>
+    <button class="transport-btn" id="nextBtn" title="Next">
+      <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+    </button>
+  </div>
+
+  <div class="time-row">
+    <span id="timeNow">2:34</span>
+    <span id="timeDur">7:04</span>
+  </div>
+</div>
+
+<!-- Edge-to-edge Seek Bar -->
+<div class="seek-bar-container" id="seekBar">
+  <div class="seek-track">
+    <div class="seek-fill" id="seekFill"></div>
+  </div>
+</div>
+
+<!-- Navigation Overlay -->
+<div class="nav-overlay" id="navOverlay">
+  <div class="nav-item">
+    <div class="nav-icon">
+      <svg viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55C7.79 13 6 14.79 6 17s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+    </div>
+    <span class="nav-label">Library</span>
+  </div>
+  <div class="nav-item" id="queueNavItem">
+    <div class="nav-icon">
+      <svg viewBox="0 0 24 24"><path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/></svg>
+    </div>
+    <span class="nav-label">Queue</span>
+  </div>
+  <div class="nav-item">
+    <div class="nav-icon">
+      <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-8 11H4v-2h8v2zm0-4H4V9h8v2zm0-4H4V5h8v2zm6.5 8L15 13l3.5-2v6z"/></svg>
+    </div>
+    <span class="nav-label">Sources</span>
+  </div>
+  <div class="nav-item">
+    <div class="nav-icon">
+      <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+    </div>
+    <span class="nav-label">Favorites</span>
+  </div>
+  <div class="nav-item">
+    <div class="nav-icon">
+      <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+    </div>
+    <span class="nav-label">Search</span>
+  </div>
+  <div class="nav-close-hint">Tap anywhere to close</div>
+</div>
+
+<!-- Queue Panel -->
+<div class="queue-panel" id="queuePanel">
+  <div class="queue-header">
+    <span class="queue-title">Up Next</span>
+    <button class="queue-close" id="queueClose">
+      <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+    </button>
+  </div>
+  <div class="queue-list">
+    <div class="queue-item">
+      <span class="queue-num">1</span>
+      <div class="queue-info">
+        <div class="queue-track-name">The Great Gig in the Sky</div>
+        <div class="queue-track-artist">Pink Floyd</div>
+      </div>
+      <span class="queue-dur">5:43</span>
+    </div>
+    <div class="queue-item">
+      <span class="queue-num">2</span>
+      <div class="queue-info">
+        <div class="queue-track-name">Money</div>
+        <div class="queue-track-artist">Pink Floyd</div>
+      </div>
+      <span class="queue-dur">6:22</span>
+    </div>
+    <div class="queue-item">
+      <span class="queue-num">3</span>
+      <div class="queue-info">
+        <div class="queue-track-name">Us and Them</div>
+        <div class="queue-track-artist">Pink Floyd</div>
+      </div>
+      <span class="queue-dur">7:49</span>
+    </div>
+    <div class="queue-item">
+      <span class="queue-num">4</span>
+      <div class="queue-info">
+        <div class="queue-track-name">Any Colour You Like</div>
+        <div class="queue-track-artist">Pink Floyd</div>
+      </div>
+      <span class="queue-dur">3:25</span>
+    </div>
+    <div class="queue-item">
+      <span class="queue-num">5</span>
+      <div class="queue-info">
+        <div class="queue-track-name">Brain Damage</div>
+        <div class="queue-track-artist">Pink Floyd</div>
+      </div>
+      <span class="queue-dur">3:50</span>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── Play / Pause toggle ──
+  const playBtn = document.getElementById('playBtn');
+  const playIcon = document.getElementById('playIcon');
+  let isPlaying = false;
+
+  playBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    isPlaying = !isPlaying;
+    playIcon.innerHTML = isPlaying
+      ? '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>'
+      : '<path d="M8 5v14l11-7z"/>';
+    if (isPlaying) startProgress();
+    else stopProgress();
+  });
+
+  // ── Seek Bar interaction ──
+  const seekBar = document.getElementById('seekBar');
+  const seekFill = document.getElementById('seekFill');
+  const timeNow = document.getElementById('timeNow');
+  const totalSeconds = 7 * 60 + 4; // 7:04
+  let currentSeconds = 2 * 60 + 34; // 2:34
+  let progressInterval = null;
+
+  function updateSeekDisplay() {
+    const pct = (currentSeconds / totalSeconds) * 100;
+    seekFill.style.width = pct + '%';
+    const m = Math.floor(currentSeconds / 60);
+    const s = Math.floor(currentSeconds % 60);
+    timeNow.textContent = m + ':' + String(s).padStart(2, '0');
+  }
+
+  seekBar.addEventListener('click', (e) => {
+    const rect = seekBar.getBoundingClientRect();
+    const pct = (e.clientX - rect.left) / rect.width;
+    currentSeconds = Math.max(0, Math.min(totalSeconds, pct * totalSeconds));
+    updateSeekDisplay();
+  });
+
+  function startProgress() {
+    if (progressInterval) return;
+    progressInterval = setInterval(() => {
+      currentSeconds += 1;
+      if (currentSeconds >= totalSeconds) {
+        currentSeconds = 0;
+      }
+      updateSeekDisplay();
+    }, 1000);
+  }
+
+  function stopProgress() {
+    clearInterval(progressInterval);
+    progressInterval = null;
+  }
+
+  // ── Navigation Overlay ──
+  const navOverlay = document.getElementById('navOverlay');
+  const glassCard = document.getElementById('glassCard');
+  const queuePanel = document.getElementById('queuePanel');
+
+  // Click on atmosphere (not on controls) to show nav
+  document.body.addEventListener('click', (e) => {
+    // Don't trigger if clicking on interactive elements
+    if (e.target.closest('.glass-card') || e.target.closest('.seek-bar-container') ||
+        e.target.closest('.nav-overlay') || e.target.closest('.queue-panel') ||
+        e.target.closest('.album-thumb') || e.target.closest('.volume-indicator') ||
+        e.target.closest('.format-badge')) {
+      return;
+    }
+    if (queuePanel.classList.contains('visible')) {
+      queuePanel.classList.remove('visible');
+      return;
+    }
+    navOverlay.classList.toggle('visible');
+  });
+
+  // Close nav overlay when clicking on it (background area)
+  navOverlay.addEventListener('click', (e) => {
+    if (e.target === navOverlay || e.target.classList.contains('nav-close-hint')) {
+      navOverlay.classList.remove('visible');
+    }
+  });
+
+  // Queue from nav
+  document.getElementById('queueNavItem').addEventListener('click', (e) => {
+    e.stopPropagation();
+    navOverlay.classList.remove('visible');
+    setTimeout(() => queuePanel.classList.add('visible'), 150);
+  });
+
+  // Album thumb opens queue
+  document.getElementById('albumThumb').addEventListener('click', (e) => {
+    e.stopPropagation();
+    queuePanel.classList.toggle('visible');
+  });
+
+  // Queue close
+  document.getElementById('queueClose').addEventListener('click', (e) => {
+    e.stopPropagation();
+    queuePanel.classList.remove('visible');
+  });
+
+  // Prev/Next button feedback
+  document.getElementById('prevBtn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    currentSeconds = 0;
+    updateSeekDisplay();
+  });
+  document.getElementById('nextBtn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    document.querySelector('.track-title').textContent = 'The Great Gig in the Sky';
+    document.querySelector('.track-album').textContent = 'The Dark Side of the Moon';
+    currentSeconds = 0;
+    updateSeekDisplay();
+    document.getElementById('timeDur').textContent = '5:43';
+  });
+</script>
+</body>
+</html>

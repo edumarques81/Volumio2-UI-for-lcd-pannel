@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1920">
+<title>Study 2 — Living Gallery (Viz + Art + Utility)</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --primary:#FFB1C8;--on-primary:#5D1133;--primary-container:#7B2949;--on-primary-container:#FFD9E3;
+  --secondary:#E3BDC6;--on-secondary:#422931;
+  --surface:#1A1114;--surface-container:#261A1E;--surface-container-high:#312228;--surface-container-low:#201318;
+  --on-surface:#F0DEE2;--on-surface-variant:#D5BFC4;--outline:#9E8C91;--outline-variant:#514347;
+  --bg:#1A1114;--error:#FFB4AB;
+  --shape-xs:4px;--shape-sm:8px;--shape-md:12px;--shape-lg:16px;--shape-xl:28px;--shape-full:9999px;
+  --glass-bg:rgba(26,17,20,0.5);--glass-border:rgba(81,67,71,0.55);--glass-blur:blur(24px) saturate(1.3);
+  --glass-dark-bg:rgba(16,10,14,0.75);--glass-dark-border:rgba(81,67,71,0.7);
+  --transition-main:400ms cubic-bezier(0.4,0,0.2,1);--transition-fast:200ms ease-out;
+}
+html,body{width:1920px;height:440px;overflow:hidden;background:var(--bg);font-family:'Plus Jakarta Sans','Roboto',sans-serif;color:var(--on-surface);user-select:none;-webkit-user-select:none;position:relative}
+
+/* ── Study Label ── */
+.study-label{position:absolute;top:10px;left:14px;z-index:100;font-size:10px;font-weight:600;letter-spacing:1.5px;
+  text-transform:uppercase;color:var(--outline);opacity:0.7;pointer-events:none}
+
+/* ── Viz Canvas Background ── */
+#vizCanvas{position:absolute;inset:0;z-index:0;width:1920px;height:440px;
+  opacity:0.18;transition:opacity 0.6s ease-out}
+body.viz-mode #vizCanvas{opacity:0.85}
+
+/* ── Main Layout ── */
+.main-layout{position:absolute;inset:0;bottom:24px;z-index:10;display:flex;gap:12px;padding:14px 18px;
+  transition:all var(--transition-main)}
+
+/* ── Album Art Hero ── */
+.art-hero{width:380px;height:380px;flex-shrink:0;border-radius:var(--shape-lg);position:relative;overflow:hidden;
+  cursor:pointer;transition:all var(--transition-main);
+  background:linear-gradient(135deg,#0a0a2e 0%,#1a0533 30%,#2d1b69 50%,#0a0a2e 70%,#000 100%);
+  box-shadow:0 12px 48px rgba(0,0,0,0.5),0 0 80px rgba(123,41,73,0.15)}
+.art-hero::before{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:0;height:0;border-left:50px solid transparent;border-right:50px solid transparent;
+  border-bottom:86px solid rgba(255,255,255,0.03)}
+.art-hero::after{content:'';position:absolute;inset:0;
+  background:linear-gradient(180deg,transparent 50%,rgba(0,0,0,0.25));pointer-events:none;
+  transition:opacity var(--transition-main)}
+/* Glow effect */
+.art-glow{position:absolute;inset:-20px;z-index:-1;border-radius:var(--shape-xl);
+  background:radial-gradient(ellipse at center,rgba(123,41,73,0.25) 0%,transparent 70%);
+  filter:blur(30px);transition:opacity var(--transition-main)}
+/* VIZ mode: shrink art */
+body.viz-mode .art-hero{width:80px;height:80px;border-radius:var(--shape-md);box-shadow:0 4px 16px rgba(0,0,0,0.4)}
+body.viz-mode .art-hero::before{border-left-width:12px;border-right-width:12px;border-bottom-width:20px}
+body.viz-mode .art-glow{opacity:0}
+
+/* ── Center: Track Info + Controls ── */
+.center-panel{flex:0 0 35%;display:flex;flex-direction:column;justify-content:center;padding:0 8px;
+  min-width:0;transition:all var(--transition-main)}
+body.viz-mode .center-panel{background:var(--glass-dark-bg);backdrop-filter:var(--glass-blur);
+  border:1px solid var(--glass-dark-border);border-radius:var(--shape-lg);padding:14px 20px}
+
+.track-title{font-size:32px;font-weight:800;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  letter-spacing:-0.5px;transition:font-size var(--transition-main)}
+body.viz-mode .track-title{font-size:22px}
+.track-artist{font-size:16px;color:var(--on-surface-variant);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.track-album{font-size:13px;color:var(--outline);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body.viz-mode .track-artist{font-size:13px}
+body.viz-mode .track-album{font-size:11px}
+
+.format-badges{display:flex;gap:5px;margin-top:12px;flex-wrap:wrap}
+.badge{padding:3px 10px;border-radius:var(--shape-full);font-family:'Roboto Mono',monospace;font-size:10px;font-weight:500;
+  background:var(--primary-container);color:var(--on-primary-container);white-space:nowrap}
+.badge.src{background:var(--surface-container-high);color:var(--on-surface-variant)}
+
+/* Transport */
+.transport{display:flex;align-items:center;gap:4px;margin-top:16px}
+body.viz-mode .transport{margin-top:10px}
+.t-btn{width:48px;height:48px;border-radius:50%;border:none;background:transparent;color:var(--on-surface);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;transition:all var(--transition-fast)}
+.t-btn:hover{background:var(--surface-container-high)}
+.t-btn:active{transform:scale(0.92)}
+.t-btn.play{width:56px;height:56px;background:var(--primary);color:var(--on-primary);font-size:24px;
+  box-shadow:0 4px 20px rgba(255,177,200,0.2)}
+.t-btn.play:hover{background:var(--on-primary-container);color:var(--primary)}
+body.viz-mode .t-btn{width:40px;height:40px;font-size:15px}
+body.viz-mode .t-btn.play{width:44px;height:44px;font-size:18px}
+.t-btn.active{color:var(--primary)}
+.t-btn.sm{width:40px;height:40px;font-size:14px;color:var(--outline)}
+.t-btn.sm:hover{color:var(--on-surface)}
+body.viz-mode .t-btn.sm{width:34px;height:34px;font-size:12px}
+
+/* Shuffle / Repeat / Volume row */
+.controls-row{display:flex;align-items:center;gap:8px;margin-top:10px}
+body.viz-mode .controls-row{margin-top:6px}
+.vol-wrap{display:flex;align-items:center;gap:6px;margin-left:auto}
+.vol-icon{font-size:15px;color:var(--outline);cursor:pointer}
+.vol-icon:hover{color:var(--on-surface)}
+.vol-track{width:100px;height:4px;background:var(--outline-variant);border-radius:2px;cursor:pointer;position:relative}
+.vol-fill{height:100%;width:72%;background:var(--secondary);border-radius:2px;transition:width 0.1s;position:relative}
+.vol-dot{position:absolute;right:-5px;top:50%;transform:translateY(-50%);width:10px;height:10px;
+  border-radius:50%;background:var(--secondary);opacity:0;transition:opacity 0.15s}
+.vol-track:hover .vol-dot{opacity:1}
+
+/* Seek within center */
+.center-seek{display:flex;align-items:center;gap:8px;margin-top:12px}
+body.viz-mode .center-seek{margin-top:8px}
+.seek-time{font-family:'Roboto Mono',monospace;font-size:11px;color:var(--outline);min-width:32px}
+.seek-track{flex:1;height:4px;background:var(--outline-variant);border-radius:2px;cursor:pointer;position:relative;
+  transition:height 0.15s}
+.seek-track:hover{height:6px}
+.seek-fill{height:100%;width:36.2%;background:var(--primary);border-radius:2px;transition:width 0.1s;position:relative}
+.seek-dot{position:absolute;right:-5px;top:50%;transform:translateY(-50%);width:10px;height:10px;
+  border-radius:50%;background:var(--primary);opacity:0;transition:opacity 0.15s}
+.seek-track:hover .seek-dot{opacity:1}
+
+/* ── Right: Tabbed Utility Panel ── */
+.right-panel{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--glass-bg);
+  backdrop-filter:var(--glass-blur);border:1px solid var(--glass-border);border-radius:var(--shape-lg);
+  overflow:hidden;transition:all var(--transition-main)}
+body.viz-mode .right-panel{background:var(--glass-dark-bg);border-color:var(--glass-dark-border)}
+
+.right-tabs{display:flex;border-bottom:1px solid rgba(81,67,71,0.3);flex-shrink:0}
+.right-tab{flex:1;padding:12px 16px;font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
+  color:var(--outline);cursor:pointer;text-align:center;transition:all var(--transition-fast);
+  border-bottom:2px solid transparent;min-height:44px;display:flex;align-items:center;justify-content:center}
+.right-tab:hover{color:var(--on-surface-variant);background:rgba(255,177,200,0.03)}
+.right-tab.active{color:var(--primary);border-bottom-color:var(--primary)}
+.right-body{flex:1;overflow:hidden;position:relative}
+.right-view{position:absolute;inset:0;padding:12px 16px;overflow-y:auto;transition:opacity 0.3s,transform 0.3s;
+  scrollbar-width:thin;scrollbar-color:var(--outline-variant) transparent}
+.right-view.hidden{opacity:0;pointer-events:none;transform:translateX(10px)}
+
+/* Library tab content */
+.source-tabs{display:flex;gap:3px;margin-bottom:10px;flex-wrap:wrap}
+.source-tab{padding:5px 12px;border-radius:var(--shape-full);font-size:10px;font-weight:600;
+  color:var(--on-surface-variant);cursor:pointer;transition:all var(--transition-fast);white-space:nowrap}
+.source-tab:hover{background:rgba(255,177,200,0.06)}
+.source-tab.active{background:var(--primary-container);color:var(--on-primary-container)}
+
+.lib-album-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(95px,1fr));gap:8px;
+  overflow-y:auto;max-height:280px;scrollbar-width:thin;scrollbar-color:var(--outline-variant) transparent}
+.lib-album{border-radius:var(--shape-sm);overflow:hidden;cursor:pointer;transition:all var(--transition-fast)}
+.lib-album:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,0.35)}
+.lib-album:active{transform:scale(0.97)}
+.lib-album-art{width:100%;aspect-ratio:1}
+.lib-album-info{padding:4px 6px;background:rgba(26,17,20,0.8)}
+.lib-album-title{font-size:10px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lib-album-artist{font-size:9px;color:var(--outline);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Album detail overlay in library */
+.lib-detail{display:none;flex-direction:column;position:absolute;inset:0;padding:12px 16px;background:var(--glass-dark-bg);
+  backdrop-filter:blur(12px);overflow-y:auto;z-index:5}
+.lib-detail.open{display:flex}
+.lib-detail-header{display:flex;align-items:center;gap:10px;padding-bottom:10px;border-bottom:1px solid var(--outline-variant);margin-bottom:8px}
+.lib-detail-back{width:32px;height:32px;border-radius:50%;border:none;background:var(--surface-container-high);
+  color:var(--on-surface);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;
+  transition:all var(--transition-fast)}
+.lib-detail-back:hover{background:var(--primary-container);color:var(--on-primary-container)}
+.lib-detail-art{width:54px;height:54px;border-radius:var(--shape-sm);flex-shrink:0}
+.lib-detail-meta{min-width:0}
+.lib-detail-title{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lib-detail-artist{font-size:11px;color:var(--on-surface-variant)}
+.lib-detail-tracks{flex:1;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--outline-variant) transparent}
+.ld-track{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:var(--shape-xs);cursor:pointer;
+  transition:background var(--transition-fast);min-height:38px}
+.ld-track:hover{background:rgba(255,177,200,0.06)}
+.ld-track-num{font-family:'Roboto Mono',monospace;font-size:10px;color:var(--outline);min-width:18px;text-align:right}
+.ld-track-title{font-size:12px;font-weight:500;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ld-track-dur{font-family:'Roboto Mono',monospace;font-size:10px;color:var(--outline)}
+
+/* Queue tab content */
+.queue-list{display:flex;flex-direction:column;gap:2px}
+.q-item{display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:var(--shape-sm);cursor:pointer;
+  transition:background var(--transition-fast);min-height:48px;flex-shrink:0}
+.q-item:hover{background:rgba(255,177,200,0.06)}
+.q-item.playing{background:rgba(123,41,73,0.3)}
+.q-item.playing .q-title{color:var(--on-primary-container)}
+.q-drag{color:var(--outline-variant);font-size:14px;cursor:grab;opacity:0;transition:opacity 0.15s}
+.q-item:hover .q-drag{opacity:1}
+.q-num{font-family:'Roboto Mono',monospace;font-size:11px;color:var(--outline);min-width:16px;text-align:right}
+.q-title{font-size:13px;font-weight:500;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.q-artist{font-size:11px;color:var(--outline);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px}
+.q-dur{font-family:'Roboto Mono',monospace;font-size:10px;color:var(--outline);flex-shrink:0}
+
+/* ── Global Seek Bar ── */
+.global-seek{position:absolute;bottom:0;left:0;right:0;height:4px;z-index:50;cursor:pointer;
+  transition:height 0.15s ease-out;background:rgba(81,67,71,0.25)}
+.global-seek:hover{height:8px}
+.global-seek-fill{height:100%;width:36.2%;background:var(--primary);transition:width 0.1s;position:relative}
+.global-seek-fill::after{content:'';position:absolute;right:-4px;top:50%;transform:translateY(-50%);
+  width:8px;height:8px;border-radius:50%;background:var(--primary);opacity:0;transition:opacity 0.15s}
+.global-seek:hover .global-seek-fill::after{opacity:1}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--outline-variant);border-radius:2px}
+::-webkit-scrollbar-thumb:hover{background:var(--outline)}
+</style>
+</head>
+<body>
+<div class="study-label">Study 2 · Living Gallery</div>
+
+<!-- Viz Canvas (always running, low opacity by default) -->
+<canvas id="vizCanvas" width="1920" height="440"></canvas>
+
+<!-- Main Layout -->
+<div class="main-layout">
+
+  <!-- Album Art Hero -->
+  <div class="art-hero" id="artHero" title="Tap to toggle VIZ mode">
+    <div class="art-glow"></div>
+  </div>
+
+  <!-- Center: Track Info + Controls -->
+  <div class="center-panel">
+    <div class="track-title">Time</div>
+    <div class="track-artist">Pink Floyd</div>
+    <div class="track-album">The Dark Side of the Moon</div>
+    <div class="format-badges">
+      <span class="badge">FLAC</span>
+      <span class="badge">96kHz</span>
+      <span class="badge">24bit</span>
+      <span class="badge src">NAS</span>
+    </div>
+    <div class="transport">
+      <button class="t-btn sm" title="Previous">⏮</button>
+      <button class="t-btn play" id="playBtn" title="Play/Pause">▶</button>
+      <button class="t-btn sm" title="Next">⏭</button>
+    </div>
+    <div class="controls-row">
+      <button class="t-btn sm active" title="Shuffle">⇌</button>
+      <button class="t-btn sm" title="Repeat">🔁</button>
+      <div class="vol-wrap">
+        <span class="vol-icon">🔊</span>
+        <div class="vol-track" id="volTrack">
+          <div class="vol-fill" id="volFill"><span class="vol-dot"></span></div>
+        </div>
+      </div>
+    </div>
+    <div class="center-seek">
+      <span class="seek-time">2:34</span>
+      <div class="seek-track" id="seekTrack">
+        <div class="seek-fill" id="seekFill"><span class="seek-dot"></span></div>
+      </div>
+      <span class="seek-time">7:04</span>
+    </div>
+  </div>
+
+  <!-- Right: Tabbed Utility Panel -->
+  <div class="right-panel">
+    <div class="right-tabs">
+      <div class="right-tab active" data-tab="library">Library</div>
+      <div class="right-tab" data-tab="queue">Queue</div>
+    </div>
+    <div class="right-body">
+      <!-- Library View -->
+      <div class="right-view" id="libraryView">
+        <div class="source-tabs" id="sourceTabs">
+          <span class="source-tab active" data-src="nas">NAS</span>
+          <span class="source-tab" data-src="local">Local</span>
+          <span class="source-tab" data-src="usb">USB</span>
+          <span class="source-tab" data-src="playlists">Playlists</span>
+          <span class="source-tab" data-src="radio">Radio</span>
+          <span class="source-tab" data-src="favorites">★</span>
+        </div>
+        <div class="lib-album-grid" id="libAlbumGrid"></div>
+        <div class="lib-detail" id="libDetail">
+          <div class="lib-detail-header">
+            <button class="lib-detail-back" id="libDetailBack">←</button>
+            <div class="lib-detail-art" id="libDetailArt"></div>
+            <div class="lib-detail-meta">
+              <div class="lib-detail-title" id="libDetailTitle"></div>
+              <div class="lib-detail-artist" id="libDetailArtist"></div>
+            </div>
+          </div>
+          <div class="lib-detail-tracks" id="libDetailTracks"></div>
+        </div>
+      </div>
+      <!-- Queue View -->
+      <div class="right-view hidden" id="queueView">
+        <div class="queue-list" id="queueList">
+          <div class="q-item playing">
+            <span class="q-drag">⋮⋮</span><span class="q-num">▶</span>
+            <span class="q-title">Time</span><span class="q-artist">Pink Floyd</span><span class="q-dur">7:04</span>
+          </div>
+          <div class="q-item">
+            <span class="q-drag">⋮⋮</span><span class="q-num">1</span>
+            <span class="q-title">The Great Gig in the Sky</span><span class="q-artist">Pink Floyd</span><span class="q-dur">5:43</span>
+          </div>
+          <div class="q-item">
+            <span class="q-drag">⋮⋮</span><span class="q-num">2</span>
+            <span class="q-title">Money</span><span class="q-artist">Pink Floyd</span><span class="q-dur">6:22</span>
+          </div>
+          <div class="q-item">
+            <span class="q-drag">⋮⋮</span><span class="q-num">3</span>
+            <span class="q-title">Us and Them</span><span class="q-artist">Pink Floyd</span><span class="q-dur">7:49</span>
+          </div>
+          <div class="q-item">
+            <span class="q-drag">⋮⋮</span><span class="q-num">4</span>
+            <span class="q-title">Any Colour You Like</span><span class="q-artist">Pink Floyd</span><span class="q-dur">3:25</span>
+          </div>
+          <div class="q-item">
+            <span class="q-drag">⋮⋮</span><span class="q-num">5</span>
+            <span class="q-title">Brain Damage</span><span class="q-artist">Pink Floyd</span><span class="q-dur">3:50</span>
+          </div>
+          <div class="q-item">
+            <span class="q-drag">⋮⋮</span><span class="q-num">6</span>
+            <span class="q-title">Eclipse</span><span class="q-artist">Pink Floyd</span><span class="q-dur">2:06</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Global Seek -->
+<div class="global-seek" id="globalSeek">
+  <div class="global-seek-fill" id="globalSeekFill"></div>
+</div>
+
+<script>
+(function(){
+  // ── Mock Albums ──
+  const albums = [
+    {title:'The Dark Side of the Moon',artist:'Pink Floyd',grad:'linear-gradient(135deg,#0a0a2e,#1a0533,#2d1b69,#000)',
+     tracks:[{n:1,t:'Speak to Me',d:'1:30'},{n:2,t:'Breathe',d:'2:43'},{n:3,t:'On the Run',d:'3:36'},
+             {n:4,t:'Time',d:'7:04'},{n:5,t:'The Great Gig in the Sky',d:'5:43'},{n:6,t:'Money',d:'6:22'},
+             {n:7,t:'Us and Them',d:'7:49'},{n:8,t:'Any Colour You Like',d:'3:25'},{n:9,t:'Brain Damage',d:'3:50'},{n:10,t:'Eclipse',d:'2:06'}]},
+    {title:'Wish You Were Here',artist:'Pink Floyd',grad:'linear-gradient(135deg,#1a2a1a,#0a1a30,#2a1a0a)',
+     tracks:[{n:1,t:'Shine On You Crazy Diamond (I-V)',d:'13:30'},{n:2,t:'Welcome to the Machine',d:'7:31'},{n:3,t:'Have a Cigar',d:'5:08'},{n:4,t:'Wish You Were Here',d:'5:34'},{n:5,t:'Shine On You Crazy Diamond (VI-IX)',d:'12:31'}]},
+    {title:'OK Computer',artist:'Radiohead',grad:'linear-gradient(135deg,#1a1a2e,#2e1a2e,#0a0a15)',
+     tracks:[{n:1,t:'Airbag',d:'4:44'},{n:2,t:'Paranoid Android',d:'6:23'},{n:3,t:'Subterranean Homesick Alien',d:'4:27'},{n:4,t:'Exit Music',d:'4:24'},{n:5,t:'Let Down',d:'4:59'}]},
+    {title:'Kind of Blue',artist:'Miles Davis',grad:'linear-gradient(135deg,#0a1525,#152540,#0a0a20)',
+     tracks:[{n:1,t:'So What',d:'9:22'},{n:2,t:'Freddie Freeloader',d:'9:46'},{n:3,t:'Blue in Green',d:'5:27'},{n:4,t:'All Blues',d:'11:33'},{n:5,t:'Flamenco Sketches',d:'9:26'}]},
+    {title:'Abbey Road',artist:'The Beatles',grad:'linear-gradient(135deg,#2a2015,#1a1520,#0a1015)',
+     tracks:[{n:1,t:'Come Together',d:'4:20'},{n:2,t:'Something',d:'3:02'},{n:3,t:'Here Comes the Sun',d:'3:05'}]},
+    {title:'Random Access Memories',artist:'Daft Punk',grad:'linear-gradient(135deg,#1a0a25,#25152a,#0a0515)',
+     tracks:[{n:1,t:'Give Life Back to Music',d:'4:34'},{n:2,t:'Giorgio by Moroder',d:'9:04'},{n:3,t:'Get Lucky',d:'6:09'}]},
+    {title:'In Rainbows',artist:'Radiohead',grad:'linear-gradient(135deg,#2a1010,#1a0a0a,#150505)',
+     tracks:[{n:1,t:'15 Step',d:'3:58'},{n:2,t:'Bodysnatchers',d:'4:02'},{n:3,t:'Nude',d:'4:15'}]},
+    {title:'Rumours',artist:'Fleetwood Mac',grad:'linear-gradient(135deg,#201520,#151020,#0a0a15)',
+     tracks:[{n:1,t:'Second Hand News',d:'2:56'},{n:2,t:'Dreams',d:'4:14'},{n:3,t:'Go Your Own Way',d:'3:43'}]},
+    {title:'A Love Supreme',artist:'John Coltrane',grad:'linear-gradient(135deg,#1a1508,#0a0a05,#151008)',
+     tracks:[{n:1,t:'Acknowledgement',d:'7:43'},{n:2,t:'Resolution',d:'7:20'},{n:3,t:'Pursuance',d:'10:42'},{n:4,t:'Psalm',d:'7:05'}]},
+    {title:'Currents',artist:'Tame Impala',grad:'linear-gradient(135deg,#2a0a1a,#1a052a,#0a0515)',
+     tracks:[{n:1,t:'Let It Happen',d:'7:46'},{n:2,t:'Nangs',d:'1:47'},{n:3,t:'The Moment',d:'4:15'}]},
+    {title:'Homework',artist:'Daft Punk',grad:'linear-gradient(135deg,#1a1a05,#0a150a,#050a15)',
+     tracks:[{n:1,t:'Daftendirekt',d:'2:44'},{n:2,t:'Around the World',d:'7:09'}]},
+    {title:'The Bends',artist:'Radiohead',grad:'linear-gradient(135deg,#151525,#0a0a18,#1a1a2a)',
+     tracks:[{n:1,t:'Planet Telex',d:'4:19'},{n:2,t:'The Bends',d:'4:06'},{n:3,t:'Fake Plastic Trees',d:'4:50'}]}
+  ];
+
+  // ── Populate Library Album Grid ──
+  const libGrid = document.getElementById('libAlbumGrid');
+  albums.forEach((a, i) => {
+    const card = document.createElement('div');
+    card.className = 'lib-album';
+    card.dataset.idx = i;
+    card.innerHTML = `<div class="lib-album-art" style="background:${a.grad}"></div>
+      <div class="lib-album-info"><div class="lib-album-title">${a.title}</div><div class="lib-album-artist">${a.artist}</div></div>`;
+    card.addEventListener('click', () => openDetail(i));
+    libGrid.appendChild(card);
+  });
+
+  // ── Library Album Detail ──
+  function openDetail(idx) {
+    const a = albums[idx];
+    document.getElementById('libDetailTitle').textContent = a.title;
+    document.getElementById('libDetailArtist').textContent = a.artist;
+    document.getElementById('libDetailArt').style.background = a.grad;
+    document.getElementById('libDetailTracks').innerHTML = a.tracks.map(t =>
+      `<div class="ld-track"><span class="ld-track-num">${t.n}</span><span class="ld-track-title">${t.t}</span><span class="ld-track-dur">${t.d}</span></div>`
+    ).join('');
+    document.getElementById('libDetail').classList.add('open');
+  }
+  document.getElementById('libDetailBack').addEventListener('click', () => {
+    document.getElementById('libDetail').classList.remove('open');
+  });
+
+  // ── Source Tabs ──
+  document.getElementById('sourceTabs').addEventListener('click', e => {
+    if (!e.target.classList.contains('source-tab')) return;
+    document.querySelectorAll('.source-tab').forEach(t => t.classList.remove('active'));
+    e.target.classList.add('active');
+  });
+
+  // ── Right Panel Tabs (Library / Queue) ──
+  document.querySelectorAll('.right-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.right-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const target = tab.dataset.tab;
+      document.getElementById('libraryView').classList.toggle('hidden', target !== 'library');
+      document.getElementById('queueView').classList.toggle('hidden', target !== 'queue');
+    });
+  });
+
+  // ── Art Hero: Toggle VIZ mode ──
+  let vizState = 0; // 0=art, 1=viz
+  document.getElementById('artHero').addEventListener('click', () => {
+    vizState = (vizState + 1) % 2;
+    document.body.classList.toggle('viz-mode', vizState === 1);
+  });
+
+  // ── Play/Pause ──
+  let playing = true;
+  document.getElementById('playBtn').addEventListener('click', () => {
+    playing = !playing;
+    document.getElementById('playBtn').textContent = playing ? '▶' : '⏸';
+  });
+
+  // ── Seek Bars ──
+  function handleSeek(trackEl, fillEl) {
+    trackEl.addEventListener('click', e => {
+      const rect = trackEl.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      fillEl.style.width = (pct * 100) + '%';
+      document.querySelectorAll('.seek-fill,.global-seek-fill').forEach(f => f.style.width = (pct*100)+'%');
+    });
+  }
+  handleSeek(document.getElementById('seekTrack'), document.getElementById('seekFill'));
+  handleSeek(document.getElementById('globalSeek'), document.getElementById('globalSeekFill'));
+
+  // ── Volume ──
+  document.getElementById('volTrack').addEventListener('click', e => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    document.getElementById('volFill').style.width = (pct * 100) + '%';
+  });
+
+  // ── Canvas Visualisation (always running) ──
+  const canvas = document.getElementById('vizCanvas');
+  const ctx = canvas.getContext('2d');
+  const W = 1920, H = 440;
+  let phase = 0;
+
+  // Waveform + particle style viz
+  function render() {
+    ctx.clearRect(0, 0, W, H);
+    phase += 0.015;
+
+    // Multiple layered sine waves
+    for (let layer = 0; layer < 4; layer++) {
+      ctx.beginPath();
+      const amp = (H * 0.15) - layer * 12;
+      const freq = 0.003 + layer * 0.001;
+      const speed = 1.2 + layer * 0.4;
+      const yBase = H * 0.5 + layer * 15;
+      const alpha = 0.35 - layer * 0.07;
+
+      for (let x = 0; x <= W; x += 2) {
+        const noise = Math.sin(x * 0.01 + phase * 0.7) * 15;
+        const y = yBase + Math.sin(x * freq + phase * speed) * amp +
+                  Math.sin(x * freq * 2.3 + phase * speed * 0.6) * (amp * 0.3) + noise;
+        if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      const grad = ctx.createLinearGradient(0, yBase - amp, 0, yBase + amp);
+      grad.addColorStop(0, `rgba(255,177,200,${alpha})`);
+      grad.addColorStop(0.5, `rgba(123,41,73,${alpha * 0.7})`);
+      grad.addColorStop(1, `rgba(93,17,51,${alpha * 0.3})`);
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = 2.5 - layer * 0.4;
+      ctx.stroke();
+    }
+
+    // Frequency bars along bottom (subtle)
+    const barCount = 64;
+    const barW = W / barCount;
+    for (let i = 0; i < barCount; i++) {
+      const freq = i / barCount;
+      const envelope = Math.sin(freq * Math.PI);
+      const wave = Math.sin(phase * 1.8 + i * 0.18) * 0.3 +
+                   Math.cos(phase * 0.9 + i * 0.1) * 0.2;
+      const h = Math.max(2, (0.25 + wave) * envelope * H * 0.35);
+      const x = i * barW;
+      const grad = ctx.createLinearGradient(x, H, x, H - h);
+      grad.addColorStop(0, 'rgba(255,177,200,0.25)');
+      grad.addColorStop(0.5, 'rgba(123,41,73,0.12)');
+      grad.addColorStop(1, 'rgba(93,17,51,0.02)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(x + 1.5, H - h, barW - 3, h, [2, 2, 0, 0]);
+      } else {
+        ctx.rect(x + 1.5, H - h, barW - 3, h);
+      }
+      ctx.fill();
+    }
+
+    // Floating particles
+    const t = phase * 0.5;
+    for (let i = 0; i < 30; i++) {
+      const px = (Math.sin(t + i * 2.1) * 0.5 + 0.5) * W;
+      const py = (Math.cos(t * 0.7 + i * 1.7) * 0.5 + 0.5) * H;
+      const r = 1 + Math.sin(t + i) * 0.8;
+      const a = 0.15 + Math.sin(t * 0.5 + i * 0.9) * 0.1;
+      ctx.beginPath();
+      ctx.arc(px, py, r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255,177,200,${a})`;
+      ctx.fill();
+    }
+
+    requestAnimationFrame(render);
+  }
+  render();
+})();
+</script>
+</body>
+</html>
