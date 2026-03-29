@@ -125,7 +125,7 @@
 	{/if}
 	<div class="transport" class:disabled={isAudirvana}>
 		<button class="t-btn sm" on:click={playerActions.prev} title="Previous" aria-label="Previous track" type="button" disabled={isAudirvana}>
-			<IconPrevious size={20} />
+			<IconPrevious size={28} />
 		</button>
 		<button
 			class="t-btn play"
@@ -136,13 +136,13 @@
 			disabled={isAudirvana}
 		>
 			{#if playing}
-				<IconPause size={20} />
+				<IconPause size={28} />
 			{:else}
-				<IconPlay size={20} />
+				<IconPlay size={28} />
 			{/if}
 		</button>
 		<button class="t-btn sm" on:click={playerActions.next} title="Next" aria-label="Next track" type="button" disabled={isAudirvana}>
-			<IconNext size={20} />
+			<IconNext size={28} />
 		</button>
 	</div>
 
@@ -156,7 +156,7 @@
 			aria-label={$shuffle ? 'Shuffle on' : 'Shuffle off'}
 			type="button"
 		>
-			<IconShuffle size={20} />
+			<IconShuffle size={24} />
 		</button>
 		<button
 			class="t-btn sm"
@@ -167,9 +167,9 @@
 			type="button"
 		>
 			{#if $repeat === 'one'}
-				<IconRepeatOne size={20} />
+				<IconRepeatOne size={24} />
 			{:else}
-				<IconRepeat size={20} />
+				<IconRepeat size={24} />
 			{/if}
 		</button>
 
@@ -354,8 +354,8 @@
 	}
 
 	.t-btn {
-		width: 48px;
-		height: 48px;
+		width: 56px;
+		height: 56px;
 		border-radius: 50%;
 		border: none;
 		background: transparent;
@@ -377,8 +377,8 @@
 	}
 
 	.t-btn.play {
-		width: 56px;
-		height: 56px;
+		width: 72px;
+		height: 72px;
 		background: var(--md-primary, #FFB1C8);
 		color: var(--md-on-primary, #5D1133);
 		box-shadow: 0 4px 20px rgba(255, 177, 200, 0.2);
@@ -390,18 +390,18 @@
 	}
 
 	.viz .t-btn {
-		width: 40px;
-		height: 40px;
-	}
-
-	.viz .t-btn.play {
 		width: 44px;
 		height: 44px;
 	}
 
+	.viz .t-btn.play {
+		width: 52px;
+		height: 52px;
+	}
+
 	.t-btn.sm {
-		width: 48px;
-		height: 48px;
+		width: 56px;
+		height: 56px;
 		color: var(--md-outline, #9E8C91);
 	}
 
