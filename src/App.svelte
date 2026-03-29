@@ -54,9 +54,9 @@
   import MobileLayout from '$lib/components/layouts/MobileLayout.svelte';
   import GalleryLayout from '$lib/components/gallery/GalleryLayout.svelte';
 
-  // Feature flag: ?layout=gallery activates the Living Gallery layout
-  const useGalleryLayout = typeof window !== 'undefined'
-    && new URLSearchParams(window.location.search).get('layout') === 'gallery';
+  // Gallery is the default layout; ?layout=lcd activates the legacy LCD tile layout
+  const useGalleryLayout = typeof window === 'undefined'
+    || new URLSearchParams(window.location.search).get('layout') !== 'lcd';
 
   // Components (global modals)
   import LibraryContextMenu from '$lib/components/LibraryContextMenu.svelte';
