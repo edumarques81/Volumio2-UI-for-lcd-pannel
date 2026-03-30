@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { layoutMode, navigationActions } from '$lib/stores/navigation';
-  import { brightness, lcdActions } from '$lib/stores/lcd';
+  import { brightness, lcdActions, lcdState } from '$lib/stores/lcd';
   import {
     systemInfo,
     settingsCategories,
@@ -1391,6 +1391,10 @@
       <div class="settings-section">
         <h2 class="section-title">Power</h2>
         <div class="power-actions">
+          <button class="power-btn" on:click={() => lcdActions.toggle()}>
+            <Icon name="power" size={24} />
+            <span>{$lcdState === 'off' ? 'LCD On' : 'LCD Off'}</span>
+          </button>
           <button class="power-btn" on:click={handleRestart}>
             <Icon name="refresh" size={24} />
             <span>Restart</span>
@@ -1801,13 +1805,16 @@
   .power-actions {
     display: flex;
     gap: var(--spacing-md);
+    width: 100%;
   }
 
   .power-btn {
+    flex: 1;
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: var(--spacing-sm);
-    padding: var(--spacing-md) var(--spacing-xl);
+    padding: var(--spacing-lg) var(--spacing-xl);
     border: none;
     border-radius: var(--radius-md);
     background: rgba(255, 255, 255, 0.1);
@@ -1816,7 +1823,7 @@
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;
-    min-height: var(--touch-target-min);
+    min-height: 88px;
   }
 
   .power-btn:hover {

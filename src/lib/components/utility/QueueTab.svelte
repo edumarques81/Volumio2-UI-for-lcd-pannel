@@ -5,6 +5,20 @@
   import { IconClose, IconQueue, IconDragHandle, IconPlay, IconDelete, IconFavorite, IconFavoriteFilled } from '$lib/components/icons';
   import { favoritesActions, isFavorite } from '$lib/stores/favorites';
 
+  /**
+   * Clean up a track display name:
+   * - Strip file extensions (.flac, .mp3, .wav, .aac, .ogg, .m4a, .dsf, .dff, .wma, .aiff, .alac)
+   * - Strip leading track numbers (e.g. "01 ", "01. ", "01_", "_01 ")
+   */
+  function cleanTrackName(raw: string): string {
+    if (!raw) return 'Untitled';
+    // Strip common audio file extensions
+    let name = raw.replace(/\.(flac|mp3|wav|aac|ogg|m4a|dsf|dff|wma|aiff|alac|ape|opus)$/i, '');
+    // Strip leading underscores/dots then track number prefix: _01, 01., 01-, 01 , etc.
+    name = name.replace(/^[_.\s]*\d{1,3}[\s._\-]+/, '');
+    return name.trim() || 'Untitled';
+  }
+
   let draggedIndex: number | null = null;
   let dropTargetIndex: number | null = null;
   let clearConfirming = false;
@@ -125,7 +139,7 @@
               {index + 1}
             {/if}
           </span>
-          <span class="q-title">{item.name || item.title || 'Untitled'}</span>
+          <span class="q-title">{cleanTrackName(item.title || item.name)}</span>
           {#if item.artist}
             <span class="q-artist">{item.artist}</span>
           {/if}

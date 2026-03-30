@@ -46,6 +46,8 @@ export interface Album {
   source: SourceType;
   year?: number;
   addedAt?: string;
+  quality?: string;     // e.g. "192kHz/24bit FLAC"
+  trackType?: string;   // e.g. "flac", "dsf"
 }
 
 export interface Artist {
@@ -321,10 +323,10 @@ export const libraryActions = {
 
     const payload = {
       scope: options.scope || 'all',
-      sort: options.sort || 'alphabetical',
+      sort: options.sort || 'by_artist',
       query: options.query || '',
       page: options.page || 1,
-      limit: options.limit || 50
+      limit: options.limit || 200
     };
 
     console.log('[Library] Fetching albums:', payload);

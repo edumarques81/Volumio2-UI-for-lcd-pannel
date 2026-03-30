@@ -23,7 +23,7 @@
   import { IconAudirvana, IconMusicNote } from '$lib/components/icons';
   import NasManager from './NasManager.svelte';
   import { socketService } from '$lib/services/socket';
-  import { lcdActions } from '$lib/stores/lcd';
+  import { lcdActions, lcdState } from '$lib/stores/lcd';
 
   let brightness = 100;
   let showScrollIndicator = true;
@@ -66,7 +66,7 @@
   }
 
   // Power controls with inline confirm
-  type PowerAction = 'lcdOff' | 'restart' | 'shutdown';
+  type PowerAction = 'lcdToggle' | 'restart' | 'shutdown';
   let confirmingAction: PowerAction | null = null;
   let confirmTimeout: ReturnType<typeof setTimeout> | null = null;
   let shutdownNotice = '';
@@ -77,8 +77,8 @@
       clearConfirmTimeout();
       confirmingAction = null;
       switch (action) {
-        case 'lcdOff':
-          lcdActions.turnOff();
+        case 'lcdToggle':
+          lcdActions.toggle();
           break;
         case 'restart':
           settingsActions.restart();
@@ -367,10 +367,14 @@
     <div class="setting-row power-row">
       <button
         class="power-btn"
-        class:confirming={confirmingAction === 'lcdOff'}
-        on:click={() => requestPowerAction('lcdOff')}
+        class:confirming={confirmingAction === 'lcdToggle'}
+        on:click={() => requestPowerAction('lcdToggle')}
       >
-        {confirmingAction === 'lcdOff' ? '🌙 Confirm?' : '🌙 LCD Off'}
+        {#if confirmingAction === 'lcdToggle'}
+          {$lcdState === 'off' ? '☀️ Confirm?' : '🌙 Confirm?'}
+        {:else}
+          {$lcdState === 'off' ? '☀️ LCD On' : '🌙 LCD Off'}
+        {/if}
       </button>
       <button
         class="power-btn"
@@ -388,7 +392,7 @@
       </button>
     </div>
     <div class="setting-row">
-      <span class="setting-label muted">LCD off → use mobile app to wake. Shutdown → needs physical power cycle.</span>
+      <span class="setting-label muted">Tap twice to confirm. Shutdown → needs physical power cycle.</span>
     </div>
   </div>
 </div>
@@ -671,21 +675,23 @@
   .power-row {
     display: flex;
     gap: 8px;
-    justify-content: flex-start;
-    flex-wrap: wrap;
+    justify-content: stretch;
+    flex-wrap: nowrap;
   }
   .power-btn {
-    padding: 8px 16px;
+    flex: 1;
+    padding: 16px 12px;
     border-radius: var(--md-shape-full, 9999px);
     border: 1px solid var(--md-outline-variant);
     background: transparent;
     color: var(--md-on-surface-variant);
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
     cursor: pointer;
     transition: all 200ms ease-out;
-    min-height: 36px;
+    min-height: 72px;
     white-space: nowrap;
+    text-align: center;
   }
   .power-btn:hover {
     background: rgba(255, 177, 200, 0.06);

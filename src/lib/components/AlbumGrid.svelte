@@ -44,6 +44,9 @@
             <Icon name="album" size={48} />
           </div>
         {/if}
+        {#if album.quality}
+          <span class="album-quality-badge">{album.quality}</span>
+        {/if}
         <div class="album-overlay">
           <button
             class="play-btn"
@@ -229,6 +232,22 @@
 
   .view-songs-btn:active {
     transform: scale(0.95);
+  }
+
+  .album-quality-badge {
+    position: absolute;
+    bottom: 6px;
+    left: 6px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.75);
+    color: var(--color-primary, #FFB1C8);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+    backdrop-filter: blur(4px);
+    z-index: 1;
   }
 
   .album-info {

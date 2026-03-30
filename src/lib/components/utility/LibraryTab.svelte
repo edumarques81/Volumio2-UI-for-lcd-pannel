@@ -28,6 +28,7 @@
   import SourceTabs from './SourceTabs.svelte';
   import { IconSearch, IconClose, IconPlay, IconPlaylist, IconRadio, IconFavoriteFilled } from '$lib/components/icons';
   import PlaylistDetailOverlay from './PlaylistDetailOverlay.svelte';
+  import { isLcdPanel } from '$lib/stores/device';
 
   const dispatch = createEventDispatcher<{
     albumSelect: Album;
@@ -114,22 +115,24 @@
 <div class="library-tab">
   <SourceTabs activeTab={activeSource} on:tabChange={handleTabChange} />
 
-  <div class="search-bar">
-    <span class="search-icon"><IconSearch size={14} /></span>
-    <input
-      id="library-search"
-      type="text"
-      class="search-input"
-      placeholder="Search..."
-      bind:value={searchQuery}
-      on:input={handleSearch}
-    />
-    {#if hasSearchQuery}
-      <button class="search-clear" on:click={clearSearch} aria-label="Clear search">
-        <IconClose size={12} />
-      </button>
-    {/if}
-  </div>
+  {#if !$isLcdPanel}
+    <div class="search-bar">
+      <span class="search-icon"><IconSearch size={14} /></span>
+      <input
+        id="library-search"
+        type="text"
+        class="search-input"
+        placeholder="Search..."
+        bind:value={searchQuery}
+        on:input={handleSearch}
+      />
+      {#if hasSearchQuery}
+        <button class="search-clear" on:click={clearSearch} aria-label="Clear search">
+          <IconClose size={12} />
+        </button>
+      {/if}
+    </div>
+  {/if}
 
   {#if error}
     <div class="error-state">
@@ -137,7 +140,7 @@
       <button class="retry-btn" on:click={handleRetry}>Retry</button>
     </div>
   {:else if loading}
-    <div class="lib-album-grid">
+    <div class="lib-album-grid" class:lcd={$isLcdPanel}>
       {#each Array(8) as _}
         <div class="lib-album skeleton-card">
           <Skeleton width="100%" height="0" variant="rectangle" />
@@ -149,7 +152,8 @@
       {/each}
     </div>
   {:else if isAlbumView}
-    <div class="lib-album-grid">
+    <div class="lib-album-scroll" class:lcd={$isLcdPanel}>
+    <div class="lib-album-grid" class:lcd={$isLcdPanel}>
       {#each $libraryAlbums as album (album.id)}
         <button class="lib-album" on:click={() => handleAlbumClick(album)}>
           <div class="lib-album-art-wrap">
@@ -161,6 +165,9 @@
               on:error={handleArtError}
             />
             <div class="lib-album-art-fallback"></div>
+            {#if album.quality}
+              <span class="lib-album-quality">{album.quality}</span>
+            {/if}
           </div>
           <div class="lib-album-hover">
             <IconPlay size={24} />
@@ -179,6 +186,7 @@
           {/if}
         </div>
       {/each}
+    </div>
     </div>
   {:else if activeSource === 'playlists'}
     {#if selectedPlaylist}
@@ -278,14 +286,49 @@
     color: var(--md-on-surface);
   }
 
+  /* Scrollable wrapper — takes flex space, scrolls content */
+  .lib-album-scroll {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+    scrollbar-width: thin;
+    scrollbar-color: var(--md-outline-variant) transparent;
+  }
+  .lib-album-scroll.lcd {
+    scroll-snap-type: y mandatory;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+
   .lib-album-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(95px, 1fr));
     gap: 8px;
-    overflow-y: auto;
-    flex: 1;
-    scrollbar-width: thin;
-    scrollbar-color: var(--md-outline-variant) transparent;
+  }
+
+  /* LCD panel: 4×2 grid — 4 albums per row, 2 rows visible per page */
+  .lib-album-grid.lcd {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+  }
+  /* Constrain art height so 2 full rows fit in the ~263px scroll area */
+  .lib-album-grid.lcd :global(.lib-album-art-wrap) {
+    aspect-ratio: auto;
+    padding-bottom: 0;
+    height: 95px;
+  }
+  .lib-album-grid.lcd :global(.lib-album-info) {
+    padding: 3px 6px;
+  }
+  .lib-album-grid.lcd :global(.lib-album-title) {
+    font-size: 11px;
+  }
+  .lib-album-grid.lcd :global(.lib-album-artist) {
+    font-size: 10px;
+  }
+  /* Snap every 4th item (row boundary) for page-like scrolling */
+  .lib-album-scroll.lcd .lib-album-grid > :global(.lib-album:nth-child(4n+1)) {
+    scroll-snap-align: start;
   }
 
   .lib-album {
@@ -311,11 +354,21 @@
   .lib-album-art-wrap {
     position: relative;
     width: 100%;
-    aspect-ratio: 1;
+    aspect-ratio: 1 / 1;
+  }
+
+  /* Fallback for browsers that don't support aspect-ratio */
+  @supports not (aspect-ratio: 1 / 1) {
+    .lib-album-art-wrap {
+      height: 0;
+      padding-bottom: 100%;
+    }
   }
 
   .lib-album-art {
-    position: relative;
+    position: absolute;
+    top: 0;
+    left: 0;
     z-index: 1;
     width: 100%;
     height: 100%;
@@ -330,12 +383,29 @@
     background: linear-gradient(135deg, #0a0a2e 0%, #1a0533 30%, #2d1b69 50%, #0a0a2e 70%, #000 100%);
   }
 
+  .lib-album-quality {
+    position: absolute;
+    bottom: 4px;
+    right: 4px;
+    z-index: 2;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: rgba(0, 0, 0, 0.75);
+    color: var(--md-primary, #FFB1C8);
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    line-height: 1.4;
+    white-space: nowrap;
+    backdrop-filter: blur(4px);
+  }
+
   .lib-album-hover {
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
-    aspect-ratio: 1;
+    aspect-ratio: 1 / 1;
     display: flex;
     align-items: center;
     justify-content: center;
