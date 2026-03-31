@@ -391,10 +391,14 @@ export const libraryActions = {
     libraryAlbumTracksError.set(null);
     selectedLibraryAlbum.set(album);
 
-    const payload = {
+    const payload: Record<string, string> = {
       album: album.title,
       albumArtist: album.artist
     };
+    // Include URI to scope tracks to this specific folder (avoids mixing quality versions)
+    if (album.uri) {
+      payload.uri = album.uri;
+    }
 
     console.log('[Library] Fetching album tracks:', payload);
     socketService.emit('library:album:tracks', payload);

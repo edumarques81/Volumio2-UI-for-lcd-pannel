@@ -230,12 +230,12 @@
   .q-item {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 9px 10px;
+    gap: 10px;
+    padding: 12px 12px;
     border-radius: var(--md-shape-sm, 8px);
     cursor: pointer;
     transition: background 200ms ease-out;
-    min-height: 48px;
+    min-height: 56px;
     flex-shrink: 0;
     border: none;
     background: none;
@@ -280,9 +280,9 @@
 
   .q-num {
     font-family: 'Roboto Mono', monospace;
-    font-size: 11px;
+    font-size: 16px;
     color: var(--md-outline);
-    min-width: 16px;
+    min-width: 24px;
     text-align: right;
     flex-shrink: 0;
     display: flex;
@@ -294,7 +294,7 @@
   }
 
   .q-title {
-    font-size: 15px;
+    font-size: 19px;
     font-weight: 500;
     flex: 1;
     white-space: nowrap;
@@ -304,18 +304,18 @@
   }
 
   .q-artist {
-    font-size: 13px;
+    font-size: 16px;
     color: var(--md-outline);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 120px;
+    max-width: 140px;
     flex-shrink: 0;
   }
 
   .q-dur {
     font-family: 'Roboto Mono', monospace;
-    font-size: 12px;
+    font-size: 16px;
     color: var(--md-outline);
     flex-shrink: 0;
   }

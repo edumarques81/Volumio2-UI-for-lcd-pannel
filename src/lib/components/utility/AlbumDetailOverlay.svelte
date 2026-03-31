@@ -228,16 +228,16 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 6px 14px;
+    padding: 8px 18px;
     border-radius: var(--md-shape-full, 9999px);
     border: 1px solid var(--md-outline-variant);
     background: transparent;
     color: var(--md-on-surface-variant);
-    font-size: 11px;
+    font-size: 14px;
     font-weight: 600;
     cursor: pointer;
     transition: all 200ms ease-out;
-    min-height: 36px;
+    min-height: 44px;
     font-family: inherit;
   }
   .action-btn:hover {
@@ -272,14 +272,14 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 44px;
-    height: 44px;
+    width: 48px;
+    height: 48px;
     border-radius: 50%;
     border: none;
     background: transparent;
     color: var(--md-outline-variant);
     cursor: pointer;
-    opacity: 0;
+    opacity: 0.6;
     transition: all 200ms ease-out;
     flex-shrink: 0;
   }
@@ -294,12 +294,12 @@
   .ld-track {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 7px 8px;
+    gap: 12px;
+    padding: 12px 12px;
     border-radius: var(--md-shape-xs, 4px);
     cursor: pointer;
     transition: background 200ms ease-out;
-    min-height: 38px;
+    min-height: 56px;
     border: none;
     background: none;
     color: var(--md-on-surface);
@@ -314,14 +314,14 @@
 
   .ld-track-num {
     font-family: 'Roboto Mono', monospace;
-    font-size: 10px;
+    font-size: 16px;
     color: var(--md-outline);
-    min-width: 18px;
+    min-width: 24px;
     text-align: right;
     flex-shrink: 0;
   }
   .ld-track-title {
-    font-size: 12px;
+    font-size: 19px;
     font-weight: 500;
     flex: 1;
     white-space: nowrap;
@@ -330,7 +330,7 @@
   }
   .ld-track-dur {
     font-family: 'Roboto Mono', monospace;
-    font-size: 10px;
+    font-size: 16px;
     color: var(--md-outline);
     flex-shrink: 0;
   }

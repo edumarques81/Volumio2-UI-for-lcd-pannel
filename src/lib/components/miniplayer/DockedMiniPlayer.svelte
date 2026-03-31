@@ -520,9 +520,9 @@
     flex-direction: column;
     justify-content: space-between;
     min-width: 0;
-    gap: 8px;
-    padding-top: 4px;
-    padding-bottom: 14px; /* was 4px — gives progress bar breathing room from queue strip */
+    gap: 4px;
+    padding-top: 0;
+    padding-bottom: 6px;
   }
 
   /* Track info */
@@ -661,12 +661,13 @@
     pointer-events: none;
   }
 
-  /* Progress section */
+  /* Progress section — pushed to bottom with margin-top: auto for breathing room */
   .progress-section {
     display: flex;
     align-items: center;
     gap: 12px;
     padding: 4px 0;
+    margin-top: auto;
     position: relative;
     z-index: 1;
   }
