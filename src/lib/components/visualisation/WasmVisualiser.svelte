@@ -8,6 +8,7 @@
 	 */
 
 	import { onMount, onDestroy } from 'svelte';
+	import { spectrumData, SPECTRUM_NUM_BINS } from '$lib/stores/spectrum';
 
 	// --- Props ---
 	export let mode: 'spectrum' | 'waveform' | 'radial' = 'spectrum';
@@ -269,6 +270,10 @@
 		}
 	}
 
+	// --- Spectrum store subscription ---
+	let currentSpectrum = new Float32Array(SPECTRUM_NUM_BINS);
+	let unsubSpectrum: (() => void) | null = null;
+
 	// --- Animation loop ---
 
 	let lastFrameTime = 0;
@@ -281,14 +286,9 @@
 
 		const dt = lastFrameTime ? (timestamp - lastFrameTime) / 1000 : 1 / 60;
 		lastFrameTime = timestamp;
-		const time = (timestamp - startTime) / 1000;
 
-		let audio: Float32Array;
-		if (usingWasm && wasmModule) {
-			audio = wasmModule.generateFakeAudioFrame(time, 256);
-		} else {
-			audio = jsGenerateFakeAudio(time, 256);
-		}
+		// Use real spectrum data from the store (already fed by real or fake data)
+		const audio = currentSpectrum;
 
 		const palette = jsGeneratePalette(seedColour, 8);
 
@@ -313,6 +313,11 @@
 		ctx = canvas.getContext('2d');
 		startTime = performance.now();
 
+		// Subscribe to real spectrum data from the store
+		unsubSpectrum = spectrumData.subscribe((data) => {
+			currentSpectrum = data;
+		});
+
 		// Try loading WASM
 		try {
 			const wasm = await import('$lib/wasm/stellar-viz/pkg/stellar_viz.js');
@@ -331,6 +336,7 @@
 
 	onDestroy(() => {
 		if (animationId) cancelAnimationFrame(animationId);
+		unsubSpectrum?.();
 	});
 </script>
 

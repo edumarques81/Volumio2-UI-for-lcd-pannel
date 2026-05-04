@@ -65,6 +65,7 @@
   } from '$lib/stores/qobuz';
   import Icon from '../Icon.svelte';
   import { currentTheme, THEMES, type StellarTheme } from '$lib/stores/theme';
+  import { defaultVizMode, setDefaultVizMode, VIZ_MODES, VIZ_MODE_LABELS, type FullscreenVizMode } from '$lib/stores/viz';
 
   let bitPerfectLoading = false;
 
@@ -278,6 +279,15 @@
     audioDevicesActions.setOutput(deviceId);
   }
 
+  function handleRefreshKiosk() {
+    window.location.reload();
+  }
+
+  function handleHardRefreshKiosk() {
+    // Force bypass cache
+    window.location.href = window.location.pathname + '?t=' + Date.now();
+  }
+
   function handleRefreshBitPerfect() {
     bitPerfectLoading = true;
     audioActions.getBitPerfectConfig();
@@ -355,6 +365,33 @@
               <span class="theme-emoji">{theme.emoji}</span>
               <span class="theme-name">{theme.name}</span>
               {#if $currentTheme === theme.id}
+                <span class="theme-check">✓</span>
+              {/if}
+            </button>
+          {/each}
+        </div>
+      </div>
+
+      <!-- Default Visualization -->
+      <div class="settings-section">
+        <h2 class="section-title">Fullscreen Visualization</h2>
+        <p class="section-hint">Choose which visualization shows when entering fullscreen</p>
+        <div class="viz-mode-options">
+          {#each VIZ_MODES as mode}
+            <button
+              class="viz-mode-option"
+              class:selected={$defaultVizMode === mode}
+              on:click={() => setDefaultVizMode(mode)}
+            >
+              <span class="viz-mode-icon">
+                {#if mode === 'bars'}📊
+                {:else if mode === 'vu-digital'}🟩
+                {:else if mode === 'vu-analog'}🎛️
+                {:else}〰️
+                {/if}
+              </span>
+              <span class="viz-mode-name">{VIZ_MODE_LABELS[mode]}</span>
+              {#if $defaultVizMode === mode}
                 <span class="theme-check">✓</span>
               {/if}
             </button>
@@ -1389,6 +1426,20 @@
       </div>
 
       <div class="settings-section">
+        <h2 class="section-title">Kiosk</h2>
+        <div class="power-actions">
+          <button class="power-btn" on:click={handleRefreshKiosk}>
+            <Icon name="refresh" size={24} />
+            <span>Refresh Page</span>
+          </button>
+          <button class="power-btn" on:click={handleHardRefreshKiosk}>
+            <Icon name="refresh" size={24} />
+            <span>Hard Refresh</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="settings-section">
         <h2 class="section-title">Power</h2>
         <div class="power-actions">
           <button class="power-btn" on:click={() => lcdActions.toggle()}>
@@ -1505,6 +1556,51 @@
     font-size: var(--md-label-small);
     color: var(--md-on-surface-variant);
     opacity: 0.75;
+    white-space: nowrap;
+  }
+
+  /* Viz mode picker */
+  .viz-mode-options {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+  }
+
+  .viz-mode-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 20px;
+    background: var(--md-surface-container, rgba(255, 255, 255, 0.08));
+    border: 2px solid var(--md-outline-variant, rgba(255, 255, 255, 0.12));
+    border-radius: var(--md-shape-extra-large, 16px);
+    color: var(--md-on-surface, var(--color-text-primary));
+    cursor: pointer;
+    font-size: var(--md-body-medium, var(--font-size-base));
+    transition: background 0.15s, border-color 0.15s, transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .viz-mode-option:hover {
+    background: var(--md-surface-container-high, rgba(255, 255, 255, 0.12));
+  }
+
+  .viz-mode-option:active {
+    transform: scale(0.95);
+  }
+
+  .viz-mode-option.selected {
+    border-color: var(--md-primary, var(--color-accent));
+    background: color-mix(in srgb, var(--md-primary, var(--color-accent)) 12%, var(--md-surface-container, rgba(255, 255, 255, 0.08)));
+  }
+
+  .viz-mode-icon {
+    font-size: 18px;
+  }
+
+  .viz-mode-name {
+    font-weight: 500;
     white-space: nowrap;
   }
 

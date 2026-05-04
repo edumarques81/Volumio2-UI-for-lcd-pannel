@@ -13,6 +13,7 @@
   import { initAudioStore, cleanupAudioStore } from '$lib/stores/audio';
   import { initAudirvanaStore, cleanupAudirvanaStore } from '$lib/stores/audirvana';
   import { initLibraryStore } from '$lib/stores/library';
+  import { initSpectrumStore } from '$lib/stores/spectrum';
   import { initAudioEngineStore, cleanupAudioEngineStore, audioEngineActions } from '$lib/stores/audioEngine';
   import { initDeviceStore, cleanupDeviceStore, deviceType, isLcdPanel, isDesktop, isMobile } from '$lib/stores/device';
   import { currentView, layoutMode, navigationActions } from '$lib/stores/navigation';
@@ -93,6 +94,7 @@
     initAudirvanaStore();
     initAudioEngineStore();
     initLibraryStore();
+    initSpectrumStore();
 
     // ====================================================================
     // MOBILE RECONNECTION HANDLING

@@ -21,6 +21,7 @@
 	import ArtHero from './ArtHero.svelte';
 	import NowPlayingPanel from './NowPlayingPanel.svelte';
 	import GlobalSeekBar from './GlobalSeekBar.svelte';
+	import FullscreenPlayer from './FullscreenPlayer.svelte';
 	import UtilityPanel from '../utility/UtilityPanel.svelte';
 	import StandbyOverlay from '../StandbyOverlay.svelte';
 
@@ -59,6 +60,11 @@
 
 	<!-- Global seek bar at bottom -->
 	<GlobalSeekBar />
+
+	<!-- Fullscreen player overlay (triggered by spectrum button) -->
+	{#if isViz}
+		<FullscreenPlayer />
+	{/if}
 </div>
 
 <style>
