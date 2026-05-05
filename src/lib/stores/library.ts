@@ -172,6 +172,12 @@ export const libraryCacheStatus = writable<CacheStatus | null>(null);
 export const libraryCacheLoading = writable<boolean>(false);
 export const libraryCacheBuilding = writable<boolean>(false);
 
+/**
+ * Current album index for the redesign Library screen. Survives navigating
+ * away to Player and back (spec decision 73). Reset to 0 when albums refetch.
+ */
+export const currentLibraryIndex = writable<number>(0);
+
 // Current scope and sort preferences (persisted)
 const storedScope = typeof localStorage !== 'undefined'
   ? localStorage.getItem('libraryScope') as Scope
@@ -221,6 +227,8 @@ export function initLibraryStore() {
     if (data?.albums) {
       libraryAlbums.set(data.albums.map(fixAlbumArt));
       libraryAlbumsPagination.set(data.pagination);
+      // Reset Library screen index whenever the album list refreshes.
+      currentLibraryIndex.set(0);
     }
     libraryAlbumsLoading.set(false);
   });
@@ -431,6 +439,32 @@ export const libraryActions = {
       type: 'webradio',
       title: station.name,
       uri: station.uri
+    });
+  },
+
+  /**
+   * Replace the queue with this album's tracks, auto-play from track 1, then
+   * navigate back to Player. Used by the Library screen tap-to-play flow
+   * (spec decision 50).
+   *
+   * The flow:
+   *   1. Fetch album tracks (re-fetches even if cached, to be safe)
+   *   2. Subscribe to libraryAlbumTracks for the response
+   *   3. emit clearQueue + addToQueue + play, navigate to Player
+   *   4. Unsubscribe so we don't keep firing on later track refreshes
+   */
+  replaceQueueAndPlay(album: Album) {
+    libraryActions.fetchAlbumTracks(album);
+    const unsub = libraryAlbumTracks.subscribe((tracks) => {
+      if (!tracks || tracks.length === 0) return;
+      const sel = get(selectedLibraryAlbum);
+      if (!sel || sel.title !== album.title) return; // stale event; ignore
+      setTimeout(() => unsub(), 0);
+      const uris = tracks.map((t) => t.uri).filter(Boolean);
+      socketService.emit('clearQueue');
+      socketService.emit('addToQueue', { uri: uris });
+      socketService.emit('play', { value: 0 });
+      import('$lib/stores/navigation').then(({ viewActions }) => viewActions.goToPlayer());
     });
   },
 
