@@ -47,8 +47,14 @@
     font-size: 24px;
     font-weight: 300;
     color: var(--color-text-secondary);
+    overflow: hidden;
+  }
+  .artist-row span, .album-row span {
+    min-width: 0;
+    flex: 1;
     white-space: nowrap;
     overflow: hidden;
+    text-overflow: ellipsis;
   }
   .artist-row :global(svg), .album-row :global(svg) {
     color: var(--color-accent);
