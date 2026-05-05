@@ -17,6 +17,20 @@ describe('FormatStrip', () => {
     expect(container.textContent).not.toContain('HI-RES');
   });
 
+  it('formats >= 1 MHz sample rates as MHz (e.g. 2.82 MHz, not 2822 kHz)', () => {
+    // DSD64 base rate. The shared rate cell must render real MHz.
+    const { container } = render(FormatStrip, { bitDepth: 1, sampleRate: 2822400, codec: 'DSD' });
+    expect(container.textContent).toContain('2.8MHz');
+    expect(container.textContent).not.toContain('2822kHz');
+  });
+
+  it('drops a trailing ".0" on whole-MHz rates', () => {
+    // 5.0 MHz hypothetical — exact MHz value should not render as "5.0MHz".
+    const { container } = render(FormatStrip, { bitDepth: null, sampleRate: 5_000_000, codec: null });
+    expect(container.textContent).toContain('5MHz');
+    expect(container.textContent).not.toContain('5.0MHz');
+  });
+
   it('shows MQA badge when codec is MQA', () => {
     const { container } = render(FormatStrip, { bitDepth: 24, sampleRate: 96000, codec: 'MQA' });
     expect(container.textContent).toContain('MQA');

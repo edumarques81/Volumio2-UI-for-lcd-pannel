@@ -11,7 +11,13 @@
   $: hasAnyValue = bitDepth != null || sampleRate != null || codec != null;
 
   function formatRate(hz: number): string {
-    if (hz >= 1000000) return `${(hz / 1000).toFixed(0)}kHz`; // DSD-ish
+    // DSD-rate territory (>= 1 MHz): render as MHz with 1 decimal,
+    // dropping a trailing ".0". The cell at the bottom of the strip is
+    // shared with the HI-RES / MQA badge rate, so it must be sensible
+    // even when codec === 'DSD' (badge text is sourced from dsdRate()).
+    if (hz >= 1_000_000) {
+      return `${(hz / 1_000_000).toFixed(1).replace(/\.0$/, '')}MHz`;
+    }
     return `${(hz / 1000).toString().replace(/\.0$/, '')}kHz`;
   }
 
