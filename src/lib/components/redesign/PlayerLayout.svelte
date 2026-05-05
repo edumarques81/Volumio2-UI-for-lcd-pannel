@@ -1,6 +1,7 @@
 <script lang="ts">
   import { currentView } from '$lib/stores/navigation';
   import PlayerView from './PlayerView.svelte';
+  import LibraryView from './LibraryView.svelte';
   import NavColumn from './NavColumn.svelte';
 </script>
 
@@ -9,8 +10,7 @@
     {#if $currentView === 'player'}
       <PlayerView />
     {:else}
-      <!-- Library content ships in Plan 4. Placeholder keeps layout grid honest. -->
-      <div class="library-pending">Library — coming in Plan 4</div>
+      <LibraryView />
     {/if}
   </div>
   <NavColumn />
@@ -42,10 +42,5 @@
     position: relative;
     z-index: 2;
     overflow: hidden;
-  }
-  .library-pending {
-    width: 100%; height: 100%;
-    display: flex; align-items: center; justify-content: center;
-    color: #555;
   }
 </style>

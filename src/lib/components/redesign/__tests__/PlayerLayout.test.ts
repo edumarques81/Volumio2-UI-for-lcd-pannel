@@ -26,6 +26,23 @@ const mocks = await vi.hoisted(async () => {
   };
 });
 
+const libraryMocks = await vi.hoisted(async () => {
+  const { writable } = await import('svelte/store');
+  return {
+    libraryAlbums: writable<any[]>([]),
+    libraryAlbumTracks: writable<any[]>([]),
+    currentLibraryIndex: writable(0),
+    selectedLibraryAlbum: writable<any>(null),
+    libraryActions: {
+      fetchAlbumTracks: vi.fn(),
+      replaceQueueAndPlay: vi.fn(),
+    },
+    currentAlbumBio: writable({ summary: '', sourceUrl: '', kind: '' }),
+    bioLoading: writable(false),
+    bioActions: { requestBio: vi.fn(), refreshBio: vi.fn() },
+  };
+});
+
 vi.mock('$lib/stores/navigation', () => ({
   currentView: mocks.currentView,
   viewActions: mocks.viewActions,
@@ -38,8 +55,21 @@ vi.mock('$lib/stores/player', () => ({
   trackQuality: mocks.trackQuality,
   playerState: mocks.playerState,
   playerActions: mocks.playerActions,
+  formatTime: (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`,
 }));
 vi.mock('$lib/stores/queue', () => ({ queue: mocks.queue }));
+vi.mock('$lib/stores/library', () => ({
+  libraryAlbums: libraryMocks.libraryAlbums,
+  libraryAlbumTracks: libraryMocks.libraryAlbumTracks,
+  currentLibraryIndex: libraryMocks.currentLibraryIndex,
+  selectedLibraryAlbum: libraryMocks.selectedLibraryAlbum,
+  libraryActions: libraryMocks.libraryActions,
+}));
+vi.mock('$lib/stores/bios', () => ({
+  currentAlbumBio: libraryMocks.currentAlbumBio,
+  bioLoading: libraryMocks.bioLoading,
+  bioActions: libraryMocks.bioActions,
+}));
 
 import PlayerLayout from '../PlayerLayout.svelte';
 
@@ -55,12 +85,11 @@ describe('PlayerLayout', () => {
     expect(container.querySelector('.nav-column')).toBeTruthy();
   });
 
-  it('does NOT render PlayerView when currentView is library', () => {
+  it('renders LibraryView when currentView is library', () => {
     mocks.currentView.set('library');
     const { container } = render(PlayerLayout);
+    expect(container.querySelector('.library-view')).toBeTruthy();
     expect(container.querySelector('.player-view')).toBeNull();
-    // Library placeholder div renders so the layout grid stays balanced
-    expect(container.querySelector('.library-pending')).toBeTruthy();
   });
 
   it('applies the global black background and sheen class', () => {
