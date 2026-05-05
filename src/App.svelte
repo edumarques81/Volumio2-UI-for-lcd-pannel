@@ -14,6 +14,7 @@
   import { initAudioStore, cleanupAudioStore } from '$lib/stores/audio';
   import { initAudirvanaStore, cleanupAudirvanaStore } from '$lib/stores/audirvana';
   import { initLibraryStore } from '$lib/stores/library';
+  import { initBiosStore, cleanupBiosStore } from '$lib/stores/bios';
   import { initAudioEngineStore, cleanupAudioEngineStore, audioEngineActions } from '$lib/stores/audioEngine';
   import { initDeviceStore, cleanupDeviceStore, deviceType } from '$lib/stores/device';
   import { currentView, layoutMode, navigationActions } from '$lib/stores/navigation';
@@ -87,6 +88,7 @@
     initAudirvanaStore();
     initAudioEngineStore();
     initLibraryStore();
+    initBiosStore();
 
     // ====================================================================
     // MOBILE RECONNECTION HANDLING
@@ -309,6 +311,7 @@
       cleanupAudirvanaStore();
       cleanupAudioEngineStore();
       cleanupDeviceStore();
+      cleanupBiosStore();
       socketService.disconnect();
     };
   });
