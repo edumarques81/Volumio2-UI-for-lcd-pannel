@@ -32,6 +32,13 @@ vi.mock('$lib/services/socket', () => {
   };
 });
 
+// Mock the navigation store. replaceQueueAndPlay calls viewActions.goToPlayer()
+// after dispatching, so we need a stub. Real navigation logic is covered in
+// navigation tests.
+vi.mock('$lib/stores/navigation', () => ({
+  viewActions: { goToPlayer: vi.fn() }
+}));
+
 // Mock localStorage
 const localStorageMock = {
   getItem: vi.fn(),
@@ -370,6 +377,80 @@ describe('Library Store', () => {
         title: 'So What',
         uri: 'NAS/Jazz/Kind of Blue/01 - So What.flac'
       });
+    });
+  });
+
+  describe('libraryActions.replaceQueueAndPlay', () => {
+    const albumA: Album = {
+      id: 'a', title: 'A', artist: 'X', uri: 'mpd://a',
+      albumArt: '', trackCount: 1, source: 'local',
+    };
+    const albumB: Album = {
+      id: 'b', title: 'B', artist: 'Y', uri: 'mpd://b',
+      albumArt: '', trackCount: 1, source: 'local',
+    };
+
+    it('cancels prior in-flight subscription on rapid re-call: only the second call dispatches', () => {
+      // Fresh state: nothing selected, no tracks loaded.
+      selectedLibraryAlbum.set(null);
+      libraryAlbumTracks.set([]);
+
+      // Tap album A — its subscription is now in-flight, waiting for tracks.
+      libraryActions.replaceQueueAndPlay(albumA);
+
+      // Before tracks for A arrive, tap album B — should cancel A's subscription.
+      libraryActions.replaceQueueAndPlay(albumB);
+
+      // Now simulate the BACKEND responding to album A first (out of order).
+      // The store's pushLibraryAlbumTracks handler would normally update both
+      // selectedLibraryAlbum and libraryAlbumTracks; here we simulate by hand
+      // since initLibraryStore isn't wired up in this test.
+      selectedLibraryAlbum.set(albumA);
+      libraryAlbumTracks.set([
+        { id: 't', title: 'T', artist: 'X', album: 'A', uri: 'a-track',
+          trackNumber: 1, duration: 60, albumArt: '', source: 'local' }
+      ]);
+
+      // Album A's subscription was unsubscribed → no clearQueue/addToQueue/play
+      // emitted for A. Verify by counting playback emits since the test started.
+      const playbackEmits = (socketService.emit as any).mock.calls
+        .filter((c: any[]) => c[0] === 'clearQueue' || c[0] === 'addToQueue' || c[0] === 'play');
+      expect(playbackEmits.length).toBe(0);
+
+      // Now simulate the response for album B. Both selected + tracks change.
+      selectedLibraryAlbum.set(albumB);
+      libraryAlbumTracks.set([
+        { id: 't2', title: 'T2', artist: 'Y', album: 'B', uri: 'b-track',
+          trackNumber: 1, duration: 60, albumArt: '', source: 'local' }
+      ]);
+
+      // Album B's subscription should fire and dispatch clearQueue + addToQueue + play.
+      const allEmits = (socketService.emit as any).mock.calls;
+      expect(allEmits.some((c: any[]) => c[0] === 'clearQueue')).toBe(true);
+      expect(allEmits.some((c: any[]) =>
+        c[0] === 'addToQueue' && c[1].uri.includes('b-track')
+      )).toBe(true);
+      expect(allEmits.some((c: any[]) => c[0] === 'play')).toBe(true);
+    });
+
+    it('skips Svelte synchronous initial-value emission (no stale-on-subscribe dispatch)', () => {
+      // Pre-load tracks that would, if not for firstFire, dispatch immediately.
+      selectedLibraryAlbum.set(albumA);
+      libraryAlbumTracks.set([
+        { id: 't', title: 'T', artist: 'X', album: 'A', uri: 'stale',
+          trackNumber: 1, duration: 60, albumArt: '', source: 'local' }
+      ]);
+
+      // Now tap album A. Subscribe fires synchronously with the existing tracks
+      // — but firstFire should swallow that emission, so no dispatch happens
+      // until a fresh response arrives.
+      const beforeEmits = (socketService.emit as any).mock.calls.length;
+      libraryActions.replaceQueueAndPlay(albumA);
+
+      // Only fetchAlbumTracks-related emits should have happened — no clearQueue.
+      const afterEmits = (socketService.emit as any).mock.calls;
+      const newEmits = afterEmits.slice(beforeEmits);
+      expect(newEmits.some((c: any[]) => c[0] === 'clearQueue')).toBe(false);
     });
   });
 });

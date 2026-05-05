@@ -7,6 +7,7 @@
 import { writable, derived, get } from 'svelte/store';
 import { socketService, connectionState } from '$lib/services/socket';
 import { fixVolumioAssetUrl } from '$lib/config';
+import { viewActions } from '$lib/stores/navigation';
 
 /**
  * Emit a socket event only when the socket is connected.
@@ -171,6 +172,13 @@ export const radioPagination = writable<Pagination | null>(null);
 export const libraryCacheStatus = writable<CacheStatus | null>(null);
 export const libraryCacheLoading = writable<boolean>(false);
 export const libraryCacheBuilding = writable<boolean>(false);
+
+// Replace-queue-and-play reentry guard. Each call increments replaceRequestId;
+// any older in-flight subscription bails out via myId !== replaceRequestId.
+// currentReplaceUnsub is module-scoped so a second tap also tears down the
+// first subscription immediately.
+let currentReplaceUnsub: (() => void) | null = null;
+let replaceRequestId = 0;
 
 /**
  * Current album index for the redesign Library screen. Survives navigating
@@ -447,24 +455,35 @@ export const libraryActions = {
    * navigate back to Player. Used by the Library screen tap-to-play flow
    * (spec decision 50).
    *
-   * The flow:
-   *   1. Fetch album tracks (re-fetches even if cached, to be safe)
-   *   2. Subscribe to libraryAlbumTracks for the response
-   *   3. emit clearQueue + addToQueue + play, navigate to Player
-   *   4. Unsubscribe so we don't keep firing on later track refreshes
+   * Reentry-safe: rapid double-tap (or tapping a different album mid-fetch)
+   * cancels the prior in-flight subscription via replaceRequestId so old
+   * tracks never dispatch. Skips Svelte's synchronous initial-value emission
+   * via firstFire to avoid a stale-on-subscribe dispatch when the store
+   * already holds tracks from a prior view that happen to match by title.
    */
   replaceQueueAndPlay(album: Album) {
+    const myId = ++replaceRequestId;
+    if (currentReplaceUnsub) {
+      currentReplaceUnsub();
+      currentReplaceUnsub = null;
+    }
     libraryActions.fetchAlbumTracks(album);
-    const unsub = libraryAlbumTracks.subscribe((tracks) => {
+    let firstFire = true;
+    currentReplaceUnsub = libraryAlbumTracks.subscribe((tracks) => {
+      if (firstFire) { firstFire = false; return; }
+      if (myId !== replaceRequestId) return;
       if (!tracks || tracks.length === 0) return;
       const sel = get(selectedLibraryAlbum);
-      if (!sel || sel.title !== album.title) return; // stale event; ignore
-      setTimeout(() => unsub(), 0);
+      if (!sel || sel.title !== album.title) return;
+      setTimeout(() => {
+        currentReplaceUnsub?.();
+        currentReplaceUnsub = null;
+      }, 0);
       const uris = tracks.map((t) => t.uri).filter(Boolean);
       socketService.emit('clearQueue');
       socketService.emit('addToQueue', { uri: uris });
       socketService.emit('play', { value: 0 });
-      import('$lib/stores/navigation').then(({ viewActions }) => viewActions.goToPlayer());
+      viewActions.goToPlayer();
     });
   },
 
