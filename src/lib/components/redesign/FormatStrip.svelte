@@ -29,7 +29,7 @@
 </script>
 
 {#if hasAnyValue}
-  <div class="format-strip">
+  <div class="format-strip" data-testid="format-strip">
     {#if badgeKind === 'HI-RES' && formattedRate}
       <HiResBadge label="HI-RES" rate={formattedRate} />
       <span class="sep">|</span>

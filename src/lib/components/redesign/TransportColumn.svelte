@@ -19,6 +19,7 @@
     class="play-pause"
     class:loading
     aria-label={isPlaying ? 'Pause' : 'Play'}
+    data-testid="transport-play-pause"
     disabled={playDisabled}
     on:click={onTogglePlay}
   >
@@ -27,10 +28,10 @@
   </button>
 
   <div class="skip-row">
-    <button class="skip" aria-label="Previous track" on:click={onPrev}>
+    <button class="skip" aria-label="Previous track" data-testid="transport-prev" on:click={onPrev}>
       <Icon name="skip-back-fill" size={32} />
     </button>
-    <button class="skip" aria-label="Next track" disabled={nextDisabled} on:click={onNext}>
+    <button class="skip" aria-label="Next track" data-testid="transport-next" disabled={nextDisabled} on:click={onNext}>
       <Icon name="skip-forward-fill" size={32} />
     </button>
   </div>

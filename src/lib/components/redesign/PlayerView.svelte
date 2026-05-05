@@ -61,7 +61,7 @@
   }
 </script>
 
-<section class="player-view" aria-label="Now playing">
+<section class="player-view" aria-label="Now playing" data-testid="player-view">
   <div class="art-zone">
     <AlbumArtPanel src={track.albumart || ''} alt={track.title || ''} size={400} />
   </div>

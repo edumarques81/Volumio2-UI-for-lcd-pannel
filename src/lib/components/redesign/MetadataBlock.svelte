@@ -5,18 +5,18 @@
   export let album: string = '';
 </script>
 
-<div class="metadata-block">
+<div class="metadata-block" data-testid="metadata-block">
   {#if title}
-    <h1 class="title-row">{title}</h1>
+    <h1 class="title-row" data-testid="metadata-title">{title}</h1>
   {/if}
   {#if artist}
-    <div class="artist-row">
+    <div class="artist-row" data-testid="metadata-artist">
       <Icon name="user" size={22} />
       <span>{artist}</span>
     </div>
   {/if}
   {#if album}
-    <div class="album-row">
+    <div class="album-row" data-testid="metadata-album">
       <Icon name="vinyl-record" size={22} />
       <span>{album}</span>
     </div>

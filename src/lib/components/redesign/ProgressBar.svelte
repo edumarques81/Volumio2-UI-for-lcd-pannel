@@ -76,6 +76,7 @@
     aria-valuemin="0"
     aria-valuemax={duration}
     aria-valuenow={Math.round(displaySeek)}
+    data-testid="progress-track"
     on:click={handleClick}
     on:keydown={handleKey}
     on:pointerdown={handlePointerDown}
@@ -84,7 +85,7 @@
     on:pointercancel={handlePointerUp}
   >
     <div class="fill" style="width:{percent}%"></div>
-    <div class="thumb" style="left:{percent}%"></div>
+    <div class="thumb" style="left:{percent}%" data-testid="progress-thumb"></div>
   </div>
   <span class="time time-end">{format(duration)}</span>
 </div>

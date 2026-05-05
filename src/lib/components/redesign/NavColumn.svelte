@@ -19,12 +19,13 @@
   ];
 </script>
 
-<nav class="nav-column" aria-label="Main navigation">
+<nav class="nav-column" aria-label="Main navigation" data-testid="nav-column">
   {#each cells as c (c.label)}
     <button
       class="cell"
       class:active={c.activeWhen && $currentView === c.activeWhen}
       aria-label={c.label}
+      data-testid="nav-cell-{c.label.toLowerCase().replace(/\s+/g, '-')}"
       on:click={c.onTap}
     >
       <Icon name={c.icon} size={40} />

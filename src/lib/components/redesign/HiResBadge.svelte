@@ -17,6 +17,7 @@
   xmlns="http://www.w3.org/2000/svg"
   role="img"
   aria-label="{label} {rate}"
+  data-testid="hi-res-badge"
 >
   <rect x="0" y="0" width={width} height={height} rx="3" fill="#c9a961" />
   <text

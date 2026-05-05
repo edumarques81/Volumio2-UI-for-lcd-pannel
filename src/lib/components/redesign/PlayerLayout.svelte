@@ -4,7 +4,7 @@
   import NavColumn from './NavColumn.svelte';
 </script>
 
-<div class="player-layout">
+<div class="player-layout" data-testid="player-layout">
   <div class="content">
     {#if $currentView === 'player'}
       <PlayerView />

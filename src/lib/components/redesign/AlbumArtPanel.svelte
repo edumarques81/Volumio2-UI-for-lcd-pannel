@@ -6,7 +6,7 @@
   export let size: number = 400;       // px on Pi LCD
 </script>
 
-<div class="album-art" style="width:{size}px;height:{size}px">
+<div class="album-art" data-testid="album-art-panel" style="width:{size}px;height:{size}px">
   {#if src}
     {#key src}
       <img class="art-img" {src} {alt} />
