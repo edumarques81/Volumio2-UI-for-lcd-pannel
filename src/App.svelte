@@ -49,12 +49,8 @@
   }
 
   // Components (global modals)
-  import LibraryContextMenu from '$lib/components/LibraryContextMenu.svelte';
-  import PlaylistSelector from '$lib/components/PlaylistSelector.svelte';
-  import TrackInfoModal from '$lib/components/TrackInfoModal.svelte';
   import StatusDrawer from '$lib/components/StatusDrawer.svelte';
   import Toast from '$lib/components/Toast.svelte';
-  import PerformanceOverlay from '$lib/components/PerformanceOverlay.svelte';
 
   // Track when app was last visible for connection health check
   let lastVisibleTime = Date.now();
@@ -331,14 +327,8 @@
   </div>
 
   <!-- Global modals -->
-  <LibraryContextMenu />
-  <PlaylistSelector />
-  <TrackInfoModal />
   <StatusDrawer />
   <Toast />
-
-  <!-- Performance monitoring overlay (toggle with __performance.toggle()) -->
-  <PerformanceOverlay position="top-right" />
 </main>
 
 <style>
