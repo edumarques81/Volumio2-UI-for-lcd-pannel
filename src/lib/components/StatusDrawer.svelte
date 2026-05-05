@@ -8,7 +8,6 @@
     type Issue,
     type Severity
   } from '$lib/stores/issues';
-  import { navigationActions } from '$lib/stores/navigation';
   import Icon from './Icon.svelte';
 
   function closeDrawer() {
@@ -28,12 +27,7 @@
   }
 
   function handleAction(actionId: string) {
-    if (actionId === 'open-settings') {
-      closeDrawer();
-      navigationActions.goToPlayer();
-    } else {
-      issueActions.executeAction(actionId);
-    }
+    issueActions.executeAction(actionId);
   }
 
   function dismissIssue(issue: Issue) {
@@ -179,14 +173,6 @@
             </div>
           </div>
         {/if}
-
-        <!-- Quick actions -->
-        <div class="quick-actions">
-          <button class="quick-action-btn" on:click={() => handleAction('open-settings')}>
-            <Icon name="settings" size={18} />
-            <span>Open Settings</span>
-          </button>
-        </div>
       </div>
     </div>
   </div>
@@ -464,36 +450,6 @@
   .dismiss-btn:hover {
     opacity: 1;
     background: rgba(255, 255, 255, 0.1);
-  }
-
-  .quick-actions {
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
-    padding-top: 16px;
-    margin-top: auto;
-  }
-
-  .quick-action-btn {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    width: 100%;
-    padding: 12px 16px;
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--color-text-primary);
-    background: rgba(255, 255, 255, 0.08);
-    border: none;
-    border-radius: 12px;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .quick-action-btn:hover {
-    background: rgba(255, 255, 255, 0.12);
-  }
-
-  .quick-action-btn:active {
-    transform: scale(0.98);
   }
 
   /* LCD mode adjustments */
