@@ -9,7 +9,10 @@
 
   export let album: Album;
   export let tracks: { uri: string; title: string; duration: number }[] = [];
-  export let onPlayAlbum: () => void;
+  // Optional + safe-called (matches AlbumCover.onTap convention). Tapping the
+  // cover when no handler is wired becomes a deliberate no-op rather than a
+  // runtime TypeError.
+  export let onPlayAlbum: (() => void) | undefined = undefined;
 
   // Album.quality is a pre-formatted string like "192kHz/24bit FLAC".
   // Parse it once per album for the format-strip props. The parsers are
