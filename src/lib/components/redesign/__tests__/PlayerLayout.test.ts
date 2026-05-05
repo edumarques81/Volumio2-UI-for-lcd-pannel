@@ -3,7 +3,7 @@ import { render } from '@testing-library/svelte';
 
 const mocks = vi.hoisted(() => {
   const { writable } = require('svelte/store');
-  const currentView = writable<'player' | 'library'>('player');
+  const currentView = writable('player');
   const playerActions = { play: vi.fn(), pause: vi.fn(), next: vi.fn(), prev: vi.fn(), seekTo: vi.fn() };
   return {
     currentView,

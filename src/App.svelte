@@ -52,6 +52,7 @@
   // Components (global modals)
   import StatusDrawer from '$lib/components/StatusDrawer.svelte';
   import Toast from '$lib/components/Toast.svelte';
+  import PlayerLayout from '$lib/components/redesign/PlayerLayout.svelte';
 
   // Track when app was last visible for connection health check
   let lastVisibleTime = Date.now();
@@ -63,6 +64,12 @@
 
     // Initialize device detection first (doesn't depend on socket)
     initDeviceStore();
+
+    // Mirror device class to <body> so redesign-tokens.css :body selectors apply
+    const unsubDeviceClass = deviceType.subscribe(t => {
+      document.body.classList.remove('device-lcd-panel', 'device-desktop');
+      document.body.classList.add(`device-${t}`);
+    });
 
     // Connect to Volumio backend
     socketService.connect();
@@ -295,6 +302,7 @@
     // Cleanup on unmount
     return () => {
       mobileReconnectCleanup?.();
+      unsubDeviceClass();
       cleanupNetworkStore();
       cleanupLcdStore();
       cleanupAudioStore();
@@ -313,10 +321,7 @@
   <!-- Always show the app UI regardless of connection state.
        Connection issues are reported via the issues system (status button)
        after a 5-second grace period. -->
-  <!-- Layout placeholder until Plan 2 ships PlayerLayout -->
-  <div class="redesign-pending">
-    <p>Volumio2-UI redesign in progress — Player UI ships in Plan 2.</p>
-  </div>
+  <PlayerLayout />
 
   <!-- Global modals -->
   <StatusDrawer />
@@ -356,14 +361,4 @@
     background: var(--color-background);
   }
 
-  .redesign-pending {
-    width: 100vw;
-    height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #000;
-    color: #888;
-    font-family: system-ui, sans-serif;
-  }
 </style>
