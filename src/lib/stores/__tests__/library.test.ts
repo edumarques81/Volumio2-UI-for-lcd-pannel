@@ -20,12 +20,17 @@ import {
 import { socketService } from '$lib/services/socket';
 
 // Mock the socket service
-vi.mock('$lib/services/socket', () => ({
-  socketService: {
-    on: vi.fn(),
-    emit: vi.fn()
-  }
-}));
+vi.mock('$lib/services/socket', () => {
+  const { writable } = require('svelte/store');
+  return {
+    socketService: {
+      on: vi.fn(),
+      emit: vi.fn(),
+      isConnected: true
+    },
+    connectionState: writable('connected')
+  };
+});
 
 // Mock localStorage
 const localStorageMock = {
@@ -55,10 +60,10 @@ describe('Library Store', () => {
 
       expect(socketService.emit).toHaveBeenCalledWith('library:albums:list', {
         scope: 'all',
-        sort: 'alphabetical',
+        sort: 'by_artist',
         query: '',
         page: 1,
-        limit: 50
+        limit: 200
       });
       expect(get(libraryAlbumsLoading)).toBe(true);
     });
@@ -71,7 +76,7 @@ describe('Library Store', () => {
         sort: 'by_artist',
         query: '',
         page: 1,
-        limit: 50
+        limit: 200
       });
     });
 
@@ -80,10 +85,10 @@ describe('Library Store', () => {
 
       expect(socketService.emit).toHaveBeenCalledWith('library:albums:list', {
         scope: 'all',
-        sort: 'alphabetical',
+        sort: 'by_artist',
         query: 'jazz',
         page: 1,
-        limit: 50
+        limit: 200
       });
     });
   });
@@ -97,7 +102,7 @@ describe('Library Store', () => {
         sort: 'by_artist',
         query: '',
         page: 1,
-        limit: 50
+        limit: 200
       });
     });
   });
@@ -154,7 +159,8 @@ describe('Library Store', () => {
 
       expect(socketService.emit).toHaveBeenCalledWith('library:album:tracks', {
         album: 'Kind of Blue',
-        albumArtist: 'Miles Davis'
+        albumArtist: 'Miles Davis',
+        uri: 'NAS/Jazz/Kind of Blue'
       });
       expect(get(selectedLibraryAlbum)).toEqual(album);
     });

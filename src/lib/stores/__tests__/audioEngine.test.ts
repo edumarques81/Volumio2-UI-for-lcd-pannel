@@ -82,7 +82,7 @@ describe('AudioEngine Store', () => {
       const result = await audioEngineActions.switchTo('audirvana');
 
       expect(result).toBe(false);
-      expect(get(audioEngineState).error).toContain('Audirvana is not available');
+      expect(get(audioEngineState).error).toContain('Audirvana is not installed.');
     });
 
     it('should set switching state during transition', async () => {
