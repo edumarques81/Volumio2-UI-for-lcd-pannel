@@ -1,10 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from '@testing-library/svelte';
 
-// Use vi.hoisted to declare mocks usable both inside vi.mock factories
-// (which are hoisted) and inside the test bodies below.
-const mocks = vi.hoisted(() => {
-  const { writable } = require('svelte/store');
+// Use vi.hoisted (async) so we can dynamically import svelte/store at
+// hoist time without falling back to CJS `require()`. The mocks are
+// then usable both inside vi.mock factories (also hoisted) and the test
+// bodies below.
+const mocks = await vi.hoisted(async () => {
+  const { writable } = await import('svelte/store');
   const playerActions = {
     play: vi.fn(),
     pause: vi.fn(),
