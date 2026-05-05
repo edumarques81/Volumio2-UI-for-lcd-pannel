@@ -1,0 +1,37 @@
+<script lang="ts">
+  import { formatTime } from '$lib/stores/player';
+  export let tracks: { uri: string; title: string; duration: number }[] = [];
+</script>
+
+<ol class="track-list">
+  {#each tracks as t, i}
+    <li>
+      <span class="num">{i + 1}.</span>
+      <span class="title">{t.title}</span>
+      <span class="dur">{t.duration > 0 ? formatTime(t.duration) : '—'}</span>
+    </li>
+  {/each}
+</ol>
+
+<style>
+  .track-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+    max-height: 200px;
+  }
+  li {
+    display: grid;
+    grid-template-columns: 32px 1fr auto;
+    gap: 8px;
+    padding: 4px 0;
+    font-size: 18px;
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+  }
+  .num { color: var(--color-accent); opacity: 0.7; }
+  .title { overflow: hidden; text-overflow: ellipsis; }
+  .dur { font-variant-numeric: tabular-nums; }
+</style>
