@@ -7,6 +7,7 @@
   import ProgressBar from './ProgressBar.svelte';
   import FormatStrip from './FormatStrip.svelte';
   import TransportColumn from './TransportColumn.svelte';
+  import { parseBitDepth, parseSampleRate, normalizeCodec } from './playerStateParsers';
 
   // currentTrack derives { title, artist, album, albumart } from playerState
   $: track = $currentTrack ?? { title: '', artist: '', album: '', albumart: '' };
@@ -24,36 +25,6 @@
   $: bitDepth = parseBitDepth($playerState?.bitdepth);
   $: sampleRateHz = parseSampleRate($playerState?.samplerate);
   $: codec = normalizeCodec($playerState?.trackType);
-
-  function parseBitDepth(raw: string | undefined | null): number | null {
-    if (!raw) return null;
-    const m = String(raw).match(/(\d+)/);
-    return m ? Number(m[1]) : null;
-  }
-
-  function parseSampleRate(raw: string | undefined | null): number | null {
-    if (!raw) return null;
-    const s = String(raw).toLowerCase();
-    // Match "96 kHz", "96000", "2.8 mhz", "44.1 khz"
-    const num = s.match(/([\d.]+)/);
-    if (!num) return null;
-    const value = parseFloat(num[1]);
-    if (!Number.isFinite(value)) return null;
-    if (s.includes('mhz')) return Math.round(value * 1_000_000);
-    if (s.includes('khz')) return Math.round(value * 1_000);
-    // Bare number — assume kHz when small, Hz when large
-    if (value < 1000) return Math.round(value * 1_000);
-    return Math.round(value);
-  }
-
-  function normalizeCodec(raw: string | undefined | null): string | null {
-    if (!raw) return null;
-    const s = String(raw).trim().toLowerCase();
-    if (!s) return null;
-    if (s === 'dsd' || s.startsWith('dsd')) return 'DSD';
-    if (s === 'mqa') return 'MQA';
-    return s.toUpperCase();
-  }
 
   function togglePlay() {
     if ($isPlaying) playerActions.pause();

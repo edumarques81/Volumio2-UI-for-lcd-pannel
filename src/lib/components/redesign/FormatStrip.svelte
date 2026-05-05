@@ -1,5 +1,6 @@
 <script lang="ts">
   import HiResBadge from './HiResBadge.svelte';
+  import { dsdRate } from './playerStateParsers';
 
   export let bitDepth: number | null = null;
   export let sampleRate: number | null = null;   // Hz, e.g. 96000
@@ -19,12 +20,6 @@
     if (c === 'MQA') return 'MQA';
     if (b != null && r != null && b >= 24 && r >= 48000) return 'HI-RES';
     return null;
-  }
-
-  function dsdRate(hz: number): string {
-    // 2822400 → DSD64, 5644800 → DSD128, etc.
-    const ratio = Math.round(hz / 44100);
-    return `DSD${ratio}`;
   }
 </script>
 
