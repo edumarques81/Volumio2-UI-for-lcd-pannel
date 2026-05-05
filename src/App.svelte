@@ -49,16 +49,6 @@
     }
   }
 
-  // Layouts
-  import LCDLayout from '$lib/components/layouts/LCDLayout.svelte';
-  import DesktopLayout from '$lib/components/layouts/DesktopLayout.svelte';
-  import MobileLayout from '$lib/components/layouts/MobileLayout.svelte';
-  import GalleryLayout from '$lib/components/gallery/GalleryLayout.svelte';
-
-  // Gallery is the default layout; ?layout=lcd activates the legacy LCD tile layout
-  const useGalleryLayout = typeof window === 'undefined'
-    || new URLSearchParams(window.location.search).get('layout') !== 'lcd';
-
   // Components (global modals)
   import LibraryContextMenu from '$lib/components/LibraryContextMenu.svelte';
   import PlaylistSelector from '$lib/components/PlaylistSelector.svelte';
@@ -337,16 +327,9 @@
   <!-- Always show the app UI regardless of connection state.
        Connection issues are reported via the issues system (status button)
        after a 5-second grace period. -->
-  <div class="app-container">
-    {#if useGalleryLayout}
-      <GalleryLayout />
-    {:else if $isLcdPanel}
-      <LCDLayout />
-    {:else if $isDesktop}
-      <DesktopLayout />
-    {:else}
-      <MobileLayout />
-    {/if}
+  <!-- Layout placeholder until Plan 2 ships PlayerLayout -->
+  <div class="redesign-pending">
+    <p>Volumio2-UI redesign in progress — Player UI ships in Plan 2.</p>
   </div>
 
   <!-- Global modals -->
@@ -391,5 +374,16 @@
   main.device-phone,
   main.device-tablet {
     background: var(--color-background);
+  }
+
+  .redesign-pending {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #000;
+    color: #888;
+    font-family: system-ui, sans-serif;
   }
 </style>
