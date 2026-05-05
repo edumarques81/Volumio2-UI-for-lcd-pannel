@@ -135,4 +135,14 @@ describe('LibraryView', () => {
     cover.click();
     expect(libraryActions.replaceQueueAndPlay).toHaveBeenCalledWith(albums[0]);
   });
+
+  it('does not refetch tracks/bio when libraryAlbums re-emits the same albums', () => {
+    render(LibraryView);
+    expect(libraryActions.fetchAlbumTracks).toHaveBeenCalledTimes(1);
+    expect(bioActions.requestBio).toHaveBeenCalledTimes(1);
+    // Re-emit the same array — simulates a pushLibraryAlbums after cache rebuild
+    libraryAlbums.set([...albums]);
+    expect(libraryActions.fetchAlbumTracks).toHaveBeenCalledTimes(1);
+    expect(bioActions.requestBio).toHaveBeenCalledTimes(1);
+  });
 });

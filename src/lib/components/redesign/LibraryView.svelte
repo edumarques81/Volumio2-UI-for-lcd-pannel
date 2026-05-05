@@ -33,7 +33,13 @@
     pointerActive = false;
   }
 
-  $: if (currentAlbum) {
+  // Guard the fetch by uri so that re-emissions of $libraryAlbums (cache
+  // rebuild, reconnect re-fetch, enrichment update) — which produce a new
+  // array reference and therefore a new currentAlbum object reference —
+  // don't spuriously re-fetch tracks/bio for the album already on screen.
+  let lastLoadedUri = '';
+  $: if (currentAlbum && currentAlbum.uri !== lastLoadedUri) {
+    lastLoadedUri = currentAlbum.uri;
     libraryActions.fetchAlbumTracks(currentAlbum);
     bioActions.requestBio(currentAlbum.artist, currentAlbum.title);
   }
