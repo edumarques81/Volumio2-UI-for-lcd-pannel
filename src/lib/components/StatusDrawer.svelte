@@ -30,7 +30,7 @@
   function handleAction(actionId: string) {
     if (actionId === 'open-settings') {
       closeDrawer();
-      navigationActions.goToSettings();
+      navigationActions.goToPlayer();
     } else {
       issueActions.executeAction(actionId);
     }

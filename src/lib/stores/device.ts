@@ -1,24 +1,15 @@
 import { writable, derived } from 'svelte/store';
 import { detectDeviceType, type DeviceType, getGridColumns, getTouchTargetSize } from '$lib/utils/deviceDetection';
 
-// Main device type store
 export const deviceType = writable<DeviceType>('lcd-panel');
 
-// Screen dimensions store
 export const screenDimensions = writable<{ width: number; height: number }>({
   width: 1920,
   height: 440
 });
 
-// Derived stores
 export const isLcdPanel = derived(deviceType, $type => $type === 'lcd-panel');
 export const isDesktop = derived(deviceType, $type => $type === 'desktop');
-export const isTablet = derived(deviceType, $type => $type === 'tablet');
-export const isPhone = derived(deviceType, $type => $type === 'phone');
-export const isMobile = derived(deviceType, $type => $type === 'tablet' || $type === 'phone');
-// Full-screen layouts (desktop, tablet, phone) vs horizontal bar layout (lcd-panel)
-export const isFullScreen = derived(deviceType, $type => $type !== 'lcd-panel');
-
 export const isLandscape = derived(screenDimensions, $dims => $dims.width > $dims.height);
 
 export const gridColumns = derived(

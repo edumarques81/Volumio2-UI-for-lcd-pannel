@@ -14,7 +14,7 @@
   import { initAudirvanaStore, cleanupAudirvanaStore } from '$lib/stores/audirvana';
   import { initLibraryStore } from '$lib/stores/library';
   import { initAudioEngineStore, cleanupAudioEngineStore, audioEngineActions } from '$lib/stores/audioEngine';
-  import { initDeviceStore, cleanupDeviceStore, deviceType, isLcdPanel, isDesktop, isMobile } from '$lib/stores/device';
+  import { initDeviceStore, cleanupDeviceStore, deviceType } from '$lib/stores/device';
   import { currentView, layoutMode, navigationActions } from '$lib/stores/navigation';
   import { socketService as socket } from '$lib/services/socket';
   import { performanceActions, performanceMetrics, fpsEnabled } from '$lib/stores/performance';
@@ -249,16 +249,7 @@
     // Expose navigation actions for E2E testing
     (window as any).__navigation = {
       goToQueue: () => navigationActions.goToQueue(),
-      goToPlayer: () => navigationActions.goToPlayer(),
-      goToBrowse: () => navigationActions.goToBrowse(),
-      goToSettings: () => navigationActions.goToSettings(),
-      goHome: () => navigationActions.goHome(),
-      // MPD-driven library views
-      goToAllAlbums: () => navigationActions.goToAllAlbums(),
-      goToNASAlbums: () => navigationActions.goToNASAlbums(),
-      goToArtists: () => navigationActions.goToArtists(),
-      goToRadio: () => navigationActions.goToRadio(),
-      goToPlaylists: () => navigationActions.goToPlaylists()
+      goToPlayer: () => navigationActions.goToPlayer()
     };
 
     // Expose LCD actions for E2E testing

@@ -3,23 +3,7 @@ import { writable, derived } from 'svelte/store';
 /**
  * Available views in the application
  */
-export type ViewType =
-  | 'home'
-  | 'player'
-  | 'browse'
-  | 'queue'
-  | 'settings'
-  | 'localMusic'
-  | 'audirvana'
-  // MPD-driven library views
-  | 'allAlbums'
-  | 'nasAlbums'
-  | 'artists'
-  | 'artistAlbums'
-  | 'albumDetail'
-  | 'radio'
-  | 'playlists'
-  | 'favorites';
+export type ViewType = 'player' | 'library' | 'queue';
 
 /**
  * Layout modes:
@@ -37,7 +21,7 @@ export interface BrowseLocation {
 }
 
 // Current active view
-export const currentView = writable<ViewType>('home');
+export const currentView = writable<ViewType>('player');
 
 // Layout mode preference
 export const layoutMode = writable<LayoutMode>('full');
@@ -62,13 +46,6 @@ export const navigationActions = {
   },
 
   /**
-   * Navigate to home screen
-   */
-  goHome() {
-    currentView.set('home');
-  },
-
-  /**
    * Navigate to player view
    */
   goToPlayer() {
@@ -76,16 +53,10 @@ export const navigationActions = {
   },
 
   /**
-   * Navigate to browse view, optionally to a specific location
+   * Navigate to library view
    */
-  goToBrowse(uri?: string, title?: string) {
-    if (uri && title) {
-      // Reset stack to just this item so "back" returns to home, not Browse root
-      browseStack.set([{ uri, title }]);
-    } else {
-      browseStack.set([{ uri: '', title: 'Browse' }]);
-    }
-    currentView.set('browse');
+  goToLibrary() {
+    currentView.set('library');
   },
 
   /**
@@ -93,83 +64,6 @@ export const navigationActions = {
    */
   goToQueue() {
     currentView.set('queue');
-  },
-
-  /**
-   * Navigate to settings view
-   */
-  goToSettings() {
-    currentView.set('settings');
-  },
-
-  /**
-   * Navigate to local music view (local + USB only, no NAS/streaming)
-   */
-  goToLocalMusic() {
-    currentView.set('localMusic');
-  },
-
-  /**
-   * Navigate to Audirvana view
-   */
-  goToAudirvana() {
-    currentView.set('audirvana');
-  },
-
-  /**
-   * Navigate to all albums view (Music Library - MPD-driven)
-   */
-  goToAllAlbums() {
-    currentView.set('allAlbums');
-  },
-
-  /**
-   * Navigate to NAS albums view (MPD-driven)
-   */
-  goToNASAlbums() {
-    currentView.set('nasAlbums');
-  },
-
-  /**
-   * Navigate to artists view (MPD-driven)
-   */
-  goToArtists() {
-    currentView.set('artists');
-  },
-
-  /**
-   * Navigate to artist albums view (MPD-driven)
-   */
-  goToArtistAlbums() {
-    currentView.set('artistAlbums');
-  },
-
-  /**
-   * Navigate to album detail view (MPD-driven)
-   */
-  goToAlbumDetail() {
-    currentView.set('albumDetail');
-  },
-
-  /**
-   * Navigate to radio view (MPD-driven)
-   */
-  goToRadio() {
-    currentView.set('radio');
-  },
-
-  /**
-   * Navigate to playlists view
-   */
-  goToPlaylists() {
-    currentView.set('playlists');
-  },
-
-  /**
-   * Navigate to favorites view
-   */
-  goToFavorites() {
-    currentView.set('favorites');
   },
 
   /**
