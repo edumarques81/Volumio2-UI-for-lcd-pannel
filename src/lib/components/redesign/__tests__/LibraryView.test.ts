@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
 import { get } from 'svelte/store';
+import type { Album } from '$lib/stores/library';
 
-const albums = [
-  { uri: 'a1', title: 'A', artist: 'X', albumart: '/a' },
-  { uri: 'a2', title: 'B', artist: 'Y', albumart: '/b' },
-  { uri: 'a3', title: 'C', artist: 'Z', albumart: '/c' },
+const albums: Album[] = [
+  { id: '1', uri: 'a1', title: 'A', artist: 'X', albumArt: '/a', trackCount: 0, source: 'local' },
+  { id: '2', uri: 'a2', title: 'B', artist: 'Y', albumArt: '/b', trackCount: 0, source: 'local' },
+  { id: '3', uri: 'a3', title: 'C', artist: 'Z', albumArt: '/c', trackCount: 0, source: 'local' },
 ];
 
 const {
@@ -20,9 +21,9 @@ const {
 } = await vi.hoisted(async () => {
   const { writable } = await import('svelte/store');
   const initialAlbums = [
-    { uri: 'a1', title: 'A', artist: 'X', albumart: '/a' },
-    { uri: 'a2', title: 'B', artist: 'Y', albumart: '/b' },
-    { uri: 'a3', title: 'C', artist: 'Z', albumart: '/c' },
+    { id: '1', uri: 'a1', title: 'A', artist: 'X', albumArt: '/a', trackCount: 0, source: 'local' },
+    { id: '2', uri: 'a2', title: 'B', artist: 'Y', albumArt: '/b', trackCount: 0, source: 'local' },
+    { id: '3', uri: 'a3', title: 'C', artist: 'Z', albumArt: '/c', trackCount: 0, source: 'local' },
   ];
   const libraryAlbumsStore = writable(initialAlbums);
   const libraryAlbumTracksStore = writable<any[]>([]);

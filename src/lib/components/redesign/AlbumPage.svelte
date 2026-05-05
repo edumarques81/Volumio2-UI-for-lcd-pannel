@@ -4,18 +4,24 @@
   import AlbumTrackList from './AlbumTrackList.svelte';
   import AlbumInfo from './AlbumInfo.svelte';
   import FormatStrip from './FormatStrip.svelte';
+  import { parseBitDepth, parseSampleRate, normalizeCodec } from './playerStateParsers';
+  import type { Album } from '$lib/stores/library';
 
-  export let album: {
-    uri: string; title: string; artist: string; albumart: string;
-    trackQuality?: { bitDepth: number | null; sampleRate: number | null; codec: string | null } | null;
-  };
+  export let album: Album;
   export let tracks: { uri: string; title: string; duration: number }[] = [];
   export let onPlayAlbum: () => void;
+
+  // Album.quality is a pre-formatted string like "192kHz/24bit FLAC".
+  // Parse it once per album for the format-strip props. The parsers are
+  // tolerant of missing units, so an album with quality="flac" still works.
+  $: bitDepth   = parseBitDepth(album.quality ?? null);
+  $: sampleRate = parseSampleRate(album.quality ?? null);
+  $: codec      = normalizeCodec(album.trackType ?? null);
 </script>
 
 <section class="album-page" aria-label="Album {album.title}">
   <div class="cover-zone">
-    <AlbumCover src={album.albumart || ''} alt={album.title} size={380} onTap={onPlayAlbum} />
+    <AlbumCover src={album.albumArt || ''} alt={album.title} size={380} onTap={onPlayAlbum} />
   </div>
 
   <div class="info-zone">
@@ -29,13 +35,7 @@
 
     <AlbumInfo />
 
-    {#if album.trackQuality}
-      <FormatStrip
-        bitDepth={album.trackQuality.bitDepth ?? null}
-        sampleRate={album.trackQuality.sampleRate ?? null}
-        codec={album.trackQuality.codec ?? null}
-      />
-    {/if}
+    <FormatStrip {bitDepth} {sampleRate} {codec} />
   </div>
 </section>
 

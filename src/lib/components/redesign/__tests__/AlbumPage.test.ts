@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render } from '@testing-library/svelte';
+import type { Album } from '$lib/stores/library';
 
 const { currentAlbumBio, bioLoading } = await vi.hoisted(async () => {
   const { writable } = await import('svelte/store');
@@ -21,12 +22,16 @@ vi.mock('$lib/stores/player', () => ({
 
 import AlbumPage from '../AlbumPage.svelte';
 
-const album = {
+const album: Album = {
+  id: 'kob',
   uri: 'mpd://kob',
   title: 'Kind of Blue',
   artist: 'Miles Davis',
-  albumart: '/art/kob.jpg',
-  trackQuality: { bitDepth: 24, sampleRate: 96000, codec: 'FLAC' },
+  albumArt: '/art/kob.jpg',
+  trackCount: 5,
+  source: 'local',
+  quality: '96kHz/24bit FLAC',
+  trackType: 'flac',
 };
 const tracks = [
   { uri: 'a', title: 'So What', duration: 565 },
@@ -44,17 +49,17 @@ describe('AlbumPage', () => {
     expect(container.textContent).toContain('Two-sentence bio.');
   });
 
-  it('renders the format strip when trackQuality is set', () => {
+  it('renders the format strip when quality is set', () => {
     const { container } = render(AlbumPage, { album, tracks, onPlayAlbum: () => {} });
     expect(container.textContent).toContain('HI-RES');
     expect(container.textContent).toContain('96kHz');
   });
 
-  it('hides format strip when trackQuality is null', () => {
+  it('hides format strip when quality + trackType are missing', () => {
     const { container } = render(AlbumPage, {
-      album: { ...album, trackQuality: null }, tracks, onPlayAlbum: () => {},
+      album: { ...album, quality: undefined, trackType: undefined }, tracks, onPlayAlbum: () => {},
     });
-    expect(container.textContent).not.toContain('HI-RES');
+    expect(container.querySelector('[data-testid="format-strip"]')).toBeNull();
   });
 
   it('passes onPlayAlbum to AlbumCover', async () => {
