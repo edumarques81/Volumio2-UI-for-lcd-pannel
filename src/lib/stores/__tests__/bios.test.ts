@@ -68,4 +68,20 @@ describe('bios store', () => {
     cleanupBiosStore();
     expect(onHandlers.has('pushLibraryBio')).toBe(false);
   });
+
+  it('dedupes back-to-back requestBio for the same album', () => {
+    bioActions.requestBio('A', 'B');
+    bioActions.requestBio('A', 'B');
+    const getCalls = (socketService.emit as any).mock.calls
+      .filter((c: any[]) => c[0] === 'library:bio:get');
+    expect(getCalls.length).toBe(1);
+  });
+
+  it('refreshBio always re-emits even for the current album', () => {
+    bioActions.requestBio('A', 'B');
+    bioActions.refreshBio('A', 'B');
+    const rebuildCalls = (socketService.emit as any).mock.calls
+      .filter((c: any[]) => c[0] === 'library:bio:rebuild');
+    expect(rebuildCalls.length).toBe(1);
+  });
 });

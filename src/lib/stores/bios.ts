@@ -15,13 +15,23 @@ let pendingAlbum = '';
 let unsubPush: (() => void) | null = null;
 
 export const bioActions = {
+  /**
+   * Request bio for an album. Deduped against the current pending pair so
+   * that re-mounts / fast swipe-bounces don't fire duplicate socket emits.
+   * The caller can spam this safely.
+   */
   requestBio(artist: string, album: string) {
     if (!artist || !album) return;
+    if (artist === pendingArtist && album === pendingAlbum) return; // dedupe
     pendingArtist = artist;
     pendingAlbum = album;
     bioLoading.set(true);
     socketService.emit('library:bio:get', { artist, album });
   },
+  /**
+   * Force a rebuild even for the current album — the user explicitly asked
+   * for fresh data, so dedupe does not apply.
+   */
   refreshBio(artist: string, album: string) {
     if (!artist || !album) return;
     pendingArtist = artist;
