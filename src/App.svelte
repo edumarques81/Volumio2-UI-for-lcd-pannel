@@ -1,4 +1,5 @@
 <script lang="ts">
+  import '$lib/styles/redesign-tokens.css';
   import { onMount } from 'svelte';
   import { socketService } from '$lib/services/socket';
   import { initPlayerStore } from '$lib/stores/player';

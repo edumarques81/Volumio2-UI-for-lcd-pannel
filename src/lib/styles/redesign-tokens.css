@@ -1,0 +1,46 @@
+/*
+ * Redesign tokens — 2026-05-04 frontend redesign.
+ * Hex values pulled directly from the spec's locked decisions.
+ * Imported once from App.svelte; consumed by every component in
+ * src/lib/components/redesign/ via var(--token-name).
+ */
+:root {
+  /* Surfaces */
+  --color-bg-base: #000000;
+  --color-bg-active-cell: #1a1408;
+  --color-bg-unplayed-track: #2a2a2a;
+
+  /* Accent (gold) */
+  --color-accent: #c9a961;
+  --color-accent-bright: #f5d4a8;
+  --color-accent-glow: rgba(201, 169, 97, 0.5);
+
+  /* Text */
+  --color-text-primary: #e8e6e1;
+  --color-text-secondary: #888888;
+
+  /* Sheen overlay */
+  --color-sheen-tint: rgba(180, 195, 220, 0.04);
+
+  /* Geometry */
+  --radius-card: 12px;
+  --progress-track-height: 9px;
+  --progress-thumb-size: 24px;
+  --hit-target-min: 44px;
+
+  /* Motion */
+  --crossfade-duration: 200ms;
+  --crossfade-ease: ease-in-out;
+}
+
+/* Pi LCD vs desktop letterbox */
+body.device-lcd-panel { /* full-bleed */ }
+
+body.device-desktop {
+  background: #050505;
+}
+body.device-desktop .player-layout {
+  aspect-ratio: 1920 / 440;
+  width: min(100vw, calc(100vh * 1920 / 440));
+  margin: auto;
+}
