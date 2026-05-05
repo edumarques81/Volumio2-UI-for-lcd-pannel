@@ -111,3 +111,26 @@ export const navigationActions = {
 
 // Initialize browse stack with root
 navigationActions.browseRoot();
+
+/**
+ * High-level intent dispatch for the redesign's NavColumn.
+ * VU Meter and Settings are silent no-ops in v1 (spec decision 35).
+ * Refresh and Power callbacks are owned by Plan 5; default to no-op here
+ * and overridable via `setViewActionHandlers`.
+ */
+let _onRefresh: () => void = () => {};
+let _onPower: () => void = () => {};
+
+export function setViewActionHandlers(handlers: { onRefresh?: () => void; onPower?: () => void }) {
+  if (handlers.onRefresh) _onRefresh = handlers.onRefresh;
+  if (handlers.onPower) _onPower = handlers.onPower;
+}
+
+export const viewActions = {
+  goToPlayer: () => currentView.set('player'),
+  goToLibrary: () => currentView.set('library'),
+  tapVuMeter: () => { /* silent no-op v1 */ },
+  tapSettings: () => { /* silent no-op v1 */ },
+  tapRefresh: () => _onRefresh(),
+  tapPower: () => _onPower(),
+};
