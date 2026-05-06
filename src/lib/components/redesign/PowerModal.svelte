@@ -3,16 +3,33 @@
   import { powerModalOpen, modalActions } from '$lib/stores/navigation';
   import { socketService } from '$lib/services/socket';
 
+  /** Backend shape for system:action:error broadcasts. */
+  interface SystemActionError {
+    action?: string;
+    error?: string;
+  }
+
   let errorMsg = '';
   let unsubError: (() => void) | null = null;
 
+  // Clear any stale errorMsg whenever the modal closes so re-opening
+  // never shows the previous failure's toast.
+  const unsubOpen = powerModalOpen.subscribe(open => {
+    if (!open) errorMsg = '';
+  });
+
   onMount(() => {
-    unsubError = socketService.on('system:action:error', (payload: any) => {
-      errorMsg = `Power command failed: ${payload?.error || payload?.action || 'unknown'}`;
+    unsubError = socketService.on<SystemActionError>('system:action:error', (payload) => {
+      // Don't surface the action name as a fake "error message"; if the
+      // backend omits an error string, fall back to a generic label.
+      errorMsg = `Power command failed: ${payload?.error ?? 'unknown error'}`;
       // Modal stays open per spec decision; user sees toast.
     });
   });
-  onDestroy(() => { unsubError?.(); });
+  onDestroy(() => {
+    unsubError?.();
+    unsubOpen();
+  });
 
   function shutdown() {
     errorMsg = '';
@@ -35,8 +52,8 @@
     <div class="body" data-testid="power-modal-body" on:click|stopPropagation>
       <h2>Power</h2>
       <div class="buttons">
-        <button class="action shutdown" data-testid="power-modal-shutdown" aria-label="Shutdown" on:click={shutdown}>Shutdown</button>
-        <button class="action reset" data-testid="power-modal-reset" aria-label="Reset" on:click={reboot}>Reset</button>
+        <button type="button" class="action shutdown" data-testid="power-modal-shutdown" aria-label="Shutdown" on:click={shutdown}>Shutdown</button>
+        <button type="button" class="action reset" data-testid="power-modal-reset" aria-label="Reset" on:click={reboot}>Reset</button>
       </div>
       {#if errorMsg}
         <p class="error" role="alert">{errorMsg}</p>
