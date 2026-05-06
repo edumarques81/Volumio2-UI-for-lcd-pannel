@@ -134,3 +134,15 @@ export const viewActions = {
   tapRefresh: () => _onRefresh(),
   tapPower: () => _onPower(),
 };
+
+/**
+ * Power modal visibility — driven by NavColumn's Power cell. Confirmation
+ * IS the modal: tapping Shutdown/Reset executes immediately (spec
+ * decision 70). Dismissable via tap-outside (spec decision 69).
+ */
+export const powerModalOpen = writable<boolean>(false);
+
+export const modalActions = {
+  openPower:  () => powerModalOpen.set(true),
+  closePower: () => powerModalOpen.set(false),
+};
