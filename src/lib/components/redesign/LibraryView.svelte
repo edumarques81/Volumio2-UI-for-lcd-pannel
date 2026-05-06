@@ -51,6 +51,7 @@
 
 <div
   class="library-view"
+  data-testid="library-view"
   on:pointerdown={handlePointerDown}
   on:pointerup={handlePointerUp}
   on:pointercancel={handlePointerCancel}
@@ -60,7 +61,7 @@
       <AlbumPage album={currentAlbum} tracks={currentTracks} onPlayAlbum={playCurrent} />
     {/key}
   {:else}
-    <div class="empty">No albums in library</div>
+    <div class="empty" data-testid="library-empty">No albums in library</div>
   {/if}
 </div>
 

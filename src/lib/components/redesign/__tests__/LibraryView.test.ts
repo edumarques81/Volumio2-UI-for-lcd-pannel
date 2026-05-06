@@ -81,7 +81,7 @@ describe('LibraryView', () => {
 
   it('advances index on swipe right-to-left', async () => {
     const { container } = render(LibraryView);
-    const host = container.querySelector('.library-view') as HTMLElement;
+    const host = container.querySelector('[data-testid="library-view"]') as HTMLElement;
     await fireEvent.pointerDown(host, { clientX: 800, clientY: 200, pointerId: 1 });
     await fireEvent.pointerUp(host, { clientX: 100, clientY: 200, pointerId: 1 });
     expect(get(currentLibraryIndex)).toBe(1);
@@ -90,7 +90,7 @@ describe('LibraryView', () => {
   it('decrements index on swipe left-to-right', async () => {
     currentLibraryIndex.set(1);
     const { container } = render(LibraryView);
-    const host = container.querySelector('.library-view') as HTMLElement;
+    const host = container.querySelector('[data-testid="library-view"]') as HTMLElement;
     await fireEvent.pointerDown(host, { clientX: 100, clientY: 200, pointerId: 1 });
     await fireEvent.pointerUp(host, { clientX: 800, clientY: 200, pointerId: 1 });
     expect(get(currentLibraryIndex)).toBe(0);
@@ -99,7 +99,7 @@ describe('LibraryView', () => {
   it('wraps from last → first on right-to-left swipe (infinite loop)', async () => {
     currentLibraryIndex.set(albums.length - 1);
     const { container } = render(LibraryView);
-    const host = container.querySelector('.library-view') as HTMLElement;
+    const host = container.querySelector('[data-testid="library-view"]') as HTMLElement;
     await fireEvent.pointerDown(host, { clientX: 800, clientY: 200, pointerId: 1 });
     await fireEvent.pointerUp(host, { clientX: 100, clientY: 200, pointerId: 1 });
     expect(get(currentLibraryIndex)).toBe(0);
@@ -108,7 +108,7 @@ describe('LibraryView', () => {
   it('wraps from first → last on left-to-right swipe', async () => {
     currentLibraryIndex.set(0);
     const { container } = render(LibraryView);
-    const host = container.querySelector('.library-view') as HTMLElement;
+    const host = container.querySelector('[data-testid="library-view"]') as HTMLElement;
     await fireEvent.pointerDown(host, { clientX: 100, clientY: 200, pointerId: 1 });
     await fireEvent.pointerUp(host, { clientX: 800, clientY: 200, pointerId: 1 });
     expect(get(currentLibraryIndex)).toBe(albums.length - 1);
@@ -116,7 +116,7 @@ describe('LibraryView', () => {
 
   it('ignores small deltas (< 50px) — no index change', async () => {
     const { container } = render(LibraryView);
-    const host = container.querySelector('.library-view') as HTMLElement;
+    const host = container.querySelector('[data-testid="library-view"]') as HTMLElement;
     await fireEvent.pointerDown(host, { clientX: 400, clientY: 200, pointerId: 1 });
     await fireEvent.pointerUp(host, { clientX: 380, clientY: 200, pointerId: 1 });
     expect(get(currentLibraryIndex)).toBe(0);
@@ -125,7 +125,7 @@ describe('LibraryView', () => {
   it('renders a placeholder when albums array is empty', () => {
     libraryAlbums.set([]);
     const { container } = render(LibraryView);
-    expect(container.querySelector('.empty')).toBeTruthy();
+    expect(container.querySelector('[data-testid="library-empty"]')).toBeTruthy();
     libraryAlbums.set(albums);
   });
 
