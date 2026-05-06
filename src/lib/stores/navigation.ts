@@ -118,12 +118,30 @@ navigationActions.browseRoot();
  * Refresh and Power callbacks are owned by Plan 5; default to no-op here
  * and overridable via `setViewActionHandlers`.
  */
-let _onRefresh: () => void = () => {};
-let _onPower: () => void = () => {};
+const NOOP = () => {};
+let _onRefresh: () => void = NOOP;
+let _onPower: () => void = NOOP;
 
+/**
+ * Wires NavColumn's Refresh and Power intents to App-level handlers.
+ *
+ * Must be called BEFORE the first NavColumn render and exactly once per
+ * App lifecycle. Subsequent calls overwrite the previous handlers without
+ * warning (last-writer-wins). Pair with {@link clearViewActionHandlers}
+ * on App unmount to avoid stale closures across HMR remounts.
+ */
 export function setViewActionHandlers(handlers: { onRefresh?: () => void; onPower?: () => void }) {
   if (handlers.onRefresh) _onRefresh = handlers.onRefresh;
   if (handlers.onPower) _onPower = handlers.onPower;
+}
+
+/**
+ * Resets the Refresh / Power handlers to no-op. Called from App.svelte's
+ * onMount cleanup so HMR remounts don't leave stale closures wired up.
+ */
+export function clearViewActionHandlers() {
+  _onRefresh = NOOP;
+  _onPower = NOOP;
 }
 
 export const viewActions = {
@@ -151,4 +169,5 @@ export const modalActions = {
  * True while a backend cache rebuild is in flight, so NavColumn's Refresh
  * cell can show a spinning icon. Reset on library:cache:updated arrival.
  */
+// Intentionally module-global: tracks a backend operation, not per-component UI state.
 export const refreshInProgress = writable<boolean>(false);

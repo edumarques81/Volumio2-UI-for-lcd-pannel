@@ -14,11 +14,11 @@
   import { initAudioStore, cleanupAudioStore } from '$lib/stores/audio';
   import { initAudirvanaStore, cleanupAudirvanaStore } from '$lib/stores/audirvana';
   import { initLibraryStore } from '$lib/stores/library';
-  import { initBiosStore, cleanupBiosStore, bioActions } from '$lib/stores/bios';
+  import { initBiosStore, cleanupBiosStore } from '$lib/stores/bios';
   import { initAudioEngineStore, cleanupAudioEngineStore, audioEngineActions } from '$lib/stores/audioEngine';
   import { initDeviceStore, cleanupDeviceStore, deviceType } from '$lib/stores/device';
-  import { currentView, layoutMode, navigationActions, setViewActionHandlers, modalActions, refreshInProgress } from '$lib/stores/navigation';
-  import { libraryActions, selectedLibraryAlbum } from '$lib/stores/library';
+  import { currentView, layoutMode, navigationActions, setViewActionHandlers, clearViewActionHandlers, modalActions } from '$lib/stores/navigation';
+  import { triggerLibraryRefresh, cancelLibraryRefresh } from '$lib/stores/libraryRefresh';
   import { socketService as socket } from '$lib/services/socket';
   import { performanceActions, performanceMetrics, fpsEnabled } from '$lib/stores/performance';
   import { get } from 'svelte/store';
@@ -92,25 +92,10 @@
     initLibraryStore();
     initBiosStore();
 
-    // Wire NavColumn's Refresh and Power actions (spec decisions 64-66, 67-71)
+    // Wire NavColumn's Refresh and Power actions (spec decisions 64-66, 67-71).
+    // triggerLibraryRefresh owns the reentrancy guard + listener-leak defense.
     setViewActionHandlers({
-      onRefresh: () => {
-        refreshInProgress.set(true);
-        socketService.emit('library:cache:rebuild');
-
-        // Invalidate the bio of whatever album is currently displayed in Library
-        const sel = get(selectedLibraryAlbum);
-        if (sel?.artist && sel?.title) {
-          bioActions.refreshBio(sel.artist, sel.title);
-        }
-
-        // When the cache-rebuild finishes, re-fetch albums and stop spinning.
-        const stop = socketService.on('library:cache:updated', () => {
-          libraryActions.fetchAlbums();
-          refreshInProgress.set(false);
-          stop?.();
-        });
-      },
+      onRefresh: triggerLibraryRefresh,
       onPower: () => modalActions.openPower(),
     });
 
@@ -336,6 +321,13 @@
       cleanupAudioEngineStore();
       cleanupDeviceStore();
       cleanupBiosStore();
+
+      // Reset NavColumn action handlers and tear down any in-flight
+      // library:cache:updated listener so HMR remounts don't leak stale
+      // closures or duplicate subscriptions.
+      cancelLibraryRefresh();
+      clearViewActionHandlers();
+
       socketService.disconnect();
     };
   });
