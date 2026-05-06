@@ -146,3 +146,9 @@ export const modalActions = {
   openPower:  () => powerModalOpen.set(true),
   closePower: () => powerModalOpen.set(false),
 };
+
+/**
+ * True while a backend cache rebuild is in flight, so NavColumn's Refresh
+ * cell can show a spinning icon. Reset on library:cache:updated arrival.
+ */
+export const refreshInProgress = writable<boolean>(false);

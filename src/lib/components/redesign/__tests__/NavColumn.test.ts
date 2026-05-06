@@ -4,8 +4,10 @@ import { writable } from 'svelte/store';
 
 vi.mock('$lib/stores/navigation', () => {
   const currentView = writable<'player' | 'library'>('player');
+  const refreshInProgress = writable<boolean>(false);
   return {
     currentView,
+    refreshInProgress,
     viewActions: {
       goToPlayer: vi.fn(() => currentView.set('player')),
       goToLibrary: vi.fn(() => currentView.set('library')),
@@ -18,7 +20,7 @@ vi.mock('$lib/stores/navigation', () => {
 });
 
 import NavColumn from '../NavColumn.svelte';
-import { viewActions, currentView } from '$lib/stores/navigation';
+import { viewActions, currentView, refreshInProgress } from '$lib/stores/navigation';
 
 describe('NavColumn', () => {
   it('renders 6 cells with aria-labels Player/Library/VU Meter/Refresh/Settings/Power', () => {
@@ -69,5 +71,28 @@ describe('NavColumn', () => {
     expect(viewActions.tapPower).toHaveBeenCalled();
     expect(viewActions.tapVuMeter).toHaveBeenCalled();
     expect(viewActions.tapSettings).toHaveBeenCalled();
+  });
+
+  it('Refresh cell carries .spinning class when refreshInProgress is true', async () => {
+    refreshInProgress.set(true);
+    const { container } = render(NavColumn);
+    const refreshCell = container.querySelector('[aria-label="Refresh"]') as HTMLElement;
+    expect(refreshCell.classList.contains('spinning')).toBe(true);
+    refreshInProgress.set(false);
+  });
+
+  it('Refresh cell does NOT carry .spinning class when refreshInProgress is false', async () => {
+    refreshInProgress.set(false);
+    const { container } = render(NavColumn);
+    const refreshCell = container.querySelector('[aria-label="Refresh"]') as HTMLElement;
+    expect(refreshCell.classList.contains('spinning')).toBe(false);
+  });
+
+  it('non-Refresh cells never carry .spinning even when refreshInProgress is true', async () => {
+    refreshInProgress.set(true);
+    const { container } = render(NavColumn);
+    const playerCell = container.querySelector('[aria-label="Player"]') as HTMLElement;
+    expect(playerCell.classList.contains('spinning')).toBe(false);
+    refreshInProgress.set(false);
   });
 });

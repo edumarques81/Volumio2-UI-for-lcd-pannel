@@ -4,9 +4,11 @@ import { render } from '@testing-library/svelte';
 const mocks = await vi.hoisted(async () => {
   const { writable } = await import('svelte/store');
   const currentView = writable('player');
+  const refreshInProgress = writable(false);
   const playerActions = { play: vi.fn(), pause: vi.fn(), next: vi.fn(), prev: vi.fn(), seekTo: vi.fn() };
   return {
     currentView,
+    refreshInProgress,
     viewActions: {
       goToPlayer: vi.fn(), goToLibrary: vi.fn(), tapVuMeter: vi.fn(),
       tapSettings: vi.fn(), tapRefresh: vi.fn(), tapPower: vi.fn(),
@@ -45,6 +47,7 @@ const libraryMocks = await vi.hoisted(async () => {
 
 vi.mock('$lib/stores/navigation', () => ({
   currentView: mocks.currentView,
+  refreshInProgress: mocks.refreshInProgress,
   viewActions: mocks.viewActions,
 }));
 vi.mock('$lib/stores/player', () => ({

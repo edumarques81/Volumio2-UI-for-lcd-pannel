@@ -1,6 +1,6 @@
 <script lang="ts">
   import Icon from '$lib/components/Icon.svelte';
-  import { currentView, viewActions } from '$lib/stores/navigation';
+  import { currentView, viewActions, refreshInProgress } from '$lib/stores/navigation';
 
   type Cell = {
     icon: string;
@@ -24,6 +24,7 @@
     <button
       class="cell"
       class:active={c.activeWhen && $currentView === c.activeWhen}
+      class:spinning={c.label === 'Refresh' && $refreshInProgress}
       aria-label={c.label}
       data-testid="nav-cell-{c.label.toLowerCase().replace(/\s+/g, '-')}"
       on:click={c.onTap}
@@ -66,5 +67,11 @@
     left: 0; top: 0; bottom: 0;
     width: 3px;
     background: var(--color-accent);
+  }
+  .cell.spinning :global(svg) {
+    animation: cell-spin 1s linear infinite;
+  }
+  @keyframes cell-spin {
+    to { transform: rotate(360deg); }
   }
 </style>
