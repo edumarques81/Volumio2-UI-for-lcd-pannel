@@ -91,8 +91,14 @@ describe('NavColumn', () => {
   it('non-Refresh cells never carry .spinning even when refreshInProgress is true', async () => {
     refreshInProgress.set(true);
     const { container } = render(NavColumn);
-    const playerCell = container.querySelector('[aria-label="Player"]') as HTMLElement;
-    expect(playerCell.classList.contains('spinning')).toBe(false);
+    // Iterate every non-Refresh cell so a future regression on any of them
+    // is caught (e.g. a class binding bug spreading the spinning state).
+    const nonRefreshLabels = ['Player', 'Library', 'VU Meter', 'Settings', 'Power'];
+    for (const label of nonRefreshLabels) {
+      const cell = container.querySelector(`[aria-label="${label}"]`) as HTMLElement;
+      expect(cell, `cell ${label} should be present`).toBeTruthy();
+      expect(cell.classList.contains('spinning'), `cell ${label} must NOT carry .spinning`).toBe(false);
+    }
     refreshInProgress.set(false);
   });
 });

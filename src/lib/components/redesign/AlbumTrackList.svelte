@@ -4,7 +4,7 @@
 </script>
 
 <!-- TODO: track-row affordance — rows are deliberately read-only metadata
-     per spec § 56. See DESIGN-REVIEW 2026-05-04 (deferred to post-redesign).
+     per spec § 51. See DESIGN-REVIEW 2026-05-04 (deferred to post-redesign).
      Do NOT add a click handler here without revisiting the spec. -->
 <ol class="track-list">
   {#each tracks as t, i}
