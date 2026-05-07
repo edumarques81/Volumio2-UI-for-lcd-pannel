@@ -1,5 +1,5 @@
 import { writable, derived } from 'svelte/store';
-import { detectDeviceType, type DeviceType, getGridColumns, getTouchTargetSize } from '$lib/utils/deviceDetection';
+import { detectDeviceType, type DeviceType } from '$lib/utils/deviceDetection';
 
 export const deviceType = writable<DeviceType>('lcd-panel');
 
@@ -11,13 +11,6 @@ export const screenDimensions = writable<{ width: number; height: number }>({
 export const isLcdPanel = derived(deviceType, $type => $type === 'lcd-panel');
 export const isDesktop = derived(deviceType, $type => $type === 'desktop');
 export const isLandscape = derived(screenDimensions, $dims => $dims.width > $dims.height);
-
-export const gridColumns = derived(
-  [deviceType, isLandscape],
-  ([$type, $isLandscape]) => getGridColumns($type, $isLandscape)
-);
-
-export const touchTargetSize = derived(deviceType, $type => getTouchTargetSize($type));
 
 // Device class for CSS
 export const deviceClass = derived(deviceType, $type => `device-${$type}`);

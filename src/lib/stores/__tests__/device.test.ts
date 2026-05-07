@@ -94,27 +94,6 @@ describe('Device store', () => {
       expect(get(isLandscape)).toBe(false);
     });
 
-    it('gridColumns should return correct value based on device and orientation', async () => {
-      const { deviceType, screenDimensions, gridColumns } = await importDeviceStore();
-
-      deviceType.set('lcd-panel');
-      expect(get(gridColumns)).toBe(8);
-
-      deviceType.set('desktop');
-      screenDimensions.set({ width: 1920, height: 1080 });
-      expect(get(gridColumns)).toBe(6);
-    });
-
-    it('touchTargetSize should return correct value based on device', async () => {
-      const { deviceType, touchTargetSize } = await importDeviceStore();
-
-      deviceType.set('lcd-panel');
-      expect(get(touchTargetSize)).toBe(44);
-
-      deviceType.set('desktop');
-      expect(get(touchTargetSize)).toBe(40);
-    });
-
     it('deviceClass should return correct class string', async () => {
       const { deviceType, deviceClass } = await importDeviceStore();
 

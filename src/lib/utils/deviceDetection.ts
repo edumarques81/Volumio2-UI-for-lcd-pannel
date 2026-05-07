@@ -18,13 +18,3 @@ export function detectDeviceType(): DeviceType {
   }
   return 'desktop';
 }
-
-// Touch-target sizing — kept for any survivor that uses it.
-export function getTouchTargetSize(type: DeviceType): number {
-  return type === 'lcd-panel' ? 44 : 40;
-}
-
-// Grid columns helper retained but simplified.
-export function getGridColumns(type: DeviceType, _isLandscape: boolean): number {
-  return type === 'lcd-panel' ? 8 : 6;
-}

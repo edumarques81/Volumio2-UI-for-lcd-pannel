@@ -5,7 +5,7 @@
   import { initPlayerStore } from '$lib/stores/player';
   import { initBrowseStore } from '$lib/stores/browse';
   import { initQueueStore } from '$lib/stores/queue';
-  import { initSettingsStore, selectedBackground } from '$lib/stores/settings';
+  import { initSettingsStore } from '$lib/stores/settings';
   import { initFavoritesStore } from '$lib/stores/favorites';
   import { initIssueStore, issueActions } from '$lib/stores/issues';
   import { audioDevicesActions } from '$lib/stores/audioDevices';
