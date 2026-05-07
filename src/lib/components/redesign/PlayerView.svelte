@@ -34,7 +34,7 @@
 
 <section class="player-view" aria-label="Now playing" data-testid="player-view">
   <div class="art-zone">
-    <AlbumArtPanel src={track.albumart || ''} alt={track.title || ''} size={400} />
+    <AlbumArtPanel src={track.albumart || ''} alt={track.title || ''} />
   </div>
 
   <div class="meta-zone">
@@ -67,17 +67,26 @@
 <style>
   .player-view {
     display: grid;
-    grid-template-columns: 23% 49% 15%; /* 13% nav lives in PlayerLayout */
+    /* fr units fill the inner area (PlayerLayout already removed the nav strip).
+       Spec ratios 23/49/15 preserved verbatim. */
+    grid-template-columns: 23fr 49fr 15fr;
     column-gap: 0;
     width: 100%;
     height: 100%;
-    padding: 16px 20px;
+    /* Minimal top/bottom/left margins; zero right so the meta zone sits flush
+       against the transport column. */
+    padding: 4px 0 4px 4px;
     box-sizing: border-box;
   }
   .art-zone {
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
+    height: 100%;
+    min-width: 0;
+    /* Make this a container so AlbumArtPanel's `cqi`/`cqb` units resolve
+       against this cell's actual dimensions. */
+    container-type: size;
   }
   .meta-zone {
     display: flex;
