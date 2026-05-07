@@ -12,7 +12,6 @@
   import { initNetworkStore, cleanupNetworkStore } from '$lib/stores/network';
   import { initLcdStore, cleanupLcdStore, lcdActions } from '$lib/stores/lcd';
   import { initAudioStore, cleanupAudioStore } from '$lib/stores/audio';
-  import { initAudirvanaStore, cleanupAudirvanaStore } from '$lib/stores/audirvana';
   import { initLibraryStore } from '$lib/stores/library';
   import { initBiosStore, cleanupBiosStore } from '$lib/stores/bios';
   import { initAudioEngineStore, cleanupAudioEngineStore, audioEngineActions } from '$lib/stores/audioEngine';
@@ -87,7 +86,6 @@
     initNetworkStore();
     initLcdStore();
     initAudioStore();
-    initAudirvanaStore();
     initAudioEngineStore();
     initLibraryStore();
     initBiosStore();
@@ -317,7 +315,6 @@
       cleanupNetworkStore();
       cleanupLcdStore();
       cleanupAudioStore();
-      cleanupAudirvanaStore();
       cleanupAudioEngineStore();
       cleanupDeviceStore();
       cleanupBiosStore();

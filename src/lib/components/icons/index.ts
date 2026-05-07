@@ -36,7 +36,6 @@ export { default as IconMusicNote } from './IconMusicNote.svelte';
 
 // System
 export { default as IconStandby } from './IconStandby.svelte';
-export { default as IconAudirvana } from './IconAudirvana.svelte';
 export { default as IconNas } from './IconNas.svelte';
 export { default as IconUsb } from './IconUsb.svelte';
 export { default as IconLocal } from './IconLocal.svelte';
