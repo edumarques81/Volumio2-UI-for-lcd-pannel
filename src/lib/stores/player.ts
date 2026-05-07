@@ -31,6 +31,21 @@ export interface TrackInfo {
   [key: string]: any; // Allow additional metadata fields
 }
 
+/**
+ * Last-played album row pushed by the backend (server.go pushLastPlayedAlbum).
+ * Used to hydrate the Player view's idle-resume state on boot when MPD is
+ * stopped — never triggers autoplay; the user must tap play to resume.
+ */
+export interface LastPlayedAlbum {
+  artist: string;
+  album: string;
+  albumArt: string;
+  trackUri: string;
+  trackType: string;
+  sampleRate: string;
+  bitDepth: string;
+}
+
 // State stores
 export const playerState = writable<PlayerState | null>(null);
 export const volume = writable<number>(80);
@@ -41,6 +56,7 @@ export const seek = writable<number>(0); // In SECONDS (converted from Volumio's
 export const duration = writable<number>(0); // In SECONDS
 export const trackInfo = writable<TrackInfo | null>(null);
 export const trackInfoLoading = writable<boolean>(false);
+export const lastPlayedAlbum = writable<LastPlayedAlbum | null>(null);
 
 // Seek interpolation timer
 let seekIntervalId: ReturnType<typeof setInterval> | null = null;
@@ -164,6 +180,20 @@ export const playerActions = {
 
   clearTrackInfo: () => {
     trackInfo.set(null);
+  },
+
+  /**
+   * Resume playback from the persisted last-played album. Emits Volumio's
+   * `addPlay` (clearQueue + addToQueue + play) for the saved track URI so
+   * the user goes from idle PlayerView → audible playback in one tap.
+   *
+   * No-ops if no last-played row exists yet (e.g. fresh backend with empty
+   * SQLite cache).
+   */
+  playLastPlayed: () => {
+    const last = get(lastPlayedAlbum);
+    if (!last || !last.trackUri) return;
+    socketService.emit('addPlay', { uri: last.trackUri });
   }
 };
 
@@ -306,6 +336,21 @@ export function initPlayerStore() {
   socketService.on<TrackInfo>('pushTrackInfo', (info) => {
     trackInfo.set(info);
     trackInfoLoading.set(false);
+  });
+
+  // Last-played album: backend pushes proactively on connect (server.go
+  // 100ms-delayed batch) and again whenever a new album-boundary fires.
+  // Album art comes through as the same '/albumart?path=...' shape MPD
+  // uses; reuse fixVolumioAssetUrl so dev-mode hosts the path correctly.
+  socketService.on<LastPlayedAlbum | null>('pushLastPlayedAlbum', (album) => {
+    if (!album) {
+      lastPlayedAlbum.set(null);
+      return;
+    }
+    lastPlayedAlbum.set({
+      ...album,
+      albumArt: fixVolumioAssetUrl(album.albumArt) ?? album.albumArt,
+    });
   });
 
   // Backend pushes state on connect (server.go:169), socket.ts connect handler

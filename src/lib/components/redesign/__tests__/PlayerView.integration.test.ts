@@ -49,7 +49,8 @@ const mocks = await vi.hoisted(async () => {
     goToPlayer: vi.fn(), goToLibrary: vi.fn(), tapVuMeter: vi.fn(),
     tapSettings: vi.fn(), tapRefresh: vi.fn(), tapPower: vi.fn(),
   };
-  return { playerActions, currentTrack, isPlaying, seek, duration, trackQuality, queue, playerState, currentView, viewActions };
+  const lastPlayedAlbum = writable(null);
+  return { playerActions, currentTrack, isPlaying, seek, duration, trackQuality, queue, playerState, currentView, viewActions, lastPlayedAlbum };
 });
 
 vi.mock('$lib/stores/player', () => ({
@@ -60,6 +61,7 @@ vi.mock('$lib/stores/player', () => ({
   trackQuality: mocks.trackQuality,
   playerState: mocks.playerState,
   playerActions: mocks.playerActions,
+  lastPlayedAlbum: mocks.lastPlayedAlbum,
 }));
 vi.mock('$lib/stores/queue', () => ({ queue: mocks.queue }));
 vi.mock('$lib/stores/navigation', () => ({

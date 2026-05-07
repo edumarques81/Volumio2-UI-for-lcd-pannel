@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { currentTrack, isPlaying, seek, duration, playerState, playerActions } from '$lib/stores/player';
+  import { currentTrack, isPlaying, seek, duration, playerState, playerActions, lastPlayedAlbum } from '$lib/stores/player';
   import { queue } from '$lib/stores/queue';
 
   import AlbumArtPanel from './AlbumArtPanel.svelte';
@@ -11,7 +11,14 @@
 
   // currentTrack derives { title, artist, album, albumart } from playerState
   $: track = $currentTrack ?? { title: '', artist: '', album: '', albumart: '' };
-  $: hasTrack = !!(track.title && track.title !== 'No track playing');
+  $: hasLiveTrack = !!(track.title && track.title !== 'No track playing');
+  // Idle resume: when MPD is stopped (no live track) but the backend
+  // already told us about a last-played album, render that album's
+  // metadata/cover/format strip so the Player view never looks empty
+  // on first boot. Tapping play hydrates the queue with the saved
+  // track URI; we never autoplay.
+  $: isResumed = !hasLiveTrack && !!$lastPlayedAlbum;
+  $: hasTrack = hasLiveTrack || isResumed;
   $: atQueueEnd = $queue.length > 0 && ($playerState?.position ?? 0) === $queue.length - 1;
   // PlayerState.repeat is a boolean (Volumio shape). Map onto NavColumn enum.
   $: repeat = (
@@ -20,30 +27,46 @@
     'off'
   ) as 'off' | 'all' | 'one';
 
+  // Effective fields: prefer live track when playing, else fall back to
+  // the last-played row. Quality fields use the same fallback so the
+  // FormatStrip lights up on resume too.
+  $: displayTitle = hasLiveTrack ? track.title : ($lastPlayedAlbum?.album ?? '');
+  $: displayArtist = hasLiveTrack ? track.artist : ($lastPlayedAlbum?.artist ?? '');
+  $: displayAlbum = hasLiveTrack ? track.album : ($lastPlayedAlbum?.album ?? '');
+  $: displayAlbumArt = hasLiveTrack ? track.albumart : ($lastPlayedAlbum?.albumArt ?? '');
+
   // FormatStrip needs numeric sampleRate (Hz) + bitDepth + codec.
-  // Derive from playerState's string fields ("96 kHz", "24 bit", "flac").
-  $: bitDepth = parseBitDepth($playerState?.bitdepth);
-  $: sampleRateHz = parseSampleRate($playerState?.samplerate);
-  $: codec = normalizeCodec($playerState?.trackType);
+  $: bitDepth = parseBitDepth(hasLiveTrack ? $playerState?.bitdepth : $lastPlayedAlbum?.bitDepth);
+  $: sampleRateHz = parseSampleRate(hasLiveTrack ? $playerState?.samplerate : $lastPlayedAlbum?.sampleRate);
+  $: codec = normalizeCodec(hasLiveTrack ? $playerState?.trackType : $lastPlayedAlbum?.trackType);
 
   function togglePlay() {
-    if ($isPlaying) playerActions.pause();
-    else playerActions.play();
+    if ($isPlaying) {
+      playerActions.pause();
+      return;
+    }
+    // In resumed-only state the queue is empty, so the standard play()
+    // would no-op. Hydrate from the saved track URI instead.
+    if (isResumed) {
+      playerActions.playLastPlayed();
+      return;
+    }
+    playerActions.play();
   }
 </script>
 
-<section class="player-view" aria-label="Now playing" data-testid="player-view">
+<section class="player-view" aria-label="Now playing" data-testid="player-view" data-resumed={isResumed ? 'true' : 'false'}>
   <div class="art-zone">
-    <AlbumArtPanel src={track.albumart || ''} alt={track.title || ''} />
+    <AlbumArtPanel src={displayAlbumArt || ''} alt={displayTitle || ''} />
   </div>
 
   <div class="meta-zone">
     {#if hasTrack}
-      <MetadataBlock title={track.title} artist={track.artist} album={track.album} />
+      <MetadataBlock title={displayTitle} artist={displayArtist} album={displayAlbum} />
 
       <ProgressBar
-        seek={$seek}
-        duration={$duration}
+        seek={isResumed ? 0 : $seek}
+        duration={isResumed ? 0 : $duration}
         onSeek={(s) => playerActions.seekTo(s)}
       />
 
