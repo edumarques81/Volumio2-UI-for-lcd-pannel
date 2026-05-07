@@ -332,6 +332,43 @@ initQueueStore();    // Registers pushQueue listener
 | `library:cache:rebuild` | - | Trigger full cache rebuild |
 | - | `library:cache:updated` | Broadcast when cache rebuild completes |
 
+**Resume State Events (v2.4.0+):**
+
+Persisted "last played album" used to hydrate the PlayerView idle state on
+boot. Backend writes the row in its MPD watcher whenever a new album begins
+playing (deduped by `artist|album` while inside the same album), and pushes
+`pushLastPlayedAlbum` proactively in the connect-time batch + on every
+album-boundary broadcast. Clients normally don't need to emit anything; the
+explicit `library:lastPlayed:get` is provided for refreshes.
+
+| Emit | Receive | Description |
+|------|---------|-------------|
+| `library:lastPlayed:get` | `pushLastPlayedAlbum` | Refetch the most-recent album row |
+| - | `pushLastPlayedAlbum` | Pushed on connect + on every new album-boundary |
+
+**LastPlayedAlbum Payload:**
+```typescript
+interface LastPlayedAlbum {
+  artist: string;       // album artist
+  album: string;        // album title
+  albumArt: string;     // path or URL ('/albumart?path=...' shape)
+  trackUri: string;     // URI of the track that triggered the record
+  trackType: string;    // e.g. 'flac'
+  sampleRate: string;   // raw Volumio samplerate string ('96000', 'DSD64', …)
+  bitDepth: string;     // raw Volumio bitdepth string ('24')
+}
+```
+
+The payload is `null` on miss (fresh backend, no albums played yet). The
+frontend should NOT autoplay on receive — `lastPlayedAlbum` is read-only
+display state until the user taps play, at which point
+`playerActions.playLastPlayed()` emits Volumio's `addPlay` with `trackUri`.
+
+Spec note: this feature **deliberately reverses** Plan E spec § B7's
+intentionally-minimal idle state. When `lastPlayedAlbum` is set and MPD is
+stopped, PlayerView renders the album metadata + cover + format strip
+rather than the dim gold music-2 placeholder.
+
 **Artwork Enrichment Events (v1.4.0+):**
 | Emit | Receive | Description |
 |------|---------|-------------|
