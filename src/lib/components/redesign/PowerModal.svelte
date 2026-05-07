@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount, onDestroy, tick } from 'svelte';
   import { powerModalOpen, modalActions } from '$lib/stores/navigation';
   import { socketService } from '$lib/services/socket';
 
@@ -11,11 +11,18 @@
 
   let errorMsg = '';
   let unsubError: (() => void) | null = null;
+  let shutdownButton: HTMLButtonElement | undefined;
 
   // Clear any stale errorMsg whenever the modal closes so re-opening
-  // never shows the previous failure's toast.
-  const unsubOpen = powerModalOpen.subscribe(open => {
-    if (!open) errorMsg = '';
+  // never shows the previous failure's toast. Also focus the first
+  // interactive element on open so the user can ESC immediately.
+  const unsubOpen = powerModalOpen.subscribe(async (open) => {
+    if (!open) {
+      errorMsg = '';
+      return;
+    }
+    await tick();
+    shutdownButton?.focus();
   });
 
   onMount(() => {
@@ -39,10 +46,22 @@
     errorMsg = '';
     socketService.emit('system:reboot');
   }
+  function cancel() {
+    modalActions.closePower();
+  }
   function backdropClick() {
     modalActions.closePower();
   }
+  function onKeydown(e: KeyboardEvent) {
+    if (!$powerModalOpen) return;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      modalActions.closePower();
+    }
+  }
 </script>
+
+<svelte:window on:keydown={onKeydown} />
 
 {#if $powerModalOpen}
   <div class="power-modal" data-testid="power-modal" role="dialog" aria-modal="true" aria-label="Power options">
@@ -52,8 +71,9 @@
     <div class="body" data-testid="power-modal-body" on:click|stopPropagation>
       <h2>Power</h2>
       <div class="buttons">
-        <button type="button" class="action shutdown" data-testid="power-modal-shutdown" aria-label="Shutdown" on:click={shutdown}>Shutdown</button>
+        <button bind:this={shutdownButton} type="button" class="action shutdown" data-testid="power-modal-shutdown" aria-label="Shutdown" on:click={shutdown}>Shutdown</button>
         <button type="button" class="action reset" data-testid="power-modal-reset" aria-label="Reset" on:click={reboot}>Reset</button>
+        <button type="button" class="action cancel" data-testid="power-modal-cancel" aria-label="Cancel" on:click={cancel}>Cancel</button>
       </div>
       {#if errorMsg}
         <p class="error" role="alert">{errorMsg}</p>
@@ -113,6 +133,12 @@
   }
   .action:hover { background: #251c0e; }
   .action.reset { color: var(--color-text-primary); border-color: var(--color-text-secondary); }
+  .action.cancel {
+    color: var(--color-text-primary);
+    border-color: var(--color-text-secondary);
+    background: transparent;
+  }
+  .action.cancel:hover { background: rgba(255, 255, 255, 0.04); }
   .error {
     margin: 16px 0 0;
     color: #ff6b6b;

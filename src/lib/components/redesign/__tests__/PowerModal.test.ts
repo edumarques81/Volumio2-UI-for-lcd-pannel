@@ -147,4 +147,45 @@ describe('PowerModal', () => {
     expect(shutdown.getAttribute('type')).toBe('button');
     expect(reset.getAttribute('type')).toBe('button');
   });
+
+  it('renders a Cancel button with type="button" when open', () => {
+    powerModalOpen.set(true);
+    const { container } = render(PowerModal);
+    const cancel = container.querySelector('[aria-label="Cancel"]') as HTMLButtonElement;
+    expect(cancel).toBeTruthy();
+    expect(cancel.getAttribute('type')).toBe('button');
+  });
+
+  it('Cancel click closes the modal without emitting any socket event', async () => {
+    powerModalOpen.set(true);
+    const { container } = render(PowerModal);
+    await fireEvent.click(container.querySelector('[aria-label="Cancel"]')!);
+    expect(get(powerModalOpen)).toBe(false);
+    expect(socketEmit).not.toHaveBeenCalled();
+  });
+
+  it('ESC key closes the modal when open', async () => {
+    powerModalOpen.set(true);
+    render(PowerModal);
+    await fireEvent.keyDown(window, { key: 'Escape' });
+    expect(get(powerModalOpen)).toBe(false);
+  });
+
+  it('ESC key is a no-op when modal is closed', async () => {
+    powerModalOpen.set(false);
+    render(PowerModal);
+    const before = (modalActions.closePower as ReturnType<typeof vi.fn>).mock.calls.length;
+    await fireEvent.keyDown(window, { key: 'Escape' });
+    expect(get(powerModalOpen)).toBe(false);
+    expect((modalActions.closePower as ReturnType<typeof vi.fn>).mock.calls.length).toBe(before);
+  });
+
+  it('focuses the Shutdown button when the modal opens', async () => {
+    const { container } = render(PowerModal);
+    powerModalOpen.set(true);
+    await tick();
+    await tick();
+    const shutdown = container.querySelector('[aria-label="Shutdown"]');
+    expect(document.activeElement).toBe(shutdown);
+  });
 });
