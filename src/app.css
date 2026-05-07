@@ -264,7 +264,7 @@ body {
   font-size: var(--font-size-base);
   line-height: 1.5;
   color: var(--color-text-primary);
-  background: url('/bg.jpg') center/cover no-repeat var(--color-bg-primary);
+  background: #000000;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

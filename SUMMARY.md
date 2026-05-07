@@ -232,9 +232,8 @@ The following sizes are optimized for the 1920x440 LCD panel:
 | ON AIR indicator | var(--font-size-sm) | With glow animation |
 
 ### Background
-- Default: Yosemite (bg.jpg)
-- Fallback color: #1c1c1e
-- Applied to body element
+- Solid black (#000000) — matches redesign-tokens `--color-bg-base`
+- Applied via inline body style in index.html (paints before CSS/JS load)
 
 ## 🎯 Performance Characteristics
 
