@@ -33,22 +33,22 @@
   <div class="format-strip" data-testid="format-strip">
     {#if badgeKind === 'HI-RES' && formattedRate}
       <HiResBadge label="HI-RES" rate={formattedRate} />
-      <span class="sep">|</span>
+      <span class="sep" aria-hidden="true"></span>
     {:else if badgeKind === 'DSD' && sampleRate}
       <HiResBadge label="DSD" rate={dsdRate(sampleRate)} />
-      <span class="sep">|</span>
+      <span class="sep" aria-hidden="true"></span>
     {:else if badgeKind === 'MQA' && formattedRate}
       <HiResBadge label="MQA" rate={formattedRate} />
-      <span class="sep">|</span>
+      <span class="sep" aria-hidden="true"></span>
     {/if}
 
     {#if bitDepth != null}
       <span class="cell">{bitDepth}-bit</span>
-      <span class="sep">|</span>
+      <span class="sep" aria-hidden="true"></span>
     {/if}
     {#if formattedRate}
       <span class="cell">{formattedRate}</span>
-      <span class="sep">|</span>
+      <span class="sep" aria-hidden="true"></span>
     {/if}
     {#if codec}
       <span class="cell">{codec}</span>
@@ -66,9 +66,13 @@
     font-family: system-ui, sans-serif;
   }
   .sep {
-    color: var(--color-accent);
+    /* Spec § 30: 1px gold vertical line, not a literal pipe character. */
+    display: inline-block;
+    width: 1px;
+    height: 16px;
+    background: var(--color-accent);
     opacity: 0.4;
-    font-weight: 300;
+    flex-shrink: 0;
   }
   .sep:last-child { display: none; }
 </style>

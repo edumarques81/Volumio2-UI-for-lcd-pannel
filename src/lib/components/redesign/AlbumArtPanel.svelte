@@ -1,10 +1,12 @@
 <script lang="ts">
+  import Icon from '$lib/components/Icon.svelte';
+
   // Square album art with 200ms crossfade keyed off the `src` prop.
-  // No-art fallback is a pure-black square (no music-note icon, per spec).
-  // When `size` is provided, the panel renders at exactly that pixel size.
-  // When omitted, the panel fills its container's height as a 1:1 square,
-  // capped to 100% of available width — keeps the art square at any
-  // letterboxed viewport without clipping.
+  // No-art fallback is a black square with a centered dim gold music-2 icon
+  // (spec § 43). When `size` is provided, the panel renders at exactly that
+  // pixel size. When omitted, the panel fills its container's height as a
+  // 1:1 square, capped to 100% of available width — keeps the art square at
+  // any letterboxed viewport without clipping.
   export let src: string = '';
   export let alt: string = '';
   export let size: number | undefined = undefined;
@@ -23,7 +25,9 @@
       <img class="art-img" {src} {alt} />
     {/key}
   {:else}
-    <div class="no-art" aria-label={alt || 'No artwork'} role="img"></div>
+    <div class="no-art" aria-label={alt || 'No artwork'} role="img" data-testid="album-art-no-art">
+      <Icon name="music-2" size={80} />
+    </div>
   {/if}
 </div>
 
@@ -55,6 +59,13 @@
     width: 100%;
     height: 100%;
     background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* Dim gold music-2 placeholder per spec § 43. Centered via flex; the
+       Icon child inherits color via currentColor on the stroke path. */
+    color: var(--color-accent);
+    opacity: 0.2;
   }
   @keyframes art-fade {
     from { opacity: 0; }

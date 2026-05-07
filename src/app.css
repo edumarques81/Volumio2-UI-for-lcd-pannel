@@ -260,7 +260,7 @@ html, body {
 }
 
 body {
-  font-family: var(--md-font-family, 'DM Sans', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif);
+  font-family: var(--md-font-family, system-ui, -apple-system, "Segoe UI", sans-serif);
   font-size: var(--font-size-base);
   line-height: 1.5;
   color: var(--color-text-primary);

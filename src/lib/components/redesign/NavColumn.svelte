@@ -39,7 +39,8 @@
     display: flex;
     flex-direction: column;
     width: 240px;
-    border-left: 1px solid rgba(201, 169, 97, 0.15);
+    /* TransportColumn owns the gold divider via border-right; no border-left
+       here, otherwise the seam doubles up. */
     height: 100%;
   }
   .cell {

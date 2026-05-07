@@ -45,11 +45,15 @@
 <style>
   .album-page {
     display: grid;
-    grid-template-columns: 30% 57%;
+    /* fr units fill the inner area (PlayerLayout already removed the nav strip).
+       Spec ratios 30/57 preserved verbatim. Mirrors PlayerView's grid pattern. */
+    grid-template-columns: 30fr 57fr;
     column-gap: 24px;
     width: 100%;
     height: 100%;
-    padding: 16px 20px;
+    /* Minimal top/bottom/left margins; zero right so the info zone sits flush
+       against the nav column. Mirrors PlayerView padding. */
+    padding: 4px 0 4px 4px;
     box-sizing: border-box;
   }
   .cover-zone {

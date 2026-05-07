@@ -19,7 +19,7 @@
   aria-label="{label} {rate}"
   data-testid="hi-res-badge"
 >
-  <rect x="0" y="0" width={width} height={height} rx="3" fill="#c9a961" />
+  <rect x="0" y="0" width={width} height={height} rx="3" fill="currentColor" />
   <text
     x="50%" y="42%"
     text-anchor="middle" dominant-baseline="middle"
@@ -36,5 +36,11 @@
 </svg>
 
 <style>
-  .hi-res-badge { display: inline-block; vertical-align: middle; }
+  .hi-res-badge {
+    display: inline-block;
+    vertical-align: middle;
+    /* The rect uses fill="currentColor" so the badge picks up the gold token
+       instead of a hardcoded #c9a961 — keeps it themable. */
+    color: var(--color-accent);
+  }
 </style>

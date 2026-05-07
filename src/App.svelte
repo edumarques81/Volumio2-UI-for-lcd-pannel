@@ -372,10 +372,7 @@
     position: relative;
   }
 
-  /* Responsive adjustments for mobile/tablet */
-  main.device-phone,
-  main.device-tablet {
-    background: var(--color-background);
-  }
-
+  /* Phone/tablet rules removed: deviceDetection.ts only emits 'lcd-panel'
+     and 'desktop' (spec § 3 dropped phone/tablet layouts), so the previous
+     `main.device-phone, main.device-tablet` selector matched nothing. */
 </style>

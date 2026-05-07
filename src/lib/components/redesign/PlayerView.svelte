@@ -38,21 +38,31 @@
   </div>
 
   <div class="meta-zone">
-    <MetadataBlock title={track.title} artist={track.artist} album={track.album} />
+    {#if hasTrack}
+      <MetadataBlock title={track.title} artist={track.artist} album={track.album} />
 
-    <ProgressBar
-      seek={$seek}
-      duration={$duration}
-      onSeek={(s) => playerActions.seekTo(s)}
-    />
+      <ProgressBar
+        seek={$seek}
+        duration={$duration}
+        onSeek={(s) => playerActions.seekTo(s)}
+      />
 
-    <FormatStrip
-      bitDepth={bitDepth}
-      sampleRate={sampleRateHz}
-      codec={codec}
-    />
+      <FormatStrip
+        bitDepth={bitDepth}
+        sampleRate={sampleRateHz}
+        codec={codec}
+      />
+    {/if}
   </div>
 
+  <!--
+    TODO(B9): wire transport `loading` to a transitioning signal once
+    player.ts exposes one. As of 2026-05-07 player.ts only tracks
+    status/play/pause/stop — there is no transitioning state to surface
+    around prev/next/seek emits, so the spinner stays unwired. When a
+    `transitioning` writable lands in $lib/stores/player, pass it as
+    `loading={$transitioning}` to TransportColumn here.
+  -->
   <TransportColumn
     isPlaying={$isPlaying}
     atQueueEnd={atQueueEnd}

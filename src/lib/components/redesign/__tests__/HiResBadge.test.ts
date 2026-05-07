@@ -22,9 +22,9 @@ describe('HiResBadge', () => {
     expect(container.textContent).toContain('MQA');
   });
 
-  it('uses gold fill (#c9a961) on the rectangle', () => {
+  it('uses currentColor fill on the rectangle (themed via --color-accent)', () => {
     const { container } = render(HiResBadge, { rate: '192kHz' });
     const rect = container.querySelector('rect');
-    expect(rect?.getAttribute('fill')?.toLowerCase()).toBe('#c9a961');
+    expect(rect?.getAttribute('fill')).toBe('currentColor');
   });
 });

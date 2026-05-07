@@ -23,7 +23,7 @@
     disabled={playDisabled}
     on:click={onTogglePlay}
   >
-    <Icon name={isPlaying ? 'pause-fill' : 'play-fill'} size={64} />
+    <Icon name={isPlaying ? 'pause-fill' : 'play-fill'} size={96} />
     {#if loading}<span class="spinner" aria-hidden="true"></span>{/if}
   </button>
 
@@ -62,7 +62,13 @@
     opacity: 0.4; cursor: not-allowed;
   }
   .skip-row {
-    display: flex; gap: 24px;
+    display: flex;
+    gap: 24px;
+    /* Spec § 30: faint gold divider between play cell and skip row. */
+    border-top: 1px solid rgba(201, 169, 97, 0.15);
+    padding-top: 24px;
+    width: 100%;
+    justify-content: center;
   }
   .skip {
     width: 70px; height: 70px;

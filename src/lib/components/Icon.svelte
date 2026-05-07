@@ -6,6 +6,23 @@
   // Generate unique ID for gradient
   const gradientId = gradient ? `grad-${Math.random().toString(36).substr(2, 9)}` : null;
 
+  // Lucide-style outline icons. Their `d` data describes line strokes, not
+  // closed regions, so they must render with stroke=currentColor + fill=none
+  // (the redesign added these for the nav column). Filling them produces
+  // either an invisible icon (audio-lines) or a solid blob (refresh-cw,
+  // vinyl-record). Keep this allowlist tight; everything not in here uses
+  // the legacy fill-mode template below so the 23 existing call-sites are
+  // unaffected.
+  const STROKE_ICONS = new Set([
+    'music-2',
+    'audio-lines',
+    'refresh-cw',
+    'user',
+    'vinyl-record'
+  ]);
+
+  $: isStroke = STROKE_ICONS.has(name);
+
   const icons: Record<string, string> = {
     // Player controls
     'play': 'M8 5v14l11-7z',
@@ -129,10 +146,10 @@
   width={size}
   height={size}
   viewBox="0 0 24 24"
-  fill={gradient ? `url(#${gradientId})` : 'currentColor'}
+  fill={isStroke ? 'none' : (gradient ? `url(#${gradientId})` : 'currentColor')}
   xmlns="http://www.w3.org/2000/svg"
 >
-  {#if gradient}
+  {#if gradient && !isStroke}
     <defs>
       <linearGradient id={gradientId} x1="0%" y1="0%" x2="0%" y2="100%">
         <stop offset="0%" style="stop-color:{gradient.from};stop-opacity:1" />
@@ -140,7 +157,18 @@
       </linearGradient>
     </defs>
   {/if}
-  <path d={icons[name] || icons['play']} />
+  {#if isStroke}
+    <path
+      d={icons[name] || icons['play']}
+      stroke="currentColor"
+      fill="none"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+  {:else}
+    <path d={icons[name] || icons['play']} />
+  {/if}
 </svg>
 
 <style>
