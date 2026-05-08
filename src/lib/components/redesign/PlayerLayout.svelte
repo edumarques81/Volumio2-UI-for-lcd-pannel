@@ -20,7 +20,10 @@
   .player-layout {
     width: 100%;
     height: 100vh;
-    background: var(--color-bg-base);
+    background:
+      radial-gradient(ellipse 43% 58% at 85% 15%, rgba(255, 255, 255, 0.085), transparent 55%),
+      radial-gradient(ellipse 40% 60% at 80% 90%, rgba(40, 60, 90, 0.15), transparent 55%),
+      #050507;
     display: grid;
     grid-template-columns: 1fr 240px;   /* nav column = 240px on Pi LCD */
     color: var(--color-text-primary);
