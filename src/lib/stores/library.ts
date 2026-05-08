@@ -49,6 +49,7 @@ export interface Album {
   addedAt?: string;
   quality?: string;     // e.g. "192kHz/24bit FLAC"
   trackType?: string;   // e.g. "flac", "dsf"
+  genre?: string;       // e.g. "Ambient / Post-Rock" — backfilled from MPD's genre tag
 }
 
 export interface Artist {
