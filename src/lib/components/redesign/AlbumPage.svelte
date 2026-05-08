@@ -133,7 +133,12 @@
     color: var(--color-text-primary);
     margin: 0;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    line-height: 1.0;
+    /* line-height needs >1.0 so descenders (y, g, j, p, q) aren't clipped
+       by overflow:hidden — overflow:hidden is required for the ellipsis on
+       horizontal overflow but it also clips vertically when the line box
+       exactly equals font-size. 1.2 gives ~9.6px of leading at 48px,
+       enough for descenders without visible vertical spacing. */
+    line-height: 1.2;
   }
   .artist-row {
     display: flex; align-items: center; gap: 8px;
