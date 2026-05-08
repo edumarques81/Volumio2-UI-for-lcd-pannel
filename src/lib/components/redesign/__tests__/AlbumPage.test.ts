@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render } from '@testing-library/svelte';
+import { render, fireEvent } from '@testing-library/svelte';
 import type { Album } from '$lib/stores/library';
 
 const { currentAlbumBio, bioLoading } = await vi.hoisted(async () => {
@@ -68,5 +68,18 @@ describe('AlbumPage', () => {
     const btn = container.querySelector('button.album-cover')! as HTMLButtonElement;
     btn.click();
     expect(onPlayAlbum).toHaveBeenCalledOnce();
+  });
+
+  it('renders PlayAlbumButton and calls onPlayAlbum when clicked', async () => {
+    const onPlayAlbum = vi.fn();
+    const { getByTestId } = render(AlbumPage, {
+      album,
+      tracks,
+      onPlayAlbum,
+    });
+    const btn = getByTestId('play-album-button');
+    expect(btn).toBeInTheDocument();
+    await fireEvent.click(btn);
+    expect(onPlayAlbum).toHaveBeenCalledTimes(1);
   });
 });

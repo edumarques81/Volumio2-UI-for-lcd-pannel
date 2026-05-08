@@ -4,6 +4,7 @@
   import AlbumTrackList from './AlbumTrackList.svelte';
   import AlbumInfo from './AlbumInfo.svelte';
   import FormatStrip from './FormatStrip.svelte';
+  import PlayAlbumButton from './PlayAlbumButton.svelte';
   import { parseBitDepth, parseSampleRate, normalizeCodec } from './playerStateParsers';
   import type { Album } from '$lib/stores/library';
 
@@ -35,6 +36,12 @@
     </div>
 
     <AlbumTrackList {tracks} />
+
+    {#if onPlayAlbum}
+      <div class="play-row">
+        <PlayAlbumButton onPlay={onPlayAlbum} />
+      </div>
+    {/if}
 
     <AlbumInfo />
 
@@ -82,4 +89,7 @@
     color: var(--color-text-secondary);
   }
   .artist-row :global(svg) { color: var(--color-accent); flex-shrink: 0; }
+  .play-row {
+    margin: 4px 0 8px 0;
+  }
 </style>
