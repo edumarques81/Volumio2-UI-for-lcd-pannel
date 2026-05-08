@@ -44,7 +44,7 @@
     align-items: center;
     justify-content: center;
     gap: 24px;
-    border-right: 1px solid rgba(201, 169, 97, 0.15);
+    border-right: 1px solid rgba(201, 169, 97, 0.35);
     padding: 0 16px;
   }
   .play-pause {
@@ -65,7 +65,7 @@
     display: flex;
     gap: 24px;
     /* Spec § 30: faint gold divider between play cell and skip row. */
-    border-top: 1px solid rgba(201, 169, 97, 0.15);
+    border-top: 1px solid rgba(201, 169, 97, 0.35);
     padding-top: 24px;
     width: 100%;
     justify-content: center;

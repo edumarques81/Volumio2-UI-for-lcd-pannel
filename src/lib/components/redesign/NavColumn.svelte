@@ -48,7 +48,7 @@
     border: none;
     background: transparent;
     color: var(--color-accent);
-    border-bottom: 1px solid rgba(201, 169, 97, 0.15);
+    border-bottom: 1px solid rgba(201, 169, 97, 0.35);
     cursor: pointer;
     display: flex;
     align-items: center;
