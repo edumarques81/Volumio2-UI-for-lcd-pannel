@@ -3,7 +3,23 @@
 **Branch:** `library-redesign-pixel-perfect-2026-05-08`
 **Design source:** `library-screen-target-2026-05-08.png` (2590×1196 PNG, sibling file in this directory)
 **Target surface:** LCD layout (1920×440), `LibraryView` + `AlbumPage` and friends in `src/lib/components/redesign/`
-**Status:** Brief only — planning happens in the **next session** after `/clear → /checkin -r → /checkin` (full).
+**Status:** Brief only — planning happens in the **next session** after `/clear → /checkin` (full).
+
+## Decisions locked pre-`/clear` (2026-05-08)
+
+User confirmed before context-switch. **These override the defaults and any conflicting language elsewhere in this brief.** Read this section first.
+
+1. **Pagination dots — REMOVE.** No bottom-center dots. The 5 dots in the mock are not part of the target. (Originally Q1.)
+2. **Edge chevrons `‹` `›` — interactive.** Tap = advance ±1 album. Coexist with the existing swipe gesture. (Originally Q2 → option a.)
+3. **More "..." button — REMOVE.** The circular button next to "Play Album" in the mock is dropped. The info column shows just the Play Album CTA. (Originally Q3.)
+4. **Genre — add backend support on this branch.** Add a `genre?: string` field to the `Album` type (frontend) and the matching column / projection on the backend `library:albums:list` and `library:album:tracks` payloads. Backfill from MPD's `genre` tag where present; leave empty when missing. The meta strip then renders `12 songs • 48:37 • 2023 • <genre>` whenever genre is present and falls back gracefully to `12 songs • 48:37 • 2023` when not. (Originally Q5.)
+5. **Right-side nav strip is OUT OF SCOPE.** The mock shows only the **core** of the library screen. The existing `NavColumn` + `TransportColumn` (right edge of the LCD chrome, with library/search/settings + transport controls) stay exactly as they are today. Do not retouch them on this branch. The 3-column composition in the mock (cover | info | track list) lives entirely inside the existing inner content rect — to the LEFT of NavColumn.
+
+### Implication: the LCD layout becomes
+
+`[ cover | info | track list  ‖  NavColumn (unchanged) | TransportColumn (unchanged) ]`
+
+…with edge chevrons hugging the inner content rect's left/right edges, NOT the screen's outer edges. (The right chevron sits between the track list and NavColumn.) The aspect of the inner rect — not the full 1920×440 — is what the cover/info/track-list grid has to fit into. The mock's 2590×1196 aspect (≈ 2.17:1) is a designer-canvas aspect, not the LCD inner rect's aspect; the planner needs to measure the actual inner rect width on the LCD and let the 3-column grid divide that width.
 
 ## What the user asked for
 
