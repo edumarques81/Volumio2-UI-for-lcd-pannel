@@ -14,6 +14,9 @@ dist/
 # Environment
 .env
 
+# Per-install runtime config (template lives in public/config.json.example)
+public/config.json
+
 # Playwright test artifacts
 playwright-report/
 test-results/
