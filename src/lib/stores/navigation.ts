@@ -3,7 +3,7 @@ import { writable, derived } from 'svelte/store';
 /**
  * Available views in the application
  */
-export type ViewType = 'player' | 'library' | 'queue';
+export type ViewType = 'player' | 'library' | 'queue' | 'settings';
 
 /**
  * Layout modes:
@@ -67,6 +67,13 @@ export const navigationActions = {
   },
 
   /**
+   * Navigate to settings view
+   */
+  goToSettings() {
+    currentView.set('settings');
+  },
+
+  /**
    * Go back in browse navigation
    */
   browseBack() {
@@ -114,7 +121,8 @@ navigationActions.browseRoot();
 
 /**
  * High-level intent dispatch for the redesign's NavColumn.
- * VU Meter and Settings are silent no-ops in v1 (spec decision 35).
+ * VU Meter is a silent no-op (spec decision 35).
+ * Settings (v2, 2026-05-09) routes to the Settings view via currentView.
  * Refresh and Power callbacks are owned by Plan 5; default to no-op here
  * and overridable via `setViewActionHandlers`.
  */
@@ -147,8 +155,9 @@ export function clearViewActionHandlers() {
 export const viewActions = {
   goToPlayer: () => currentView.set('player'),
   goToLibrary: () => currentView.set('library'),
+  goToSettings: () => currentView.set('settings'),
   tapVuMeter: () => { /* silent no-op v1 */ },
-  tapSettings: () => { /* silent no-op v1 */ },
+  tapSettings: () => currentView.set('settings'),
   tapRefresh: () => _onRefresh(),
   tapPower: () => _onPower(),
 };

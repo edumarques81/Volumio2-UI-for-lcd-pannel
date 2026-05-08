@@ -2,6 +2,7 @@
   import { currentView } from '$lib/stores/navigation';
   import PlayerView from './PlayerView.svelte';
   import LibraryView from './LibraryView.svelte';
+  import SettingsView from './SettingsView.svelte';
   import NavColumn from './NavColumn.svelte';
 </script>
 
@@ -9,6 +10,8 @@
   <div class="content">
     {#if $currentView === 'player'}
       <PlayerView />
+    {:else if $currentView === 'settings'}
+      <SettingsView />
     {:else}
       <LibraryView />
     {/if}

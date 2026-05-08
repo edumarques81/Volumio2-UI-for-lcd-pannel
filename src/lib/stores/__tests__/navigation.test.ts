@@ -1,8 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { get } from 'svelte/store';
 import {
   setViewActionHandlers,
   clearViewActionHandlers,
   viewActions,
+  navigationActions,
+  currentView,
 } from '../navigation';
 
 describe('navigation handler lifecycle', () => {
@@ -49,5 +52,32 @@ describe('navigation handler lifecycle', () => {
     viewActions.tapRefresh();
     viewActions.tapPower();
     expect(stale).not.toHaveBeenCalled();
+  });
+});
+
+describe('settings routing (Settings v2)', () => {
+  beforeEach(() => {
+    // Reset to player so each test starts from a known view.
+    currentView.set('player');
+  });
+
+  it('navigationActions.goToSettings flips currentView to "settings"', () => {
+    navigationActions.goToSettings();
+    expect(get(currentView)).toBe('settings');
+  });
+
+  it('navigationActions.goto("settings") flips currentView to "settings"', () => {
+    navigationActions.goto('settings');
+    expect(get(currentView)).toBe('settings');
+  });
+
+  it('viewActions.tapSettings flips currentView to "settings" (no longer a no-op)', () => {
+    viewActions.tapSettings();
+    expect(get(currentView)).toBe('settings');
+  });
+
+  it('viewActions.goToSettings flips currentView to "settings"', () => {
+    viewActions.goToSettings();
+    expect(get(currentView)).toBe('settings');
   });
 });

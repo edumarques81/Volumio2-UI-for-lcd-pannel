@@ -238,7 +238,9 @@
     // Expose navigation actions for E2E testing
     (window as any).__navigation = {
       goToQueue: () => navigationActions.goToQueue(),
-      goToPlayer: () => navigationActions.goToPlayer()
+      goToPlayer: () => navigationActions.goToPlayer(),
+      goToLibrary: () => navigationActions.goToLibrary(),
+      goToSettings: () => navigationActions.goToSettings()
     };
 
     // Expose LCD actions for E2E testing
