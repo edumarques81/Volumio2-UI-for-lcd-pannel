@@ -1,15 +1,19 @@
 <script lang="ts">
   import { formatTime } from '$lib/stores/player';
   export let tracks: { uri: string; title: string; duration: number }[] = [];
+
+  function pad2(n: number): string {
+    return n < 10 ? `0${n}` : String(n);
+  }
 </script>
 
 <!-- TODO: track-row affordance — rows are deliberately read-only metadata
-     per spec § 51. See DESIGN-REVIEW 2026-05-04 (deferred to post-redesign).
+     per spec § 51. See DESIGN-REVIEW 2026-05-08 (deferred to post-redesign).
      Do NOT add a click handler here without revisiting the spec. -->
 <ol class="track-list">
   {#each tracks as t, i}
     <li>
-      <span class="num">{i + 1}.</span>
+      <span class="num">{pad2(i + 1)}</span>
       <span class="title">{t.title}</span>
       <span class="dur">{t.duration > 0 ? formatTime(t.duration) : '—'}</span>
     </li>
@@ -22,20 +26,31 @@
     margin: 0;
     padding: 0 16px 0 0;
     overflow-y: auto;
-    max-height: 200px;
     scrollbar-gutter: stable;
   }
   li {
     display: grid;
     grid-template-columns: 32px 1fr auto;
     gap: 8px;
-    padding: 4px 0;
+    padding: 8px 0;
     font-size: 18px;
-    color: var(--color-text-secondary);
+    color: var(--color-text-primary);
     white-space: nowrap;
     overflow: hidden;
   }
-  .num { color: var(--color-accent); opacity: 0.7; }
-  .title { overflow: hidden; text-overflow: ellipsis; }
-  .dur { font-variant-numeric: tabular-nums; }
+  .num {
+    color: var(--color-accent);
+    opacity: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .title {
+    color: var(--color-text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .dur {
+    color: var(--color-text-primary);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
 </style>
