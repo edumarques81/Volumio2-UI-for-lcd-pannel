@@ -44,8 +44,17 @@
     align-items: center;
     justify-content: center;
     gap: 24px;
-    border-right: 1px solid rgba(201, 169, 97, 0.35);
     padding: 0 16px;
+    position: relative;
+  }
+  /* Soft white vertical separator: fade in → bright center → fade out. */
+  .transport-column::after {
+    content: '';
+    position: absolute;
+    top: 0; bottom: 0; right: 0;
+    width: 1px;
+    background: linear-gradient(180deg, transparent 0%, rgba(255, 255, 255, 0.5) 50%, transparent 100%);
+    pointer-events: none;
   }
   .play-pause {
     position: relative;
@@ -64,11 +73,19 @@
   .skip-row {
     display: flex;
     gap: 24px;
-    /* Spec § 30: faint gold divider between play cell and skip row. */
-    border-top: 1px solid rgba(201, 169, 97, 0.35);
     padding-top: 24px;
     width: 100%;
     justify-content: center;
+    position: relative;
+  }
+  /* Soft white separator: fade in → bright center → fade out. */
+  .skip-row::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.5) 50%, transparent 100%);
+    pointer-events: none;
   }
   .skip {
     width: 70px; height: 70px;

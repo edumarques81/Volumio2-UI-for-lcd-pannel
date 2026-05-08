@@ -48,7 +48,6 @@
     border: none;
     background: transparent;
     color: var(--color-accent);
-    border-bottom: 1px solid rgba(201, 169, 97, 0.35);
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -56,7 +55,15 @@
     transition: background 80ms ease, transform 50ms ease;
     position: relative;
   }
-  .cell:last-child { border-bottom: none; }
+  /* Soft white separator: fade in → bright center → fade out. */
+  .cell:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.5) 50%, transparent 100%);
+    pointer-events: none;
+  }
   .cell:active { transform: scale(0.98); filter: brightness(1.2); }
   .cell.active {
     background: var(--color-bg-active-cell);
