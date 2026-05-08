@@ -14,7 +14,7 @@ export interface VersionInfo {
 // Frontend version (static, set at build time)
 const FRONTEND_VERSION: VersionInfo = {
   name: 'Stellar Volumio',
-  version: '0.1.0',
+  version: '2.0.0',
   // These could be injected at build time via Vite's define
   buildTime: '',
   gitCommit: ''
