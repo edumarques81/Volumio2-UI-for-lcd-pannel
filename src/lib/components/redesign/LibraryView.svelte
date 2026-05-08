@@ -1,6 +1,7 @@
 <script lang="ts">
   import { libraryAlbums, libraryAlbumTracks, currentLibraryIndex, libraryActions } from '$lib/stores/library';
   import { bioActions } from '$lib/stores/bios';
+  import { viewActions } from '$lib/stores/navigation';
   import AlbumPage from './AlbumPage.svelte';
   import { fly } from 'svelte/transition';
 
@@ -48,7 +49,15 @@
   }
 
   function playCurrent() {
-    if (currentAlbum) libraryActions.replaceQueueAndPlay(currentAlbum);
+    if (!currentAlbum) return;
+    // Use replaceAndPlay { type: 'folder' } so Volumio's MPD service expands
+    // the folder URI and plays from track 1 server-side. The earlier
+    // replaceQueueAndPlay path emitted addToQueue with an array of URIs, but
+    // the backend's addToQueue handler only accepts a single uri string and
+    // silently dropped array payloads — leaving the queue empty so play(0)
+    // played nothing.
+    libraryActions.playAlbum(currentAlbum);
+    viewActions.goToPlayer();
   }
 </script>
 

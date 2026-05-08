@@ -16,6 +16,7 @@ const {
   selectedLibraryAlbum,
   libraryActions,
   bioActions,
+  viewActions,
   currentAlbumBio,
   bioLoading,
 } = await vi.hoisted(async () => {
@@ -40,9 +41,10 @@ const {
         selectedLibraryAlbumStore.set(album);
         libraryAlbumTracksStore.set([{ uri: 't1', title: 'Track', duration: 60 }]);
       }),
-      replaceQueueAndPlay: vi.fn(),
+      playAlbum: vi.fn(),
     },
     bioActions: { requestBio: vi.fn(), refreshBio: vi.fn() },
+    viewActions: { goToPlayer: vi.fn() },
     currentAlbumBio: writable({ summary: '', sourceUrl: '', kind: '' }),
     bioLoading: writable(false),
   };
@@ -53,6 +55,7 @@ vi.mock('$lib/stores/library', () => ({
   selectedLibraryAlbum, libraryActions,
 }));
 vi.mock('$lib/stores/bios', () => ({ currentAlbumBio, bioLoading, bioActions }));
+vi.mock('$lib/stores/navigation', () => ({ viewActions }));
 vi.mock('$lib/stores/player', () => ({
   formatTime: (s: number) => `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`,
 }));
@@ -65,7 +68,8 @@ describe('LibraryView', () => {
     libraryAlbumTracks.set([]);
     libraryAlbums.set(albums);
     libraryActions.fetchAlbumTracks.mockClear();
-    libraryActions.replaceQueueAndPlay.mockClear();
+    libraryActions.playAlbum.mockClear();
+    viewActions.goToPlayer.mockClear();
     bioActions.requestBio.mockClear();
   });
 
@@ -129,11 +133,20 @@ describe('LibraryView', () => {
     libraryAlbums.set(albums);
   });
 
-  it('tap album cover invokes libraryActions.replaceQueueAndPlay with current album', async () => {
+  it('tap album cover invokes libraryActions.playAlbum and navigates to Player', async () => {
     const { container } = render(LibraryView);
     const cover = container.querySelector('button.album-cover')! as HTMLButtonElement;
     cover.click();
-    expect(libraryActions.replaceQueueAndPlay).toHaveBeenCalledWith(albums[0]);
+    expect(libraryActions.playAlbum).toHaveBeenCalledWith(albums[0]);
+    expect(viewActions.goToPlayer).toHaveBeenCalledTimes(1);
+  });
+
+  it('Play Album button invokes libraryActions.playAlbum and navigates to Player', async () => {
+    const { getByTestId } = render(LibraryView);
+    const btn = getByTestId('play-album-button') as HTMLButtonElement;
+    await fireEvent.click(btn);
+    expect(libraryActions.playAlbum).toHaveBeenCalledWith(albums[0]);
+    expect(viewActions.goToPlayer).toHaveBeenCalledTimes(1);
   });
 
   it('does not refetch tracks/bio when libraryAlbums re-emits the same albums', () => {
