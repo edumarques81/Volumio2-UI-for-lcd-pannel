@@ -145,4 +145,16 @@ describe('LibraryView', () => {
     expect(libraryActions.fetchAlbumTracks).toHaveBeenCalledTimes(1);
     expect(bioActions.requestBio).toHaveBeenCalledTimes(1);
   });
+
+  it('exposes the swipe direction as a data attribute on the album wrapper', async () => {
+    const { getByTestId, getAllByTestId } = render(LibraryView);
+    const region = getByTestId('library-view');
+    await fireEvent.pointerDown(region, { clientX: 1000 });
+    await fireEvent.pointerUp(region, { clientX: 800 });   // dx = -200 → forward
+    // During the fly transition, both the exiting and entering wrappers exist
+    // simultaneously. getAllByTestId handles the multi-element case gracefully;
+    // at least one wrapper must carry data-direction="forward".
+    const wrappers = getAllByTestId('album-slide-wrapper');
+    expect(wrappers.some((w) => w.getAttribute('data-direction') === 'forward')).toBe(true);
+  });
 });

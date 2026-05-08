@@ -35,3 +35,24 @@ Object.defineProperty(window, 'matchMedia', {
 
 // Mock fetch for LCD store tests
 global.fetch = vi.fn();
+
+// Polyfill Web Animations API — jsdom does not implement element.animate(),
+// which Svelte 5 transition internals call. Return a minimal Animation stub.
+if (typeof Element.prototype.animate !== 'function') {
+  Element.prototype.animate = vi.fn().mockReturnValue({
+    pause: vi.fn(),
+    play: vi.fn(),
+    cancel: vi.fn(),
+    finish: vi.fn(),
+    reverse: vi.fn(),
+    onfinish: null,
+    oncancel: null,
+    finished: Promise.resolve(),
+    ready: Promise.resolve(),
+    currentTime: 0,
+    playbackRate: 1,
+    playState: 'finished',
+    effect: null,
+    timeline: null,
+  });
+}

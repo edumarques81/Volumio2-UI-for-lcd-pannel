@@ -2,6 +2,7 @@
   import { libraryAlbums, libraryAlbumTracks, currentLibraryIndex, libraryActions } from '$lib/stores/library';
   import { bioActions } from '$lib/stores/bios';
   import AlbumPage from './AlbumPage.svelte';
+  import { fly } from 'svelte/transition';
 
   const SWIPE_THRESHOLD = 50;
 
@@ -11,10 +12,12 @@
 
   let pointerStartX = 0;
   let pointerActive = false;
+  let lastDirection: 'forward' | 'back' = 'forward';
 
   function advance(delta: 1 | -1) {
     if (albumsList.length === 0) return;
     const len = albumsList.length;
+    lastDirection = delta === 1 ? 'forward' : 'back';
     currentLibraryIndex.update((i) => (((i + delta) % len) + len) % len);
   }
 
@@ -57,9 +60,19 @@
   on:pointercancel={handlePointerCancel}
 >
   {#if currentAlbum}
-    {#key currentAlbum.uri}
-      <AlbumPage album={currentAlbum} tracks={currentTracks} onPlayAlbum={playCurrent} />
-    {/key}
+    <div class="album-slot">
+      {#key currentAlbum.uri}
+        <div
+          class="slide-wrapper"
+          data-testid="album-slide-wrapper"
+          data-direction={lastDirection}
+          in:fly|local={{ x: lastDirection === 'forward' ? 120 : -120, duration: 220, opacity: 0.2 }}
+          out:fly|local={{ x: lastDirection === 'forward' ? -120 : 120, duration: 180, opacity: 0 }}
+        >
+          <AlbumPage album={currentAlbum} tracks={currentTracks} onPlayAlbum={playCurrent} />
+        </div>
+      {/key}
+    </div>
   {:else}
     <div class="empty" data-testid="library-empty">No albums in library</div>
   {/if}
@@ -80,5 +93,17 @@
     justify-content: center;
     color: var(--color-text-secondary);
     font-size: 24px;
+  }
+  .album-slot {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+  .slide-wrapper {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
   }
 </style>
