@@ -56,3 +56,30 @@ describe('FormatStrip', () => {
     expect(container.textContent).toContain('AAC');
   });
 });
+
+describe('FormatStrip Hi-Res rule (lossless + >CD only)', () => {
+  it('does NOT show HI-RES for lossy AAC at 24/96', () => {
+    const { container } = render(FormatStrip, { bitDepth: 24, sampleRate: 96000, codec: 'AAC' });
+    expect(container.textContent).not.toContain('HI-RES');
+  });
+
+  it('does NOT show HI-RES for 16/44.1 FLAC (CD quality)', () => {
+    const { container } = render(FormatStrip, { bitDepth: 16, sampleRate: 44100, codec: 'FLAC' });
+    expect(container.textContent).not.toContain('HI-RES');
+  });
+
+  it('shows HI-RES for 24/48 FLAC (lossless + >CD bit depth)', () => {
+    const { container } = render(FormatStrip, { bitDepth: 24, sampleRate: 48000, codec: 'FLAC' });
+    expect(container.textContent).toContain('HI-RES');
+  });
+
+  it('shows HI-RES for 16/96 FLAC (lossless + >CD sample rate)', () => {
+    const { container } = render(FormatStrip, { bitDepth: 16, sampleRate: 96000, codec: 'FLAC' });
+    expect(container.textContent).toContain('HI-RES');
+  });
+
+  it('shows DSD badge for any DSF album', () => {
+    const { container } = render(FormatStrip, { bitDepth: 1, sampleRate: 2822400, codec: 'DSF' });
+    expect(container.textContent).toContain('DSD');
+  });
+});

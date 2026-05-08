@@ -21,10 +21,12 @@
     return `${(hz / 1000).toString().replace(/\.0$/, '')}kHz`;
   }
 
+  const LOSSLESS_CODECS = new Set(['FLAC', 'ALAC', 'WAV', 'AIFF', 'APE']);
+
   function pickBadgeKind(c: string | null, b: number | null, r: number | null): 'HI-RES' | 'DSD' | 'MQA' | null {
-    if (c === 'DSD') return 'DSD';
+    if (c === 'DSD' || c === 'DSF' || c === 'DFF') return 'DSD';
     if (c === 'MQA') return 'MQA';
-    if (b != null && r != null && b >= 24 && r >= 48000) return 'HI-RES';
+    if (c != null && LOSSLESS_CODECS.has(c) && (((b ?? 0) >= 24) || ((r ?? 0) >= 88200))) return 'HI-RES';
     return null;
   }
 </script>
