@@ -63,7 +63,7 @@
 
     <AlbumInfo title={album.title} />
 
-    <hr class="gold-rule" aria-hidden="true" />
+    <hr class="section-rule" aria-hidden="true" />
 
     <HiResAudioStrip {bitDepth} {sampleRate} {codec} />
   </div>
@@ -155,11 +155,16 @@
   .play-row {
     margin: 18px 0 18px 0;
   }
-  .gold-rule {
+  .section-rule {
     border: none;
     height: 1px;
     width: 100%;
-    background: rgba(201, 169, 97, 0.35);
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.5) 50%,
+      transparent 100%
+    );
     margin: 4px 0;
   }
 </style>

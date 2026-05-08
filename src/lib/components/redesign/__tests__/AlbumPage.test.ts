@@ -225,10 +225,10 @@ describe('AlbumPage', () => {
     expect(rows[1].textContent).toContain('Freddie Freeloader');
   });
 
-  it('renders the thin gold rule between description and HiResAudioStrip', () => {
+  it('renders the gradient-white section rule between description and HiResAudioStrip', () => {
     libraryAlbumTotalDuration.set(0);
     const { container } = render(AlbumPage, { album, tracks, onPlayAlbum: () => {} });
-    const rule = container.querySelector('.gold-rule');
+    const rule = container.querySelector('.section-rule');
     expect(rule).not.toBeNull();
   });
 });
