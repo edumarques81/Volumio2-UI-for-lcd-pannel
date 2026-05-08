@@ -19,14 +19,14 @@ describe('initConfig', () => {
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ backendUrl: 'http://10.0.0.5:3000' }),
-    } as Response);
+    } as unknown as Response);
     await initConfig();
     expect(getVolumioHost()).toBe('http://10.0.0.5:3000');
     expect(getVolumioAssetHost()).toBe('http://10.0.0.5:3000');
   });
 
   it('falls back to window.location logic when /config.json is 404', async () => {
-    globalThis.fetch = vi.fn().mockResolvedValue({ ok: false, status: 404 } as Response);
+    globalThis.fetch = vi.fn().mockResolvedValue({ ok: false, status: 404 } as unknown as Response);
     await initConfig();
     expect(getVolumioHost()).toMatch(/^http:\/\/192\.168\.86\.25:3000$/);
   });
@@ -35,7 +35,7 @@ describe('initConfig', () => {
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => { throw new SyntaxError('bad json'); },
-    } as Response);
+    } as unknown as Response);
     await initConfig();
     expect(getVolumioHost()).toMatch(/^http:\/\/192\.168\.86\.25:3000$/);
   });
@@ -50,7 +50,7 @@ describe('initConfig', () => {
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ backendUrl: 'http://10.0.0.5:3000' }),
-    } as Response);
+    } as unknown as Response);
     await initConfig();
     await initConfig();
     expect(globalThis.fetch).toHaveBeenCalledTimes(1);
