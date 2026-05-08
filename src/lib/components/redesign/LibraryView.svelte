@@ -3,6 +3,7 @@
   import { bioActions } from '$lib/stores/bios';
   import { viewActions } from '$lib/stores/navigation';
   import AlbumPage from './AlbumPage.svelte';
+  import EdgeChevron from './EdgeChevron.svelte';
   import { fly } from 'svelte/transition';
 
   const SWIPE_THRESHOLD = 50;
@@ -85,6 +86,15 @@
   {:else}
     <div class="empty" data-testid="library-empty">No albums in library</div>
   {/if}
+  <!--
+    Chevrons live OUTSIDE the .album-slot so they persist across the fly
+    transition (the slide-wrapper is replaced on every key change). They are
+    flush to the inner-rect's left/right edges — LibraryView itself fills
+    PlayerLayout's .content (1fr column to the left of the 240px NavColumn),
+    so left:0 / right:0 of this root *is* the inner-rect edge.
+  -->
+  <EdgeChevron side="left" onTap={() => advance(-1)} />
+  <EdgeChevron side="right" onTap={() => advance(1)} />
 </div>
 
 <style>
@@ -93,6 +103,15 @@
     height: 100%;
     touch-action: pan-y;
     overflow: hidden;
+    /* Positioning context for the absolutely-positioned EdgeChevrons. */
+    position: relative;
+  }
+  /*
+   * Chevrons must paint above .album-slot so taps register. EdgeChevron
+   * itself is `position: absolute` and anchors top:50% / left|right:0.
+   */
+  .library-view :global(.edge-chevron) {
+    z-index: 2;
   }
   .empty {
     width: 100%;

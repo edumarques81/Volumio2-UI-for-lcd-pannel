@@ -173,4 +173,59 @@ describe('LibraryView', () => {
     const wrappers = getAllByTestId('album-slide-wrapper');
     expect(wrappers.some((w) => w.getAttribute('data-direction') === 'forward')).toBe(true);
   });
+
+  // --- Wave 3A: interactive edge chevrons --------------------------------
+  it('renders left + right edge chevrons when at least one album is in the library', () => {
+    const { getByTestId } = render(LibraryView);
+    expect(getByTestId('library-chevron-left')).toBeTruthy();
+    expect(getByTestId('library-chevron-right')).toBeTruthy();
+  });
+
+  it('renders both chevrons even when the library is empty (always-visible policy)', () => {
+    libraryAlbums.set([]);
+    const { getByTestId } = render(LibraryView);
+    expect(getByTestId('library-chevron-left')).toBeTruthy();
+    expect(getByTestId('library-chevron-right')).toBeTruthy();
+    libraryAlbums.set(albums);
+  });
+
+  it('tapping the right chevron increments currentLibraryIndex (mod length)', async () => {
+    const { getByTestId } = render(LibraryView);
+    await fireEvent.click(getByTestId('library-chevron-right'));
+    expect(get(currentLibraryIndex)).toBe(1);
+  });
+
+  it('tapping the left chevron decrements currentLibraryIndex (mod length)', async () => {
+    currentLibraryIndex.set(1);
+    const { getByTestId } = render(LibraryView);
+    await fireEvent.click(getByTestId('library-chevron-left'));
+    expect(get(currentLibraryIndex)).toBe(0);
+  });
+
+  it('tapping the left chevron at index 0 wraps to the last album', async () => {
+    currentLibraryIndex.set(0);
+    const { getByTestId } = render(LibraryView);
+    await fireEvent.click(getByTestId('library-chevron-left'));
+    expect(get(currentLibraryIndex)).toBe(albums.length - 1);
+  });
+
+  it('tapping the right chevron at last index wraps to 0', async () => {
+    currentLibraryIndex.set(albums.length - 1);
+    const { getByTestId } = render(LibraryView);
+    await fireEvent.click(getByTestId('library-chevron-right'));
+    expect(get(currentLibraryIndex)).toBe(0);
+  });
+
+  it('tapping a chevron does not also trigger the swipe handler (no double-advance)', async () => {
+    const { getByTestId } = render(LibraryView);
+    const chevron = getByTestId('library-chevron-right');
+    // Synthesize a tap: pointerdown + pointerup at the same location on the
+    // chevron. If the swipe handler also reacts, |dx| === 0 < threshold so it
+    // is a no-op anyway, BUT a click bubbling through still must advance only
+    // once (not twice).
+    await fireEvent.pointerDown(chevron, { clientX: 100, clientY: 200, pointerId: 1 });
+    await fireEvent.pointerUp(chevron, { clientX: 100, clientY: 200, pointerId: 1 });
+    await fireEvent.click(chevron);
+    expect(get(currentLibraryIndex)).toBe(1);
+  });
 });
