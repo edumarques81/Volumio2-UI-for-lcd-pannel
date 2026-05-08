@@ -113,6 +113,11 @@
     flex-direction: column;
     min-height: 0;
     height: 100%;
+    /* Reserve clear space on the right so track durations don't overlap
+       the right EdgeChevron (88px button at right:0 with a 64px glyph
+       centered). 80px combined with AlbumTrackList's internal 16px
+       scrollbar-gutter yields 96px of total clearance from the LCD edge. */
+    padding-right: 80px;
   }
   .album-eyebrow {
     font-size: 14px;
@@ -123,7 +128,7 @@
     line-height: 1;
   }
   .title {
-    font-size: 80px;
+    font-size: 48px;
     font-weight: 400;
     color: var(--color-text-primary);
     margin: 0;

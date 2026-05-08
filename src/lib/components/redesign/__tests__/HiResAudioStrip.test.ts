@@ -15,8 +15,10 @@ describe('HiResAudioStrip', () => {
     expect(getByTestId('hi-res-audio-strip')).toBeInTheDocument();
     expect(getByTestId('hi-res-equalizer-glyph')).toBeInTheDocument();
 
-    // "Hi-Res Audio" gold label.
-    expect(container.textContent).toContain('Hi-Res Audio');
+    // The "Hi-Res Audio" text label was deliberately removed to avoid
+    // duplicating the HI-RES badge to its right; only the eq glyph signals
+    // hi-res visually.
+    expect(container.textContent).not.toContain('Hi-Res Audio');
 
     // Reused HiResBadge with HI-RES label and 96kHz rate.
     expect(getByTestId('hi-res-badge')).toBeInTheDocument();
@@ -90,10 +92,9 @@ describe('HiResAudioStrip', () => {
 
     // DSD label on the badge, NOT HI-RES.
     expect(container.textContent).toContain('DSD64');
-    // The badge label is "DSD" — check that we see "Hi-Res Audio" group label
-    // (the literal string "Hi-Res Audio" still acts as the section eyebrow,
-    // matching the mock's "Hi-Res Audio" treatment for any high-res variant).
-    expect(container.textContent).toContain('Hi-Res Audio');
+    // The "Hi-Res Audio" text label was removed across all variants; the
+    // eq glyph alone is the verbal-free hi-res indicator.
+    expect(container.textContent).not.toContain('Hi-Res Audio');
 
     // Codec text shown in the spec area.
     expect(container.textContent).toContain('DSD');

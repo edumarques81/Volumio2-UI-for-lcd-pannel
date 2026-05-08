@@ -10,7 +10,7 @@
   $: testId = `library-chevron-${side}`;
   // Left chevron points left (`‹`): from upper-right → middle-left → lower-right.
   // Right chevron points right (`›`): from upper-left → middle-right → lower-left.
-  $: chevronPoints = side === 'left' ? '20,8 8,16 20,24' : '12,8 24,16 12,24';
+  $: chevronPoints = side === 'left' ? '40,16 16,32 40,48' : '24,16 48,32 24,48';
   $: positionStyle = side === 'left' ? 'left: 0;' : 'right: 0;';
 </script>
 
@@ -23,9 +23,9 @@
   on:click={onTap}
 >
   <svg
-    width="32"
-    height="32"
-    viewBox="0 0 32 32"
+    width="64"
+    height="64"
+    viewBox="0 0 64 64"
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
     aria-hidden="true"
@@ -33,7 +33,7 @@
     <polyline
       points={chevronPoints}
       stroke="currentColor"
-      stroke-width="2"
+      stroke-width="2.5"
       stroke-linecap="round"
       stroke-linejoin="round"
       fill="none"
@@ -49,13 +49,15 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: var(--hit-target-min, 44px);
-    min-height: var(--hit-target-min, 44px);
+    min-width: 88px;
+    min-height: 88px;
     padding: 0;
     margin: 0;
     background: none;
     border: none;
-    color: var(--color-accent);
+    /* Same color as the album title (off-white) — matches the reference
+       image. Was gold; the mock shows them in the title color. */
+    color: var(--color-text-primary);
     cursor: pointer;
     transition: transform 80ms ease;
     -webkit-tap-highlight-color: transparent;
@@ -64,7 +66,7 @@
     transform: translateY(-50%) scale(0.92);
   }
   .edge-chevron:focus-visible {
-    outline: 2px solid var(--color-accent);
+    outline: 2px solid var(--color-text-primary);
     outline-offset: 4px;
     border-radius: 8px;
   }

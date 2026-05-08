@@ -49,10 +49,17 @@
   }
 
   /* Prominent variant: larger CTA for AlbumPage info column.
-     Same gold-on-faint-gold palette — only scaled. */
+     Less pronounced than the subtle pill — outlined rounded rectangle
+     with no background fill, matching the user's design direction. */
   .play-album.prominent {
     gap: 12px;
     padding: 14px 32px;
     font-size: 22px;
+    border-radius: 12px;
+    background: transparent;
+  }
+  .play-album.prominent:hover,
+  .play-album.prominent:focus-visible {
+    background: rgba(201, 169, 97, 0.10);
   }
 </style>
