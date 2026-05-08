@@ -2,10 +2,20 @@
   import Icon from '$lib/components/Icon.svelte';
 
   export let onPlay: () => void;
+  export let size: 'subtle' | 'prominent' = 'subtle';
+
+  $: iconSize = size === 'prominent' ? 24 : 18;
 </script>
 
-<button class="play-album" type="button" aria-label="Play Album" on:click={onPlay} data-testid="play-album-button">
-  <Icon name="play" size={18} />
+<button
+  class="play-album"
+  class:prominent={size === 'prominent'}
+  type="button"
+  aria-label="Play Album"
+  on:click={onPlay}
+  data-testid="play-album-button"
+>
+  <Icon name="play" size={iconSize} />
   <span class="label">Play Album</span>
 </button>
 
@@ -36,5 +46,13 @@
   }
   .label {
     line-height: 1;
+  }
+
+  /* Prominent variant: larger CTA for AlbumPage info column.
+     Same gold-on-faint-gold palette — only scaled. */
+  .play-album.prominent {
+    gap: 12px;
+    padding: 14px 32px;
+    font-size: 22px;
   }
 </style>
