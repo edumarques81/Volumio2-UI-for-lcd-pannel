@@ -61,7 +61,7 @@
       </div>
     {/if}
 
-    <AlbumInfo />
+    <AlbumInfo title={album.title} />
 
     <hr class="gold-rule" aria-hidden="true" />
 
