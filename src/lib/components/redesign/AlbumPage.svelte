@@ -3,10 +3,11 @@
   import AlbumCover from './AlbumCover.svelte';
   import AlbumTrackList from './AlbumTrackList.svelte';
   import AlbumInfo from './AlbumInfo.svelte';
-  import FormatStrip from './FormatStrip.svelte';
+  import HiResAudioStrip from './HiResAudioStrip.svelte';
   import PlayAlbumButton from './PlayAlbumButton.svelte';
   import { parseBitDepth, parseSampleRate, normalizeCodec } from './playerStateParsers';
-  import type { Album } from '$lib/stores/library';
+  import { libraryAlbumTotalDuration, type Album } from '$lib/stores/library';
+  import { formatTime } from '$lib/stores/player';
 
   export let album: Album;
   export let tracks: { uri: string; title: string; duration: number }[] = [];
@@ -21,6 +22,20 @@
   $: bitDepth   = parseBitDepth(album.quality ?? null);
   $: sampleRate = parseSampleRate(album.quality ?? null);
   $: codec      = normalizeCodec(album.trackType ?? null);
+
+  // Meta strip: "12 songs • 48:37 • 2023 • Ambient / Post-Rock".
+  // Each part conditional — empty parts produce no separator, so we never
+  // ship a leading or trailing "•" or a doubled "• •" gap when one of the
+  // optional fields (year, genre, total duration) is missing.
+  $: metaParts = (() => {
+    const parts: string[] = [];
+    if (album.trackCount > 0) parts.push(`${album.trackCount} songs`);
+    if ($libraryAlbumTotalDuration > 0) parts.push(formatTime($libraryAlbumTotalDuration));
+    if (typeof album.year === 'number') parts.push(String(album.year));
+    if (album.genre && album.genre.trim().length > 0) parts.push(album.genre.trim());
+    return parts;
+  })();
+  $: metaText = metaParts.join(' • ');
 </script>
 
 <section class="album-page" aria-label="Album {album.title}">
@@ -29,67 +44,112 @@
   </div>
 
   <div class="info-zone">
+    <span class="album-eyebrow">ALBUM</span>
     <h1 class="title">{album.title}</h1>
     <div class="artist-row">
       <Icon name="user" size={22} />
       <span>{album.artist}</span>
     </div>
 
-    <AlbumTrackList {tracks} />
+    {#if metaParts.length > 0}
+      <div class="meta-strip" data-testid="album-meta-strip">{metaText}</div>
+    {/if}
 
     {#if onPlayAlbum}
       <div class="play-row">
-        <PlayAlbumButton onPlay={onPlayAlbum} />
+        <PlayAlbumButton onPlay={onPlayAlbum} size="prominent" />
       </div>
     {/if}
 
     <AlbumInfo />
 
-    <FormatStrip {bitDepth} {sampleRate} {codec} />
+    <hr class="gold-rule" aria-hidden="true" />
+
+    <HiResAudioStrip {bitDepth} {sampleRate} {codec} />
+  </div>
+
+  <div class="tracklist-zone">
+    <AlbumTrackList {tracks} />
   </div>
 </section>
 
 <style>
   .album-page {
     display: grid;
-    /* fr units fill the inner area (PlayerLayout already removed the nav strip).
-       Spec ratios 30/57 preserved verbatim. Mirrors PlayerView's grid pattern. */
-    grid-template-columns: 30fr 57fr;
-    column-gap: 24px;
+    /* 3-column composition matching library-screen-target-2026-05-08.png:
+       cover ~40% / info ~32% / tracklist ~28%. The cover butts directly
+       against the info column (no gap, hairline, or feather per locked
+       brief). The visible gap sits only between info and tracklist. */
+    grid-template-columns: 30fr 38fr 27fr;
+    grid-template-areas: 'cover info tracks';
+    column-gap: 0;
     width: 100%;
     height: 100%;
-    /* Minimal top/bottom/left margins; zero right so the info zone sits flush
-       against the nav column. Mirrors PlayerView padding. */
+    /* Minimal top/bottom/left padding; zero right so the tracklist sits
+       flush against the nav column. Mirrors PlayerView padding. */
     padding: 4px 0 4px 4px;
     box-sizing: border-box;
   }
   .cover-zone {
+    grid-area: cover;
     display: flex;
     align-items: center;
     justify-content: center;
   }
   .info-zone {
+    grid-area: info;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    gap: 16px;
+    gap: 12px;
     overflow: hidden;
+    /* The visible gap between info and tracklist lives here, on the right
+       margin of the info column. Cover→info stays butted (column-gap: 0). */
+    margin-right: 24px;
+  }
+  .tracklist-zone {
+    grid-area: tracks;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    height: 100%;
+  }
+  .album-eyebrow {
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--color-accent);
+    line-height: 1;
   }
   .title {
-    font-size: 56px;
+    font-size: 80px;
     font-weight: 400;
     color: var(--color-text-primary);
     margin: 0;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    line-height: 1.1;
+    line-height: 1.0;
   }
   .artist-row {
     display: flex; align-items: center; gap: 8px;
     font-size: 24px; font-weight: 300;
-    color: var(--color-text-secondary);
+    color: var(--color-accent);
   }
   .artist-row :global(svg) { color: var(--color-accent); flex-shrink: 0; }
+  .meta-strip {
+    color: var(--color-text-secondary);
+    font-size: 17px;
+    font-weight: 400;
+    line-height: 1.2;
+  }
   .play-row {
-    margin: 4px 0 8px 0;
+    margin: 18px 0 18px 0;
+  }
+  .gold-rule {
+    border: none;
+    height: 1px;
+    width: 100%;
+    background: rgba(201, 169, 97, 0.35);
+    margin: 4px 0;
   }
 </style>

@@ -12,6 +12,7 @@ const albums: Album[] = [
 const {
   libraryAlbums,
   libraryAlbumTracks,
+  libraryAlbumTotalDuration,
   currentLibraryIndex,
   selectedLibraryAlbum,
   libraryActions,
@@ -28,12 +29,14 @@ const {
   ];
   const libraryAlbumsStore = writable(initialAlbums);
   const libraryAlbumTracksStore = writable<any[]>([]);
+  const libraryAlbumTotalDurationStore = writable(0);
   const currentLibraryIndexStore = writable(0);
   const selectedLibraryAlbumStore = writable<any>(null);
 
   return {
     libraryAlbums: libraryAlbumsStore,
     libraryAlbumTracks: libraryAlbumTracksStore,
+    libraryAlbumTotalDuration: libraryAlbumTotalDurationStore,
     currentLibraryIndex: currentLibraryIndexStore,
     selectedLibraryAlbum: selectedLibraryAlbumStore,
     libraryActions: {
@@ -51,8 +54,8 @@ const {
 });
 
 vi.mock('$lib/stores/library', () => ({
-  libraryAlbums, libraryAlbumTracks, currentLibraryIndex,
-  selectedLibraryAlbum, libraryActions,
+  libraryAlbums, libraryAlbumTracks, libraryAlbumTotalDuration,
+  currentLibraryIndex, selectedLibraryAlbum, libraryActions,
 }));
 vi.mock('$lib/stores/bios', () => ({ currentAlbumBio, bioLoading, bioActions }));
 vi.mock('$lib/stores/navigation', () => ({ viewActions }));
