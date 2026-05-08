@@ -20,9 +20,10 @@
   .track-list {
     list-style: none;
     margin: 0;
-    padding: 0;
+    padding: 0 16px 0 0;
     overflow-y: auto;
     max-height: 200px;
+    scrollbar-gutter: stable;
   }
   li {
     display: grid;
