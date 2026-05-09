@@ -4,6 +4,7 @@ import { fixVolumioAssetUrl } from '$lib/config';
 import { syncEngineFromPushState } from '$lib/stores/audioEngine';
 import { parseFilename, looksLikeFilename } from '$lib/utils/filenameParsing';
 import type { PlayerState } from '$lib/types';
+import type { Album } from '$lib/stores/library';
 
 /**
  * Extended track info response from Volumio
@@ -61,6 +62,13 @@ export const lastPlayedAlbum = writable<LastPlayedAlbum | null>(null);
 // Seek interpolation timer
 let seekIntervalId: ReturnType<typeof setInterval> | null = null;
 let lastSeekUpdate = 0;
+
+// One-shot bypass for the pushState change-gate. Set to `true` by
+// `optimisticAlbumStart`; the next pushState applies unconditionally
+// (overwriting the optimistic snapshot with the authoritative backend
+// state) and clears the flag back to `false`. Subsequent pushStates fall
+// through the normal field-by-field diff gate.
+let optimisticPending = false;
 
 // Derived stores
 export const isPlaying = derived(playerState, $state => $state?.status === 'play');
@@ -194,6 +202,51 @@ export const playerActions = {
     const last = get(lastPlayedAlbum);
     if (!last || !last.trackUri) return;
     socketService.emit('addPlay', { uri: last.trackUri });
+  },
+
+  /**
+   * Optimistically flip playerState to the new album the moment the user
+   * taps Play in the Library. Defends against any one-frame flash of the
+   * previous album's metadata between the tap and the backend's pushState.
+   *
+   * Sets `optimisticPending = true` so the very next pushState bypasses
+   * the change-gate and applies unconditionally — even if the gated fields
+   * happen to match byte-for-byte (the backend's authoritative state still
+   * needs to overwrite seek/duration/position/etc.). The flag clears once
+   * the bypass fires, so subsequent pushStates fall back to the normal
+   * field-diff gate.
+   *
+   * Empty-string fallbacks (rather than undefined) keep the existing UI
+   * reactivity safe; PlayerState fields are typed as required strings.
+   */
+  optimisticAlbumStart: (album: Album) => {
+    optimisticPending = true;
+    const current = get(playerState);
+    const next: PlayerState = {
+      // Preserve transport flags from the current state so the
+      // optimistic snapshot doesn't accidentally reset volume / mute /
+      // shuffle / repeat. Defaults applied only when no prior state exists.
+      status: 'play',
+      position: 0,
+      title: album.title || '',
+      artist: album.artist || '',
+      album: album.title || '',
+      albumart: album.albumArt || '',
+      uri: album.uri || '',
+      trackType: '',
+      seek: 0,
+      duration: 0,
+      samplerate: '',
+      bitdepth: '',
+      bitrate: '',
+      random: current?.random ?? false,
+      repeat: current?.repeat ?? false,
+      repeatSingle: current?.repeatSingle ?? false,
+      volume: current?.volume ?? 0,
+      mute: current?.mute ?? false,
+      service: 'mpd',
+    };
+    playerState.set(next);
   }
 };
 
@@ -284,6 +337,12 @@ export function initPlayerStore() {
 
     // Change-gate the main playerState to prevent unnecessary re-renders.
     // Only update if visually significant fields changed.
+    //
+    // One-shot bypass: if `optimisticPending` was set by
+    // `optimisticAlbumStart`, apply this pushState unconditionally so the
+    // authoritative backend state replaces the optimistic snapshot — even
+    // if the gated fields happen to match byte-for-byte. Then re-arm the
+    // gate by clearing the flag.
     const current = get(playerState);
     const stateChanged = !current ||
       current.status !== state.status ||
@@ -297,8 +356,9 @@ export function initPlayerStore() {
       current.samplerate !== state.samplerate ||
       current.bitdepth !== state.bitdepth ||
       current.position !== state.position;
-    if (stateChanged) {
+    if (optimisticPending || stateChanged) {
       playerState.set(state);
+      optimisticPending = false;
     }
 
     // Sync audio engine state from service field

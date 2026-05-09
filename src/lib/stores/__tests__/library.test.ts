@@ -39,6 +39,15 @@ vi.mock('$lib/stores/navigation', () => ({
   viewActions: { goToPlayer: vi.fn() }
 }));
 
+// Mock the player store so we can assert that playAlbum calls
+// playerActions.optimisticAlbumStart. The optimistic-update mechanics
+// themselves are covered in player-optimistic.test.ts.
+vi.mock('$lib/stores/player', () => ({
+  playerActions: {
+    optimisticAlbumStart: vi.fn()
+  }
+}));
+
 // Mock localStorage
 const localStorageMock = {
   getItem: vi.fn(),
@@ -225,6 +234,29 @@ describe('Library Store', () => {
         title: 'Kind of Blue',
         uri: 'NAS/Jazz/Kind of Blue'
       });
+    });
+
+    it('should call playerActions.optimisticAlbumStart before emitting replaceAndPlay', async () => {
+      const { playerActions } = await import('../player');
+      const album: Album = {
+        id: 'album1',
+        title: 'Kind of Blue',
+        artist: 'Miles Davis',
+        uri: 'NAS/Jazz/Kind of Blue',
+        albumArt: '/albumart?path=...',
+        trackCount: 5,
+        source: 'nas'
+      };
+
+      libraryActions.playAlbum(album);
+
+      expect(playerActions.optimisticAlbumStart).toHaveBeenCalledWith(album);
+
+      // Optimistic update must run before the socket emit so the UI flips
+      // immediately on tap rather than waiting for the round-trip.
+      const optimisticOrder = (playerActions.optimisticAlbumStart as any).mock.invocationCallOrder[0];
+      const emitOrder = (socketService.emit as any).mock.invocationCallOrder[0];
+      expect(optimisticOrder).toBeLessThan(emitOrder);
     });
   });
 

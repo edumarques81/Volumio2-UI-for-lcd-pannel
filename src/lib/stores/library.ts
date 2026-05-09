@@ -8,6 +8,7 @@ import { writable, derived, get } from 'svelte/store';
 import { socketService, connectionState } from '$lib/services/socket';
 import { fixVolumioAssetUrl } from '$lib/config';
 import { viewActions } from '$lib/stores/navigation';
+import { playerActions } from '$lib/stores/player';
 
 /**
  * Emit a socket event only when the socket is connected.
@@ -490,9 +491,17 @@ export const libraryActions = {
 
   /**
    * Play an album
+   *
+   * Optimistically flips the player store to the new album metadata before
+   * the socket emit so the UI shows the new title/artist/cover the moment
+   * the user taps — defending against a one-frame flash of the previous
+   * album while we wait for the backend's pushState round-trip. The next
+   * pushState bypasses the change-gate and overwrites with the
+   * authoritative state (see `playerActions.optimisticAlbumStart`).
    */
   playAlbum(album: Album) {
     console.log('[Library] Playing album:', album.title);
+    playerActions.optimisticAlbumStart(album);
     socketService.emit('replaceAndPlay', {
       service: 'mpd',
       type: 'folder',
