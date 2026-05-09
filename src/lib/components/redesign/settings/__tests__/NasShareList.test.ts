@@ -15,6 +15,7 @@ const {
   mockBrowsedShares,
   mockBrowseLoading,
   mockBrowseError,
+  mockLastBrowseHostAttempt,
   mockMountInFlight,
   mockSourcesActions,
 } = vi.hoisted(() => {
@@ -28,6 +29,7 @@ const {
   const mockBrowsedShares = writable([]);
   const mockBrowseLoading = writable(false);
   const mockBrowseError = writable(null);
+  const mockLastBrowseHostAttempt = writable(null);
   const mockMountInFlight = writable({});
 
   const mockSourcesActions = {
@@ -37,7 +39,11 @@ const {
     mountShare: vi.fn(),
     unmountShare: vi.fn(),
     discoverDevices: vi.fn(),
-    browseShares: vi.fn(),
+    // Real action writes lastBrowseHostAttempt; mirror that here so the
+    // retry-disabled binding behaves correctly under test.
+    browseShares: vi.fn((host: string) => {
+      mockLastBrowseHostAttempt.set(host);
+    }),
     clearLastResult: vi.fn(),
   };
 
@@ -51,6 +57,7 @@ const {
     mockBrowsedShares,
     mockBrowseLoading,
     mockBrowseError,
+    mockLastBrowseHostAttempt,
     mockMountInFlight,
     mockSourcesActions,
   };
@@ -66,6 +73,7 @@ vi.mock('$lib/stores/sources', () => ({
   browsedShares: mockBrowsedShares,
   browseLoading: mockBrowseLoading,
   browseError: mockBrowseError,
+  lastBrowseHostAttempt: mockLastBrowseHostAttempt,
   mountInFlight: mockMountInFlight,
   sourcesActions: mockSourcesActions,
   DISCOVERY_TIMEOUT_MS: 8000,
@@ -125,6 +133,7 @@ describe('NasShareList', () => {
     mockBrowsedShares.set([]);
     mockBrowseLoading.set(false);
     mockBrowseError.set(null);
+    mockLastBrowseHostAttempt.set(null);
     mockMountInFlight.set({});
   });
 
@@ -482,6 +491,27 @@ describe('NasShareList', () => {
     await fireEvent.click(getByTestId('nas-browse-retry'));
     expect(mockSourcesActions.browseShares).toHaveBeenLastCalledWith('192.168.5.50');
     expect(mockSourcesActions.browseShares).toHaveBeenCalledTimes(2);
+  });
+
+  // Test 22b: Retry survives a remount when error persists in store
+  it('retry button stays enabled across simulated remount when browseError persists in store', async () => {
+    // Simulate: user calls browseShares (sets lastBrowseHostAttempt), backend
+    // errors out, component remounts.
+    mockSourcesActions.browseShares('192.168.1.50');           // writes lastBrowseHostAttempt = '192.168.1.50'
+    mockBrowseError.set('host unreachable: 192.168.1.50');     // simulate the push handler setting the error
+
+    // Render fresh component (this is the "remount").
+    const { getByText, getByTestId } = render(NasShareList);
+    await fireEvent.click(getByText('Find devices on network'));
+    await tick();
+
+    const retryBtn = getByTestId('nas-browse-retry');
+    // Would have been true under the old local-state implementation —
+    // a fresh mount would have reset lastBrowseHost back to null.
+    expect((retryBtn as HTMLButtonElement).disabled).toBe(false);
+
+    await fireEvent.click(retryBtn);
+    expect(mockSourcesActions.browseShares).toHaveBeenCalledWith('192.168.1.50');
   });
 
   // Test 23: Browse error stays sticky after 4s

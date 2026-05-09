@@ -19,6 +19,7 @@ import {
   browsedShares,
   browseLoading,
   browseError,
+  lastBrowseHostAttempt,
   mountInFlight,
   mountedNasShares,
   unmountedNasShares,
@@ -345,6 +346,11 @@ describe('Sources store (NAS share management)', () => {
       sourcesActions.browseShares('192.168.1.5');
       expect(get(browseError)).toBeNull();
     });
+
+    it('sets lastBrowseHostAttempt to host', () => {
+      sourcesActions.browseShares('192.168.1.5');
+      expect(get(lastBrowseHostAttempt)).toBe('192.168.1.5');
+    });
   });
 
   // -----------------------------------------------------------------------
@@ -504,6 +510,12 @@ describe('Sources store (NAS share management)', () => {
       browseError.set('err');
       cleanupSourcesStore();
       expect(get(browseError)).toBeNull();
+    });
+
+    it('resets lastBrowseHostAttempt to null', () => {
+      lastBrowseHostAttempt.set('192.168.1.5');
+      cleanupSourcesStore();
+      expect(get(lastBrowseHostAttempt)).toBeNull();
     });
 
     it('allows re-initialization after cleanup', () => {

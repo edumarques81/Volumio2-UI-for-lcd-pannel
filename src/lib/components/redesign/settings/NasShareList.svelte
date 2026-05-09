@@ -9,6 +9,7 @@
     browsedShares,
     browseLoading,
     browseError,
+    lastBrowseHostAttempt,
     mountInFlight,
     sourcesActions,
     type NasShare,
@@ -23,10 +24,6 @@
   // gate the "no devices found" empty-state so it doesn't appear before the
   // user has actually attempted a scan.
   let discoverAttempted = $state(false);
-
-  // Last host the user attempted to browse. Used by the browse-error retry
-  // button so it can re-issue browseShares() against the same host.
-  let lastBrowseHost = $state<string | null>(null);
 
   // ── Add-form fields ───────────────────────────────────────────────────────
   let addName = $state('');
@@ -102,13 +99,13 @@
   }
 
   function handleBrowse(ip: string) {
-    lastBrowseHost = ip;
     sourcesActions.browseShares(ip);
   }
 
   function handleBrowseRetry() {
-    if (lastBrowseHost !== null) {
-      sourcesActions.browseShares(lastBrowseHost);
+    const host = $lastBrowseHostAttempt;
+    if (host !== null) {
+      sourcesActions.browseShares(host);
     }
   }
 
@@ -347,7 +344,7 @@
             type="button"
             class="btn-retry"
             data-testid="nas-browse-retry"
-            disabled={lastBrowseHost === null}
+            disabled={$lastBrowseHostAttempt === null}
             onclick={handleBrowseRetry}
           >
             Retry

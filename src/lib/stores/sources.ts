@@ -92,6 +92,9 @@ export const browseLoading = writable<boolean>(false);
 /** Error string from the last pushBrowseNasShares payload, or null. */
 export const browseError = writable<string | null>(null);
 
+/** The host most recently passed to browseShares(). Used so the UI can re-issue the request on retry. Cleared on cleanup. */
+export const lastBrowseHostAttempt = writable<string | null>(null);
+
 /**
  * Map of share id → in-flight mount/unmount operation.
  * Set by mountShare()/unmountShare() before the emit; cleared when
@@ -199,6 +202,7 @@ export const sourcesActions = {
     clearBrowseTimeout();
     browseLoading.set(true);
     browseError.set(null);
+    lastBrowseHostAttempt.set(host);
     socketService.emit('browseNasShares', { host, username, password });
     browseTimeoutId = setTimeout(() => {
       browseTimeoutId = null;
@@ -287,6 +291,7 @@ export function cleanupSourcesStore(): void {
   browsedShares.set([]);
   browseLoading.set(false);
   browseError.set(null);
+  lastBrowseHostAttempt.set(null);
   mountInFlight.set({});
   initialized = false;
 }
