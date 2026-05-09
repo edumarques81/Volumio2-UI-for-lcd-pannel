@@ -32,8 +32,9 @@ vi.mock('$lib/stores/issues', () => ({
 // Import component after mocks are set up
 import Toast from '../Toast.svelte';
 import { issueActions } from '$lib/stores/issues';
+import { toastActions } from '$lib/stores/toast';
 
-// Constants for timing - should match Toast.svelte internal values
+// Constants for timing - should match toast store values
 const INFO_TOAST_DURATION = 4000;
 const THROTTLE_MS = 3000;
 const DEDUPE_WINDOW_MS = 60000;
@@ -53,6 +54,9 @@ describe('Toast component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     socketHandlers.clear();
+    // Reset module-level toast store state so dedupe/throttle don't leak
+    // between tests now that the state lives outside the component.
+    toastActions.clearAll();
     vi.useFakeTimers();
   });
 
@@ -296,6 +300,7 @@ describe('Toast dedupe behavior', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     socketHandlers.clear();
+    toastActions.clearAll();
     vi.useFakeTimers();
   });
 

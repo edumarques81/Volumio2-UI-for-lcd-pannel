@@ -1,157 +1,44 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
-  import { writable } from 'svelte/store';
   import { socketService } from '$lib/services/socket';
   import { issueActions } from '$lib/stores/issues';
+  import { toasts, toastActions, type ToastMessage, type ToastType } from '$lib/stores/toast';
   import Icon from './Icon.svelte';
 
-  /**
-   * Toast message interface
-   */
-  interface ToastMessage {
-    id: number;
-    type: 'success' | 'error' | 'info' | 'warning';
-    title: string;
-    message?: string;
-    duration: number;
-  }
-
-  // Toast store
-  const toasts = writable<ToastMessage[]>([]);
-  let nextId = 0;
-
-  // Dedupe tracking
-  const recentToasts = new Map<string, number>(); // key -> timestamp
-  const DEDUPE_WINDOW_MS = 60000; // 60 seconds
-
-  // Throttle tracking
-  let lastToastTime = 0;
-  const THROTTLE_MS = 3000; // 3 seconds between toasts
-
-  // Max toasts visible
-  const MAX_TOASTS = 3;
-
-  /**
-   * Generate dedupe key from toast
-   */
-  function getDedupeKey(type: string, title: string): string {
-    return `${type}:${title.toLowerCase().replace(/\s+/g, '_')}`;
-  }
-
-  /**
-   * Check if toast should be shown (dedupe + throttle)
-   */
-  function shouldShowToast(type: string, title: string): boolean {
-    const now = Date.now();
-    const key = getDedupeKey(type, title);
-
-    // Check dedupe
-    const lastShown = recentToasts.get(key);
-    if (lastShown && now - lastShown < DEDUPE_WINDOW_MS) {
-      console.log(`Toast deduped: ${key}`);
-      return false;
-    }
-
-    // Check throttle (only for non-success toasts)
-    if (type !== 'success' && now - lastToastTime < THROTTLE_MS) {
-      console.log(`Toast throttled: ${key}`);
-      return false;
-    }
-
-    return true;
-  }
-
-  /**
-   * Record that we showed a toast
-   */
-  function recordToast(type: string, title: string) {
-    const now = Date.now();
-    const key = getDedupeKey(type, title);
-    recentToasts.set(key, now);
-    lastToastTime = now;
-
-    // Clean old entries
-    for (const [k, ts] of recentToasts.entries()) {
-      if (now - ts > DEDUPE_WINDOW_MS) {
-        recentToasts.delete(k);
-      }
-    }
-  }
-
-  /**
-   * Add a toast message
-   */
-  function addToast(
-    type: ToastMessage['type'],
-    title: string,
-    message?: string,
-    duration = 4000
-  ) {
-    console.log('[Toast] addToast called:', { type, title, message, duration });
-
-    // Apply dedupe/throttle for errors and warnings
-    if ((type === 'error' || type === 'warning') && !shouldShowToast(type, title)) {
-      console.log('[Toast] Toast blocked by dedupe/throttle');
-      return;
-    }
-
-    const id = nextId++;
-    console.log('[Toast] Creating toast with id:', id);
-    const toast: ToastMessage = { id, type, title, message, duration };
-
-    toasts.update((t) => {
-      const updated = [...t, toast];
-      // Keep only the most recent MAX_TOASTS
-      return updated.slice(-MAX_TOASTS);
-    });
-
-    recordToast(type, title);
-
-    // Auto-remove after duration
-    if (duration > 0) {
-      setTimeout(() => removeToast(id), duration);
-    }
-  }
-
-  /**
-   * Remove a toast message
-   */
-  function removeToast(id: number) {
-    toasts.update((t) => t.filter((toast) => toast.id !== id));
-  }
-
-  // Socket listener for backend toast messages
+  // Socket listener for backend toast messages.
   let unsubscribe: (() => void) | null = null;
 
   onMount(() => {
-    // Listen for toast messages from Volumio backend
     unsubscribe = socketService.on<any>('pushToastMessage', (data) => {
-      console.log('[Toast] Received pushToastMessage:', data);
-      if (data) {
-        const type = mapVolumioType(data.type);
-        console.log('[Toast] Mapped type:', type);
+      if (!data) return;
+      const type = mapVolumioType(data.type);
+      const title = data.title || '';
+      const message = data.message || data.body;
 
-        // For errors, also create an issue
-        if (type === 'error') {
-          const showToast = issueActions.upsertIssue({
-            id: `toast:${data.title?.replace(/\s+/g, '_').toLowerCase() || Date.now()}`,
-            domain: 'system',
-            severity: 'error',
-            title: data.title || 'Error',
-            detail: data.message || data.body,
-            ts: Date.now(),
-            persistent: false,
-            source: 'volumio-toast',
-          });
+      // For errors, also create an issue. The issue store decides whether the
+      // toast should still be shown (it has its own dedupe). Behavior matches
+      // the previous in-component implementation 1:1.
+      if (type === 'error') {
+        const showToast = issueActions.upsertIssue({
+          id: `toast:${data.title?.replace(/\s+/g, '_').toLowerCase() || Date.now()}`,
+          domain: 'system',
+          severity: 'error',
+          title: data.title || 'Error',
+          detail: message,
+          ts: Date.now(),
+          persistent: false,
+          source: 'volumio-toast',
+        });
 
-          // Only show toast if issue store says we should (it also handles dedupe)
-          if (showToast) {
-            addToast(type, data.title || '', data.message || data.body, 5000);
-          }
-        } else {
-          // For non-errors, just show toast normally
-          addToast(type, data.title || '', data.message || data.body, 4000);
+        if (showToast) {
+          toastActions.error(title, message, 5000);
         }
+      } else if (type === 'warning') {
+        toastActions.warning(title, message, 4000);
+      } else if (type === 'success') {
+        toastActions.success(title, message, 4000);
+      } else {
+        toastActions.info(title, message, 4000);
       }
     });
   });
@@ -160,10 +47,8 @@
     unsubscribe?.();
   });
 
-  /**
-   * Map Volumio toast types to our types
-   */
-  function mapVolumioType(type: string): ToastMessage['type'] {
+  /** Map Volumio toast type strings to our union type. */
+  function mapVolumioType(type: string): ToastType {
     switch (type) {
       case 'success':
         return 'success';
@@ -176,9 +61,7 @@
     }
   }
 
-  /**
-   * Get icon for toast type
-   */
+  /** Pick the icon name for a given toast type. */
   function getIcon(type: ToastMessage['type']): string {
     switch (type) {
       case 'success':
@@ -205,7 +88,7 @@
           <div class="toast-message">{toast.message}</div>
         {/if}
       </div>
-      <button class="toast-close" on:click={() => removeToast(toast.id)} aria-label="Dismiss">
+      <button class="toast-close" on:click={() => toastActions.dismiss(toast.id)} aria-label="Dismiss">
         <Icon name="x" size={14} />
       </button>
     </div>
