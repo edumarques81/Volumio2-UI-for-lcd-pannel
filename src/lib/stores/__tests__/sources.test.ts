@@ -19,11 +19,14 @@ import {
   browsedShares,
   browseLoading,
   browseError,
+  mountInFlight,
   mountedNasShares,
   unmountedNasShares,
   sourcesActions,
   initSourcesStore,
   cleanupSourcesStore,
+  DISCOVERY_TIMEOUT_MS,
+  BROWSE_TIMEOUT_MS,
   type NasShare,
   type NasDevice,
   type ShareInfo,
@@ -513,6 +516,172 @@ describe('Sources store (NAS share management)', () => {
       const onMock = vi.mocked(socketService.on);
       const pushListCalls = onMock.mock.calls.filter(c => c[0] === 'pushListNasShares');
       expect(pushListCalls).toHaveLength(1);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // 17. Per-action timeouts (discovery + browse)
+  // -----------------------------------------------------------------------
+  describe('per-action timeouts', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('discoverDevices: surfaces timeout error after DISCOVERY_TIMEOUT_MS when no pushNasDevices arrives', () => {
+      initSourcesStore();
+      sourcesActions.discoverDevices();
+
+      // Advance just before the deadline — still loading, no error yet.
+      vi.advanceTimersByTime(DISCOVERY_TIMEOUT_MS - 1);
+      expect(get(discoveryLoading)).toBe(true);
+      expect(get(discoveryError)).toBeNull();
+
+      // Cross the deadline — timeout fires.
+      vi.advanceTimersByTime(1);
+      expect(get(discoveryError)).toBe('Discovery timed out — try again');
+      expect(get(discoveryLoading)).toBe(false);
+    });
+
+    it('discoverDevices: timer is cancelled when pushNasDevices arrives before deadline', () => {
+      initSourcesStore();
+      sourcesActions.discoverDevices();
+
+      // Listener arrives at t=1000ms with a successful payload.
+      vi.advanceTimersByTime(1000);
+      const handler = getHandler<DiscoverResult>('pushNasDevices');
+      handler!({ devices: [{ name: 'NAS-1', ip: '192.168.1.10' }] });
+
+      expect(get(discoveryLoading)).toBe(false);
+      expect(get(discoveryError)).toBeNull();
+
+      // Push past the original deadline; the cancelled timer must NOT flip state.
+      vi.advanceTimersByTime(DISCOVERY_TIMEOUT_MS);
+      expect(get(discoveryError)).toBeNull();
+      expect(get(discoveredDevices)).toEqual([{ name: 'NAS-1', ip: '192.168.1.10' }]);
+    });
+
+    it('browseShares: surfaces timeout error after BROWSE_TIMEOUT_MS when no pushBrowseNasShares arrives', () => {
+      initSourcesStore();
+      sourcesActions.browseShares('192.168.1.5');
+
+      vi.advanceTimersByTime(BROWSE_TIMEOUT_MS - 1);
+      expect(get(browseLoading)).toBe(true);
+      expect(get(browseError)).toBeNull();
+
+      vi.advanceTimersByTime(1);
+      expect(get(browseError)).toBe('Browse timed out — try again');
+      expect(get(browseLoading)).toBe(false);
+    });
+
+    it('browseShares: timer is cancelled when pushBrowseNasShares arrives before deadline', () => {
+      initSourcesStore();
+      sourcesActions.browseShares('192.168.1.5');
+
+      vi.advanceTimersByTime(1000);
+      const handler = getHandler<BrowseSharesResult>('pushBrowseNasShares');
+      handler!({ shares: [{ name: 'music', type: 'disk', writable: true }] });
+
+      expect(get(browseLoading)).toBe(false);
+      expect(get(browseError)).toBeNull();
+
+      vi.advanceTimersByTime(BROWSE_TIMEOUT_MS);
+      expect(get(browseError)).toBeNull();
+      expect(get(browsedShares)).toEqual([{ name: 'music', type: 'disk', writable: true }]);
+    });
+
+    it('discoverDevices: subsequent call clears any pending stale timer', () => {
+      initSourcesStore();
+      sourcesActions.discoverDevices();
+
+      // Fire a second discoverDevices() near (but before) the first deadline.
+      vi.advanceTimersByTime(DISCOVERY_TIMEOUT_MS - 100);
+      sourcesActions.discoverDevices();
+
+      // Original timer would have fired by now if not cancelled — but the
+      // second call resets the deadline, so we should still be loading.
+      vi.advanceTimersByTime(200);
+      expect(get(discoveryError)).toBeNull();
+      expect(get(discoveryLoading)).toBe(true);
+
+      // The second call's deadline lands at t = (DISCOVERY_TIMEOUT_MS - 100) + DISCOVERY_TIMEOUT_MS.
+      // We've already advanced 200ms past the second call, so push the rest.
+      vi.advanceTimersByTime(DISCOVERY_TIMEOUT_MS - 200);
+      expect(get(discoveryError)).toBe('Discovery timed out — try again');
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // 18. Per-share mount/unmount in-flight tracking
+  // -----------------------------------------------------------------------
+  describe('mountInFlight tracking', () => {
+    it('mountShare(id) sets mountInFlight[id] = "mounting"', () => {
+      sourcesActions.mountShare('abc');
+      expect(get(mountInFlight)).toEqual({ abc: 'mounting' });
+    });
+
+    it('unmountShare(id) sets mountInFlight[id] = "unmounting"', () => {
+      sourcesActions.unmountShare('abc');
+      expect(get(mountInFlight)).toEqual({ abc: 'unmounting' });
+    });
+
+    it('multiple in-flight shares are tracked independently', () => {
+      sourcesActions.mountShare('abc');
+      sourcesActions.unmountShare('def');
+      expect(get(mountInFlight)).toEqual({ abc: 'mounting', def: 'unmounting' });
+    });
+
+    it('pushListNasShares clears all in-flight entries', () => {
+      initSourcesStore();
+      sourcesActions.mountShare('abc');
+      sourcesActions.unmountShare('def');
+      expect(get(mountInFlight)).not.toEqual({});
+
+      const handler = getHandler<NasShare[]>('pushListNasShares');
+      handler!([sampleShare]);
+
+      expect(get(mountInFlight)).toEqual({});
+    });
+
+    it('pushListNasShares clears in-flight even when the share list is empty', () => {
+      initSourcesStore();
+      sourcesActions.unmountShare('abc');
+
+      const handler = getHandler<NasShare[]>('pushListNasShares');
+      handler!([]);
+
+      expect(get(mountInFlight)).toEqual({});
+    });
+
+    it('pushNasShareResult with success: false clears all in-flight entries', () => {
+      initSourcesStore();
+      sourcesActions.mountShare('abc');
+      expect(get(mountInFlight)).toEqual({ abc: 'mounting' });
+
+      const handler = getHandler<SourceResult>('pushNasShareResult');
+      handler!({ success: false, error: 'nope' });
+
+      expect(get(mountInFlight)).toEqual({});
+    });
+
+    it('pushNasShareResult with success: true does NOT clear in-flight (waits for pushListNasShares)', () => {
+      initSourcesStore();
+      sourcesActions.mountShare('abc');
+
+      const handler = getHandler<SourceResult>('pushNasShareResult');
+      handler!({ success: true, message: 'mounted' });
+
+      // Still in-flight until the authoritative share list arrives.
+      expect(get(mountInFlight)).toEqual({ abc: 'mounting' });
+    });
+
+    it('cleanupSourcesStore() resets mountInFlight to empty', () => {
+      sourcesActions.mountShare('abc');
+      cleanupSourcesStore();
+      expect(get(mountInFlight)).toEqual({});
     });
   });
 });

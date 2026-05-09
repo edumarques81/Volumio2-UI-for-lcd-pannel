@@ -92,6 +92,44 @@ export const browseLoading = writable<boolean>(false);
 /** Error string from the last pushBrowseNasShares payload, or null. */
 export const browseError = writable<string | null>(null);
 
+/**
+ * Map of share id → in-flight mount/unmount operation.
+ * Set by mountShare()/unmountShare() before the emit; cleared when
+ * pushListNasShares arrives (success path) or when pushNasShareResult
+ * arrives with success: false (failure path — clears all entries since
+ * the result payload doesn't carry the share id).
+ */
+export const mountInFlight = writable<Record<string, 'mounting' | 'unmounting'>>({});
+
+// -------------------------------------------------------------------------
+// Per-action timeout constants (exported so consumers/tests can read them)
+// -------------------------------------------------------------------------
+
+/** Discovery times out and surfaces an error after this many ms. */
+export const DISCOVERY_TIMEOUT_MS = 8000;
+
+/** Browse times out and surfaces an error after this many ms. */
+export const BROWSE_TIMEOUT_MS = 8000;
+
+// Module-level handles for the pending discovery/browse timers. Held outside
+// the action object so the listener and cleanup paths can clear them too.
+let discoveryTimeoutId: ReturnType<typeof setTimeout> | null = null;
+let browseTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
+function clearDiscoveryTimeout(): void {
+  if (discoveryTimeoutId !== null) {
+    clearTimeout(discoveryTimeoutId);
+    discoveryTimeoutId = null;
+  }
+}
+
+function clearBrowseTimeout(): void {
+  if (browseTimeoutId !== null) {
+    clearTimeout(browseTimeoutId);
+    browseTimeoutId = null;
+  }
+}
+
 // -------------------------------------------------------------------------
 // Derived stores
 // -------------------------------------------------------------------------
@@ -127,26 +165,46 @@ export const sourcesActions = {
 
   /** Mount a share by id. Backend broadcasts pushListNasShares on success. */
   mountShare(id: string): void {
+    mountInFlight.update((m) => ({ ...m, [id]: 'mounting' }));
     socketService.emit('mountNasShare', { id });
   },
 
   /** Unmount a share by id. Backend broadcasts pushListNasShares on success. */
   unmountShare(id: string): void {
+    mountInFlight.update((m) => ({ ...m, [id]: 'unmounting' }));
     socketService.emit('unmountNasShare', { id });
   },
 
-  /** Discover NAS devices on the local network. */
+  /**
+   * Discover NAS devices on the local network. Surfaces a timeout error
+   * after DISCOVERY_TIMEOUT_MS if no pushNasDevices arrives.
+   */
   discoverDevices(): void {
+    clearDiscoveryTimeout();
     discoveryLoading.set(true);
     discoveryError.set(null);
     socketService.emit('discoverNasDevices');
+    discoveryTimeoutId = setTimeout(() => {
+      discoveryTimeoutId = null;
+      discoveryLoading.set(false);
+      discoveryError.set('Discovery timed out — try again');
+    }, DISCOVERY_TIMEOUT_MS);
   },
 
-  /** Browse shares exposed by a specific host. */
+  /**
+   * Browse shares exposed by a specific host. Surfaces a timeout error
+   * after BROWSE_TIMEOUT_MS if no pushBrowseNasShares arrives.
+   */
   browseShares(host: string, username?: string, password?: string): void {
+    clearBrowseTimeout();
     browseLoading.set(true);
     browseError.set(null);
     socketService.emit('browseNasShares', { host, username, password });
+    browseTimeoutId = setTimeout(() => {
+      browseTimeoutId = null;
+      browseLoading.set(false);
+      browseError.set('Browse timed out — try again');
+    }, BROWSE_TIMEOUT_MS);
   },
 
   /** Clear the last share operation result after the consumer has read it. */
@@ -175,21 +233,33 @@ export function initSourcesStore(): void {
   socketService.on<NasShare[]>('pushListNasShares', (shares) => {
     nasShares.set(shares ?? []);
     nasSharesLoading.set(false);
+    // A fresh share list is the natural "operation finished" signal for any
+    // pending mount/unmount — the backend broadcasts pushListNasShares on
+    // every successful mutation.
+    mountInFlight.set({});
   });
 
   socketService.on<SourceResult>('pushNasShareResult', (result) => {
     lastShareResult.set(result);
     // Do NOT touch nasShares here — the backend separately broadcasts
     // pushListNasShares to all clients on successful mutations.
+    // On failure, no pushListNasShares follows, so clear in-flight here.
+    // The result payload doesn't carry the share id, so clear all entries
+    // (acceptable for this iteration — the user can simply retry).
+    if (result && result.success === false) {
+      mountInFlight.set({});
+    }
   });
 
   socketService.on<DiscoverResult>('pushNasDevices', (payload) => {
+    clearDiscoveryTimeout();
     discoveredDevices.set(payload.devices ?? []);
     discoveryLoading.set(false);
     discoveryError.set(payload.error ?? null);
   });
 
   socketService.on<BrowseSharesResult>('pushBrowseNasShares', (payload) => {
+    clearBrowseTimeout();
     browsedShares.set(payload.shares ?? []);
     browseLoading.set(false);
     browseError.set(payload.error ?? null);
@@ -206,6 +276,8 @@ export function initSourcesStore(): void {
  * Allows the store to be re-initialized cleanly (e.g. in tests).
  */
 export function cleanupSourcesStore(): void {
+  clearDiscoveryTimeout();
+  clearBrowseTimeout();
   nasShares.set([]);
   nasSharesLoading.set(false);
   lastShareResult.set(null);
@@ -215,5 +287,6 @@ export function cleanupSourcesStore(): void {
   browsedShares.set([]);
   browseLoading.set(false);
   browseError.set(null);
+  mountInFlight.set({});
   initialized = false;
 }
