@@ -16,8 +16,9 @@ export default defineConfig({
   ],
 
   use: {
-    // Base URL for Stellar Volumio on Pi (port 8080)
-    baseURL: process.env.VOLUMIO_URL || 'http://192.168.86.34:8080',
+    // Base URL for Stellar Volumio: the Mac-served Vite dev server with the
+    // LCD kiosk query param (the Pi's port-8080 frontend was retired).
+    baseURL: process.env.VOLUMIO_URL || 'http://192.168.86.221:5173?layout=lcd',
 
     // Collect trace on failure for debugging
     trace: 'on-first-retry',

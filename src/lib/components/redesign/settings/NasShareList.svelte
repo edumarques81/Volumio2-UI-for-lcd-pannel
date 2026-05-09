@@ -109,7 +109,7 @@
       <li class="share-row state-msg">No shares configured</li>
     {:else}
       {#each $nasShares as share (share.id)}
-        <li class="share-row">
+        <li class="share-row" data-testid="nas-share-{share.name}">
           <div class="share-info">
             <span class="share-name">{share.name}</span>
             <span class="share-path">{share.path}</span>
@@ -122,6 +122,7 @@
               type="button"
               class="icon-btn"
               aria-label={share.mounted ? 'Unmount' : 'Mount'}
+              data-testid={share.mounted ? `nas-share-unmount-${share.name}` : `nas-share-mount-${share.name}`}
               onclick={() => handleMount(share)}
             >
               {share.mounted ? '⏏' : '⏩'}
@@ -130,6 +131,7 @@
               type="button"
               class="icon-btn delete-btn"
               aria-label="Delete"
+              data-testid="nas-share-delete-{share.name}"
               onclick={() => handleDelete(share.id)}
             >
               ✕
@@ -153,6 +155,7 @@
           id="settings-nas-add-name"
           type="text"
           class="field-input"
+          data-testid="nas-add-name"
           placeholder="e.g. My NAS"
           bind:value={addName}
         />
@@ -164,6 +167,7 @@
           id="settings-nas-add-ip"
           type="text"
           class="field-input"
+          data-testid="nas-add-ip"
           placeholder="e.g. 192.168.1.10"
           bind:value={addIp}
         />
@@ -175,6 +179,7 @@
           id="settings-nas-add-path"
           type="text"
           class="field-input"
+          data-testid="nas-add-path"
           placeholder="e.g. /music"
           bind:value={addPath}
         />
@@ -182,7 +187,12 @@
 
       <div class="field-row">
         <label for="settings-nas-add-fstype">File system</label>
-        <select id="settings-nas-add-fstype" class="field-input" bind:value={addFstype}>
+        <select
+          id="settings-nas-add-fstype"
+          class="field-input"
+          data-testid="nas-add-fstype"
+          bind:value={addFstype}
+        >
           <option value="cifs">CIFS (Samba)</option>
           <option value="nfs">NFS</option>
         </select>
@@ -194,6 +204,7 @@
           id="settings-nas-add-username"
           type="text"
           class="field-input"
+          data-testid="nas-add-username"
           placeholder="Leave blank if not required"
           bind:value={addUsername}
         />
@@ -205,6 +216,7 @@
           id="settings-nas-add-password"
           type="password"
           class="field-input"
+          data-testid="nas-add-password"
           placeholder="Leave blank if not required"
           bind:value={addPassword}
         />
@@ -216,6 +228,7 @@
           id="settings-nas-add-options"
           type="text"
           class="field-input"
+          data-testid="nas-add-options"
           placeholder="e.g. vers=2.0,uid=1000"
           bind:value={addOptions}
         />
@@ -235,14 +248,19 @@
 
   {#if showDiscover}
     <div class="discover-card">
-      <button type="button" class="btn-discover" onclick={handleDiscover}>
+      <button
+        type="button"
+        class="btn-discover"
+        data-testid="nas-discover"
+        onclick={handleDiscover}
+      >
         {$discoveryLoading ? 'Discovering…' : 'Discover'}
       </button>
 
       {#if $discoveredDevices.length > 0}
         <ul class="device-list" role="list">
           {#each $discoveredDevices as device (device.ip)}
-            <li class="device-row">
+            <li class="device-row" data-testid="nas-device-{device.ip}">
               <span class="device-name">{device.name}</span>
               <span class="device-ip">{device.ip}</span>
               <button
@@ -284,6 +302,7 @@
       class="result-strip"
       class:success={$lastShareResult.success}
       class:failure={!$lastShareResult.success}
+      data-testid="nas-result-toast"
     >
       {$lastShareResult.success
         ? ($lastShareResult.message ?? 'Done')

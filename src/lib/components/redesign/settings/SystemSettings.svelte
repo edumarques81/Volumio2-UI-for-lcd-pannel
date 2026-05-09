@@ -52,7 +52,7 @@
       <dd class="mono">{$frontendVersion.name}</dd>
 
       <dt>Frontend version</dt>
-      <dd class="mono">{$frontendVersion.version}</dd>
+      <dd class="mono" data-testid="system-version">{$frontendVersion.version}</dd>
 
       <dt>Backend version</dt>
       <dd class="mono">{$backendVersion?.version ?? 'unknown'}</dd>
@@ -108,6 +108,7 @@
       <button
         type="button"
         class="power-btn"
+        data-testid="system-reboot"
         onclick={() => { rebootOpen = true; }}
       >
         Reboot Stellar
@@ -115,6 +116,7 @@
       <button
         type="button"
         class="power-btn destructive"
+        data-testid="system-shutdown"
         onclick={() => { shutdownOpen = true; }}
       >
         Shutdown Stellar

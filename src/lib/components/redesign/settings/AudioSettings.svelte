@@ -58,14 +58,16 @@
   <!-- ── Output device ──────────────────────────────────────────────────── -->
   <div class="block">
     <p class="block-label">Output device</p>
-    <SelectField
-      id="settings-audio-output-device"
-      ariaLabel="Audio output device"
-      options={deviceOptions}
-      value={$selectedAudioOutput}
-      onchange={audioDevicesActions.setOutput}
-      placeholder="Select device…"
-    />
+    <div data-testid="audio-output-select">
+      <SelectField
+        id="settings-audio-output-device"
+        ariaLabel="Audio output device"
+        options={deviceOptions}
+        value={$selectedAudioOutput}
+        onchange={audioDevicesActions.setOutput}
+        placeholder="Select device…"
+      />
+    </div>
     {#if $audioDevicesLoading}
       <p class="loading-text">Loading…</p>
     {/if}

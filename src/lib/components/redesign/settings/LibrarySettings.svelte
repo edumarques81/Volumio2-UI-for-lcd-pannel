@@ -36,25 +36,29 @@
   <!-- Scope block -->
   <div class="block">
     <p class="block-label">Library scope</p>
-    <SegmentedControl
-      options={SCOPE_OPTIONS}
-      value={$libraryScope}
-      onchange={libraryActions.setScope}
-      ariaLabel="Library scope"
-      id="settings-library-scope"
-    />
+    <div data-testid="library-scope">
+      <SegmentedControl
+        options={SCOPE_OPTIONS}
+        value={$libraryScope}
+        onchange={libraryActions.setScope}
+        ariaLabel="Library scope"
+        id="settings-library-scope"
+      />
+    </div>
   </div>
 
   <!-- Sort block -->
   <div class="block">
     <p class="block-label">Library sort</p>
-    <SegmentedControl
-      options={SORT_OPTIONS}
-      value={$librarySort}
-      onchange={libraryActions.setSort}
-      ariaLabel="Library sort"
-      id="settings-library-sort"
-    />
+    <div data-testid="library-sort">
+      <SegmentedControl
+        options={SORT_OPTIONS}
+        value={$librarySort}
+        onchange={libraryActions.setSort}
+        ariaLabel="Library sort"
+        id="settings-library-sort"
+      />
+    </div>
   </div>
 
   <!-- Maintenance block -->
@@ -64,6 +68,7 @@
       <button
         type="button"
         class="maintenance-btn"
+        data-testid="library-rebuild"
         onclick={libraryActions.rebuildCache}
       >
         Rebuild library cache

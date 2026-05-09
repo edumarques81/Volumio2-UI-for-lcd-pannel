@@ -79,6 +79,7 @@
       aria-labelledby={titleId}
       aria-describedby={message ? messageId : undefined}
       tabindex="-1"
+      data-testid="confirm-dialog"
       onclick={handleBodyClick}
       onkeydown={undefined}
     >
@@ -93,6 +94,7 @@
           bind:this={cancelButton}
           type="button"
           class="cancel"
+          data-testid="confirm-dialog-cancel"
           onclick={handleCancel}
         >
           {cancelLabel}
@@ -101,6 +103,7 @@
           type="button"
           class="confirm"
           class:destructive
+          data-testid="confirm-dialog-confirm"
           onclick={handleConfirm}
         >
           {confirmLabel}
