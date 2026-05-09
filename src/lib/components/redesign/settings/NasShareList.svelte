@@ -109,7 +109,7 @@
       <li class="share-row state-msg">No shares configured</li>
     {:else}
       {#each $nasShares as share (share.id)}
-        <li class="share-row" data-testid="nas-share-{share.name}">
+        <li class="share-row" data-testid="nas-share-{share.id}">
           <div class="share-info">
             <span class="share-name">{share.name}</span>
             <span class="share-path">{share.path}</span>
@@ -122,7 +122,7 @@
               type="button"
               class="icon-btn"
               aria-label={share.mounted ? 'Unmount' : 'Mount'}
-              data-testid={share.mounted ? `nas-share-unmount-${share.name}` : `nas-share-mount-${share.name}`}
+              data-testid={share.mounted ? `nas-share-unmount-${share.id}` : `nas-share-mount-${share.id}`}
               onclick={() => handleMount(share)}
             >
               {share.mounted ? '⏏' : '⏩'}
@@ -131,7 +131,7 @@
               type="button"
               class="icon-btn delete-btn"
               aria-label="Delete"
-              data-testid="nas-share-delete-{share.name}"
+              data-testid="nas-share-delete-{share.id}"
               onclick={() => handleDelete(share.id)}
             >
               ✕
@@ -302,7 +302,7 @@
       class="result-strip"
       class:success={$lastShareResult.success}
       class:failure={!$lastShareResult.success}
-      data-testid="nas-result-toast"
+      data-testid="nas-result-strip"
     >
       {$lastShareResult.success
         ? ($lastShareResult.message ?? 'Done')

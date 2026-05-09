@@ -2,7 +2,9 @@ import { defineConfig, devices } from '@playwright/test';
 
 /**
  * Playwright configuration for Stellar Volumio E2E tests
- * Tests run against the deployed Pi at 192.168.86.34
+ * Tests run against the Mac-served Vite dev server (192.168.86.221:5173)
+ * with the LCD kiosk query param (?layout=lcd). The Pi's port-8080
+ * frontend was retired; the LCD now loads the UI from the Mac.
  */
 export default defineConfig({
   testDir: './e2e',
@@ -58,7 +60,8 @@ export default defineConfig({
     },
   ],
 
-  // Web server - not needed since we're testing against deployed Pi
+  // Web server - not needed: we test against the Mac-served Vite dev
+  // server that's already running (the same one the LCD kiosk loads).
   // webServer: {
   //   command: 'npm run dev',
   //   url: 'http://localhost:5173',
