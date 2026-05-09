@@ -135,10 +135,26 @@ describe('LibrarySettings', () => {
     expect(mockRescanLibrary).toHaveBeenCalledOnce();
   });
 
-  // 8. Renders NasShareList component (via stub sentinel)
-  it('renders the NasShareList component', () => {
-    const { getByTestId } = render(LibrarySettings);
-    expect(getByTestId('stub-nas-share-list')).toBeTruthy();
+  // 8. Renders NasShareList component — lazy-loaded since C6.2.
+  //
+  // NasShareList is now dynamically imported (plan §C6.2 — bundle-size split).
+  // Vitest's `vi.mock` does not reliably intercept dynamic `import()` calls of
+  // .svelte files when the real Vite-Svelte plugin is in the resolver chain,
+  // so the stub-NasShareList sentinel approach used pre-C6 no longer works.
+  // We instead assert the real NasShareList mounts under the "Network shares"
+  // block once the dynamic import resolves — its `.nas-share-list` root is
+  // a stable production marker.
+  it('renders the NasShareList component', async () => {
+    const { container } = render(LibrarySettings);
+    await vi.waitFor(
+      () => {
+        const el = container.querySelector('.nas-share-list');
+        if (!el) throw new Error('NasShareList not yet mounted');
+        return el;
+      },
+      { timeout: 2000, interval: 25 },
+    );
+    expect(container.querySelector('.nas-share-list')).toBeTruthy();
   });
 
   // 9. Scope and Sort SegmentedControl have the expected ids

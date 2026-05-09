@@ -79,9 +79,13 @@ test.describe('Audio output v2', () => {
     mockSocket,
   }) => {
     await page.click(NAV_SETTINGS);
-    mockSocket.send(SOCKET_EVENTS.PUSH_PLAYBACK_OPTIONS, playbackOptionsEnvelope(DEVICE_A.value));
-
+    // C6.1: SettingsView (and AudioSettings) are lazy-loaded chunks. Wait for
+    // the select to be in the DOM before pushing the options envelope so the
+    // store's `pushPlaybackOptions` listener is registered when the message
+    // arrives.
     const select = page.getByTestId('audio-output-select').locator('select');
+    await expect(select).toBeVisible();
+    mockSocket.send(SOCKET_EVENTS.PUSH_PLAYBACK_OPTIONS, playbackOptionsEnvelope(DEVICE_A.value));
     await expect(select).toHaveValue(DEVICE_A.value);
 
     // Pick device B and capture the resulting emit + ack callback.
@@ -108,9 +112,11 @@ test.describe('Audio output v2', () => {
     //   - A subsequent successful pick of the rejected device round-trips
     //     end-to-end (recovery path stays clean after a failure).
     await page.click(NAV_SETTINGS);
-    mockSocket.send(SOCKET_EVENTS.PUSH_PLAYBACK_OPTIONS, playbackOptionsEnvelope(DEVICE_A.value));
-
+    // C6.1: wait for the lazy AudioSettings chunk to mount before pushing
+    // fixtures (see comment on the previous test).
     const select = page.getByTestId('audio-output-select').locator('select');
+    await expect(select).toBeVisible();
+    mockSocket.send(SOCKET_EVENTS.PUSH_PLAYBACK_OPTIONS, playbackOptionsEnvelope(DEVICE_A.value));
     await expect(select).toHaveValue(DEVICE_A.value);
 
     const emitWaiter = mockSocket.waitForEmit(SOCKET_EVENTS.SET_PLAYBACK_SETTINGS);

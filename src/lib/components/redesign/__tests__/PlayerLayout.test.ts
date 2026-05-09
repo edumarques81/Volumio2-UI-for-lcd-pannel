@@ -1,5 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render } from '@testing-library/svelte';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
 
 const mocks = await vi.hoisted(async () => {
   const { writable } = await import('svelte/store');
@@ -102,5 +105,30 @@ describe('PlayerLayout', () => {
     const { container } = render(PlayerLayout);
     const root = container.querySelector('.player-layout');
     expect(root?.classList.contains('player-layout')).toBe(true);
+  });
+
+  // ---------------------------------------------------------------------------
+  // Bundle-size guard (plan §C6.1, §C6.4)
+  //
+  // SettingsView must not be transitively loaded at module-load time when the
+  // user is idle on the player view — it's a rare-path screen and ships in a
+  // separate Vite chunk (SettingsView-*.js + child chunks NasShareList-*.js
+  // and AudioSettings-*.js). We assert this at the source level: PlayerLayout
+  // must NOT contain a static `import` statement for SettingsView; it must
+  // pull SettingsView in via dynamic `import()` so Rollup can split it out.
+  // (A mock-based assertion is unreliable here — Vitest's `vi.mock` does not
+  // consistently intercept dynamic `import()` of .svelte files when the real
+  // Vite-Svelte plugin is in the resolver chain — so we guard the chunking
+  // intent at the source level instead.)
+  // ---------------------------------------------------------------------------
+  it('does not statically import SettingsView (so it stays in a separate chunk)', () => {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const playerLayoutPath = resolve(here, '..', 'PlayerLayout.svelte');
+    const src = readFileSync(playerLayoutPath, 'utf8');
+    // Static-import shape: `import <Anything> from '...SettingsView.svelte';`
+    const staticImportRegex = /^\s*import\s+\w+\s+from\s+['"][^'"]*SettingsView\.svelte['"]\s*;?/m;
+    expect(staticImportRegex.test(src)).toBe(false);
+    // And confirm the lazy hookup is in place (dynamic-import call site).
+    expect(src.includes("import('./SettingsView.svelte')")).toBe(true);
   });
 });
