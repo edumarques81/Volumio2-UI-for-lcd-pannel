@@ -10,9 +10,9 @@
  *     - browseNasShares({ host, username, password })
  *   Server pushes:
  *     - pushListNasShares: NasShare[]
- *     - pushNasShareResult: { success, message?, error? }   (NOT pushDiscoveredNasDevices/pushBrowsedNasShares as the C4 plan suggested)
- *     - pushNasDevices: { devices, error? }
- *     - pushBrowseNasShares: { shares, error? }
+ *     - pushNasShareResult: { success, message?, error? }
+ *     - pushNasDevices: { devices, error? }                  (NOT pushDiscoveredNasDevices as the C4 plan suggested)
+ *     - pushBrowseNasShares: { shares, error? }              (NOT pushBrowsedNasShares as the C4 plan suggested)
  *
  * The `nas-result-strip` is rendered from `lastShareResult`, populated by
  * `pushNasShareResult` — so a successful add needs both pushNasShareResult AND
@@ -23,6 +23,7 @@
  */
 
 import { test, expect } from '../tests/e2e/fixtures/mockSocket';
+import { SOCKET_EVENTS } from '../tests/e2e/fixtures/eventNames';
 
 const NAV_SETTINGS = '[data-testid="nav-cell-settings"]';
 
@@ -59,7 +60,7 @@ test.describe('Settings v2 — NAS shares', () => {
     // "no shares" state for the manual-add flow.
     await page.click(NAV_SETTINGS);
     await expect(page.getByTestId('settings-view')).toBeVisible();
-    mockSocket.send('pushListNasShares', []);
+    mockSocket.send(SOCKET_EVENTS.PUSH_LIST_NAS_SHARES, []);
   });
 
   test('manual add emits addNasShare with all fields and renders the result strip', async ({
@@ -79,7 +80,7 @@ test.describe('Settings v2 — NAS shares', () => {
     await page.getByTestId('nas-add-options').fill('vers=3.0');
 
     // Submit → expect addNasShare emit with the full payload.
-    const addEmit = mockSocket.waitForEmit('addNasShare');
+    const addEmit = mockSocket.waitForEmit(SOCKET_EVENTS.ADD_NAS_SHARE);
     await page.getByRole('button', { name: 'Add', exact: true }).click();
     const captured = await addEmit;
 
@@ -94,11 +95,11 @@ test.describe('Settings v2 — NAS shares', () => {
     });
 
     // Ack: backend pushes a success result + the updated share list.
-    mockSocket.send('pushNasShareResult', {
+    mockSocket.send(SOCKET_EVENTS.PUSH_NAS_SHARE_RESULT, {
       success: true,
       message: 'Share added',
     });
-    mockSocket.send('pushListNasShares', [SHARE_FIXTURE]);
+    mockSocket.send(SOCKET_EVENTS.PUSH_LIST_NAS_SHARES, [SHARE_FIXTURE]);
 
     // Result strip should appear (success branch styling).
     const strip = page.getByTestId('nas-result-strip');
@@ -117,12 +118,12 @@ test.describe('Settings v2 — NAS shares', () => {
   }) => {
     // Open Discover panel and trigger the scan.
     await page.getByRole('button', { name: 'Find devices on network' }).click();
-    const discoverEmit = mockSocket.waitForEmit('discoverNasDevices');
+    const discoverEmit = mockSocket.waitForEmit(SOCKET_EVENTS.DISCOVER_NAS_DEVICES);
     await page.getByTestId('nas-discover').click();
     await discoverEmit;
 
     // Mock backend returns two devices.
-    mockSocket.send('pushNasDevices', {
+    mockSocket.send(SOCKET_EVENTS.PUSH_NAS_DEVICES, {
       devices: [
         { name: 'Synology', ip: '10.0.0.20' },
         { name: 'TrueNAS', ip: '10.0.0.21' },
@@ -134,13 +135,13 @@ test.describe('Settings v2 — NAS shares', () => {
     await expect(firstRow).toBeVisible();
 
     // Tap the device's Browse button → backend should see browseNasShares.
-    const browseEmit = mockSocket.waitForEmit('browseNasShares');
+    const browseEmit = mockSocket.waitForEmit(SOCKET_EVENTS.BROWSE_NAS_SHARES);
     await firstRow.getByRole('button', { name: /^Browse / }).click();
     const browseCaptured = await browseEmit;
     expect(browseCaptured.payload).toMatchObject({ host: '10.0.0.20' });
 
     // Mock the share list for that host.
-    mockSocket.send('pushBrowseNasShares', {
+    mockSocket.send(SOCKET_EVENTS.PUSH_BROWSE_NAS_SHARES, {
       shares: [
         { name: 'music', type: 'disk', writable: true },
         { name: 'photos', type: 'disk', writable: false },
@@ -156,7 +157,7 @@ test.describe('Settings v2 — NAS shares', () => {
     await page.getByTestId('nas-add-name').fill('Synology Music');
     await page.getByTestId('nas-add-ip').fill('10.0.0.20');
 
-    const addEmit = mockSocket.waitForEmit('addNasShare');
+    const addEmit = mockSocket.waitForEmit(SOCKET_EVENTS.ADD_NAS_SHARE);
     await page.getByRole('button', { name: 'Add', exact: true }).click();
     const addCaptured = await addEmit;
     expect(addCaptured.payload).toMatchObject({
@@ -176,15 +177,15 @@ test.describe('Settings v2 — NAS shares', () => {
       mounted: false,
       mountPoint: '/mnt/nas/share-syn-music',
     };
-    mockSocket.send('pushNasShareResult', { success: true, message: 'Share added' });
-    mockSocket.send('pushListNasShares', [newShare]);
+    mockSocket.send(SOCKET_EVENTS.PUSH_NAS_SHARE_RESULT, { success: true, message: 'Share added' });
+    mockSocket.send(SOCKET_EVENTS.PUSH_LIST_NAS_SHARES, [newShare]);
 
     // Mount button is shown for the new (unmounted) share. Tapping it should
     // emit mountNasShare with the share id.
     const mountBtn = page.getByTestId(`nas-share-mount-${newShare.id}`);
     await expect(mountBtn).toBeVisible();
 
-    const mountEmit = mockSocket.waitForEmit('mountNasShare');
+    const mountEmit = mockSocket.waitForEmit(SOCKET_EVENTS.MOUNT_NAS_SHARE);
     await mountBtn.click();
     const mountCaptured = await mountEmit;
     expect(mountCaptured.payload).toMatchObject({ id: newShare.id });

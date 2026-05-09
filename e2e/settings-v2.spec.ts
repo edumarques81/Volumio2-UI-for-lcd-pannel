@@ -12,6 +12,7 @@
  */
 
 import { test, expect } from '../tests/e2e/fixtures/mockSocket';
+import { SOCKET_EVENTS } from '../tests/e2e/fixtures/eventNames';
 
 const NAV_SETTINGS = '[data-testid="nav-cell-settings"]';
 const NAV_PLAYER = '[data-testid="nav-cell-player"]';
@@ -78,7 +79,7 @@ test.describe('Settings v2', () => {
 
     // Give any (incorrect) emit a moment to surface, then assert nothing.
     await page.waitForTimeout(250);
-    expect(mockSocket.getEmits('reboot')).toHaveLength(0);
+    expect(mockSocket.getEmits(SOCKET_EVENTS.REBOOT)).toHaveLength(0);
   });
 
   test('Reboot → ConfirmDialog → Confirm: emits reboot', async ({ page, mockSocket }) => {
@@ -88,11 +89,11 @@ test.describe('Settings v2', () => {
     const dialog = page.getByTestId('confirm-dialog');
     await expect(dialog).toBeVisible();
 
-    const reboot = mockSocket.waitForEmit('reboot', { timeout: 5000 });
+    const reboot = mockSocket.waitForEmit(SOCKET_EVENTS.REBOOT, { timeout: 5000 });
     await page.click('[data-testid="confirm-dialog-confirm"]');
     const captured = await reboot;
 
-    expect(captured.event).toBe('reboot');
+    expect(captured.event).toBe(SOCKET_EVENTS.REBOOT);
     await expect(dialog).toBeHidden();
   });
 
