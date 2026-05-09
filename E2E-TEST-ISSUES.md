@@ -3,6 +3,8 @@
 **Test Run:** 2026-01-21
 **Results:** 21 passed, 34 failed (38% pass rate)
 
+> **Status (2026-05-09):** the 38% baseline above predates the Settings v2 redesign and Cycle 4's spec rewrites. Cycle 4 deleted 2 stale failing specs (`settings.spec.ts`, `audio-output.spec.ts`) and added 3 new specs (`settings-v2.spec.ts`, `audio-output-v2.spec.ts`, `settings-nas.spec.ts`) totaling 10 cases × 2 Playwright projects = 20 passing tests against the live Mac dev server. A full-suite re-run + headline refresh is deferred to a future Cycle 5 task. See the Cycle 4 section below for what shipped.
+
 ---
 
 ## 2026-05-09 — Cycle 4 / Task T2: Settings v2 + audio-output rewrite
