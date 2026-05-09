@@ -11,8 +11,11 @@ const {
   mockLastShareResult,
   mockDiscoveredDevices,
   mockDiscoveryLoading,
+  mockDiscoveryError,
   mockBrowsedShares,
   mockBrowseLoading,
+  mockBrowseError,
+  mockMountInFlight,
   mockSourcesActions,
 } = vi.hoisted(() => {
   const { writable } = require('svelte/store');
@@ -21,8 +24,11 @@ const {
   const mockLastShareResult = writable(null);
   const mockDiscoveredDevices = writable([]);
   const mockDiscoveryLoading = writable(false);
+  const mockDiscoveryError = writable(null);
   const mockBrowsedShares = writable([]);
   const mockBrowseLoading = writable(false);
+  const mockBrowseError = writable(null);
+  const mockMountInFlight = writable({});
 
   const mockSourcesActions = {
     listShares: vi.fn(),
@@ -41,8 +47,11 @@ const {
     mockLastShareResult,
     mockDiscoveredDevices,
     mockDiscoveryLoading,
+    mockDiscoveryError,
     mockBrowsedShares,
     mockBrowseLoading,
+    mockBrowseError,
+    mockMountInFlight,
     mockSourcesActions,
   };
 });
@@ -53,9 +62,14 @@ vi.mock('$lib/stores/sources', () => ({
   lastShareResult: mockLastShareResult,
   discoveredDevices: mockDiscoveredDevices,
   discoveryLoading: mockDiscoveryLoading,
+  discoveryError: mockDiscoveryError,
   browsedShares: mockBrowsedShares,
   browseLoading: mockBrowseLoading,
+  browseError: mockBrowseError,
+  mountInFlight: mockMountInFlight,
   sourcesActions: mockSourcesActions,
+  DISCOVERY_TIMEOUT_MS: 8000,
+  BROWSE_TIMEOUT_MS: 8000,
 }));
 
 // Icon component is not used in NasShareList, but mock defensively
@@ -107,8 +121,11 @@ describe('NasShareList', () => {
     mockLastShareResult.set(null);
     mockDiscoveredDevices.set([]);
     mockDiscoveryLoading.set(false);
+    mockDiscoveryError.set(null);
     mockBrowsedShares.set([]);
     mockBrowseLoading.set(false);
+    mockBrowseError.set(null);
+    mockMountInFlight.set({});
   });
 
   afterEach(() => {
@@ -325,5 +342,254 @@ describe('NasShareList', () => {
       const el = document.getElementById(id);
       expect(el, `Expected element with id="${id}" to exist`).toBeTruthy();
     }
+  });
+
+  // ──────────────────────────────────────────────────────────────────────
+  // C7 Task 3: sticky error banners, retry, per-row spinner, sticky errors
+  // ──────────────────────────────────────────────────────────────────────
+
+  // Test 16: Discovery error banner appears when $discoveryError is set
+  it('renders sticky discovery error banner when discoveryError is set', async () => {
+    mockDiscoveryError.set('Discovery timed out — try again');
+    const { getByText, getByTestId } = render(NasShareList);
+    // Open Discover panel so the banner area is visible
+    await fireEvent.click(getByText('Find devices on network'));
+    await tick();
+
+    const banner = getByTestId('nas-discovery-error-banner');
+    expect(banner).toBeTruthy();
+    expect(banner.getAttribute('role')).toBe('alert');
+    expect(banner.textContent).toContain('Discovery timed out');
+
+    const retry = getByTestId('nas-discovery-retry');
+    expect(retry).toBeTruthy();
+  });
+
+  // Test 17: Discovery error stays sticky — does NOT auto-clear after 4s
+  it('discovery error banner does NOT auto-clear after 4 seconds', async () => {
+    mockDiscoveryError.set('Backend exploded');
+    const { getByText, getByTestId, queryByTestId } = render(NasShareList);
+    await fireEvent.click(getByText('Find devices on network'));
+    await tick();
+
+    expect(getByTestId('nas-discovery-error-banner')).toBeTruthy();
+
+    // Advance well past the 4s the old toast used to use
+    vi.advanceTimersByTime(10_000);
+    await tick();
+
+    // Banner is still visible (only the underlying store can clear it)
+    expect(queryByTestId('nas-discovery-error-banner')).toBeTruthy();
+  });
+
+  // Test 18: Discovery retry button calls discoverDevices() again
+  it('clicking the discovery retry button calls discoverDevices()', async () => {
+    mockDiscoveryError.set('Some error');
+    const { getByText, getByTestId } = render(NasShareList);
+    await fireEvent.click(getByText('Find devices on network'));
+    await tick();
+
+    // First: retry while in error state. discoverDevices count starts at 0
+    // because clicking "Find devices on network" only toggles the panel.
+    expect(mockSourcesActions.discoverDevices).toHaveBeenCalledTimes(0);
+
+    const retry = getByTestId('nas-discovery-retry');
+    await fireEvent.click(retry);
+    expect(mockSourcesActions.discoverDevices).toHaveBeenCalledTimes(1);
+  });
+
+  // Test 19: Discovery retry restarts the flow — new emit, banner clears
+  // when store error clears
+  it('after retry, banner disappears once discoveryError is cleared', async () => {
+    mockDiscoveryError.set('Stale error');
+    const { getByText, getByTestId, queryByTestId } = render(NasShareList);
+    await fireEvent.click(getByText('Find devices on network'));
+    await tick();
+
+    expect(getByTestId('nas-discovery-error-banner')).toBeTruthy();
+
+    // Click retry — handler mocks discoverDevices, which in real life
+    // clears discoveryError. Simulate that here.
+    await fireEvent.click(getByTestId('nas-discovery-retry'));
+    mockDiscoveryError.set(null);
+    await tick();
+
+    expect(queryByTestId('nas-discovery-error-banner')).toBeNull();
+  });
+
+  // Test 20: Discovery empty-state shows ONLY after Discover was clicked
+  // and the result was empty (and no error).
+  it('shows discovery empty-state only after Discover was clicked', async () => {
+    const { getByText, queryByTestId, getByTestId } = render(NasShareList);
+    await fireEvent.click(getByText('Find devices on network'));
+    await tick();
+
+    // Before any click — no empty state yet
+    expect(queryByTestId('nas-discovery-empty')).toBeNull();
+
+    // Click Discover; loading kicks in (mocked, so we set it manually here)
+    mockDiscoveryLoading.set(true);
+    await fireEvent.click(getByTestId('nas-discover'));
+    await tick();
+    // While loading, empty-state should not be shown
+    expect(queryByTestId('nas-discovery-empty')).toBeNull();
+
+    // Backend "responded" with no devices and no error (the empty path)
+    mockDiscoveryLoading.set(false);
+    mockDiscoveredDevices.set([]);
+    mockDiscoveryError.set(null);
+    await tick();
+
+    expect(getByTestId('nas-discovery-empty')).toBeTruthy();
+  });
+
+  // Test 21: Discovery empty result is NOT treated as an error
+  it('empty discoveredDevices does not render an error banner', async () => {
+    const { getByText, queryByTestId } = render(NasShareList);
+    await fireEvent.click(getByText('Find devices on network'));
+    await tick();
+
+    mockDiscoveredDevices.set([]);
+    mockDiscoveryError.set(null);
+    await tick();
+
+    expect(queryByTestId('nas-discovery-error-banner')).toBeNull();
+  });
+
+  // Test 22: Browse error banner with retry that re-targets the same host
+  it('browse error banner retry re-issues browseShares against the last host', async () => {
+    mockDiscoveredDevices.set([makeDevice({ ip: '192.168.5.50', name: 'NetGearNAS' })]);
+    const { getByText, getByTestId, getByRole } = render(NasShareList);
+    await fireEvent.click(getByText('Find devices on network'));
+    await tick();
+    await tick();
+
+    // User clicks Browse on a device, which sets `lastBrowseHost`
+    const browseBtn = getByRole('button', { name: /browse netgearnas/i });
+    await fireEvent.click(browseBtn);
+    expect(mockSourcesActions.browseShares).toHaveBeenCalledWith('192.168.5.50');
+
+    // Backend "responded" with an error
+    mockBrowseError.set('Browse timed out — try again');
+    await tick();
+
+    const banner = getByTestId('nas-browse-error-banner');
+    expect(banner).toBeTruthy();
+    expect(banner.getAttribute('role')).toBe('alert');
+    expect(banner.textContent).toContain('Browse timed out');
+
+    // Click retry — should re-issue browseShares against the SAME host
+    await fireEvent.click(getByTestId('nas-browse-retry'));
+    expect(mockSourcesActions.browseShares).toHaveBeenLastCalledWith('192.168.5.50');
+    expect(mockSourcesActions.browseShares).toHaveBeenCalledTimes(2);
+  });
+
+  // Test 23: Browse error stays sticky after 4s
+  it('browse error banner does NOT auto-clear after 4 seconds', async () => {
+    mockBrowseError.set('Auth failed');
+    const { getByText, queryByTestId } = render(NasShareList);
+    await fireEvent.click(getByText('Find devices on network'));
+    await tick();
+
+    expect(queryByTestId('nas-browse-error-banner')).toBeTruthy();
+
+    vi.advanceTimersByTime(10_000);
+    await tick();
+
+    expect(queryByTestId('nas-browse-error-banner')).toBeTruthy();
+  });
+
+  // Test 24: Per-row mount spinner shows when mountInFlight has the share id
+  it('shows mount spinner on the row when mountInFlight[share.id] is set', async () => {
+    mockNasShares.set([makeShare({ id: 'share-mnt', mounted: false })]);
+    const { getByTestId, queryByTestId } = render(NasShareList);
+    await tick();
+
+    // No spinner before in-flight
+    expect(queryByTestId('nas-share-mount-spinner-share-mnt')).toBeNull();
+
+    mockMountInFlight.set({ 'share-mnt': 'mounting' });
+    await tick();
+
+    expect(getByTestId('nas-share-mount-spinner-share-mnt')).toBeTruthy();
+  });
+
+  // Test 25: Per-row spinner clears when mountInFlight clears
+  it('hides mount spinner once mountInFlight clears', async () => {
+    mockNasShares.set([makeShare({ id: 'share-clr', mounted: false })]);
+    mockMountInFlight.set({ 'share-clr': 'mounting' });
+    const { getByTestId, queryByTestId } = render(NasShareList);
+    await tick();
+
+    expect(getByTestId('nas-share-mount-spinner-share-clr')).toBeTruthy();
+
+    mockMountInFlight.set({});
+    await tick();
+
+    expect(queryByTestId('nas-share-mount-spinner-share-clr')).toBeNull();
+  });
+
+  // Test 26: Mount/unmount button is disabled while in-flight
+  it('mount button is disabled while mountInFlight has the share id', async () => {
+    mockNasShares.set([makeShare({ id: 'share-dbl', mounted: false })]);
+    mockMountInFlight.set({ 'share-dbl': 'mounting' });
+    const { getByTestId } = render(NasShareList);
+    await tick();
+
+    const btn = getByTestId('nas-share-mount-share-dbl') as HTMLButtonElement;
+    // The HTML `disabled` attribute is the load-bearing piece — real user
+    // clicks (mouse/keyboard) do not dispatch `click` on disabled buttons.
+    // (jsdom + fireEvent dispatches events directly, bypassing this.)
+    expect(btn.disabled).toBe(true);
+    expect(btn.getAttribute('aria-busy')).toBe('true');
+  });
+
+  // Test 27: Result strip — failure stays sticky after 4s (regression)
+  it('failure result strip does NOT auto-clear after 4 seconds', async () => {
+    mockLastShareResult.set({ success: false, error: 'Could not mount' });
+    const { queryByTestId } = render(NasShareList);
+    await tick();
+
+    expect(queryByTestId('nas-result-strip')).toBeTruthy();
+
+    vi.advanceTimersByTime(10_000);
+    await tick();
+
+    expect(queryByTestId('nas-result-strip')).toBeTruthy();
+    expect(mockSourcesActions.clearLastResult).not.toHaveBeenCalled();
+  });
+
+  // Test 28: Result strip — success still auto-clears after 4s
+  it('success result strip DOES auto-clear after 4 seconds (regression)', async () => {
+    mockLastShareResult.set({ success: true, message: 'OK' });
+    const { queryByTestId } = render(NasShareList);
+    await tick();
+
+    expect(queryByTestId('nas-result-strip')).toBeTruthy();
+
+    vi.advanceTimersByTime(4000);
+    await tick();
+
+    expect(mockSourcesActions.clearLastResult).toHaveBeenCalledTimes(1);
+  });
+
+  // Test 29: Result strip dismiss button on failure clears the result
+  it('dismiss button on failure result strip calls clearLastResult', async () => {
+    mockLastShareResult.set({ success: false, error: 'Bad mount' });
+    const { getByTestId } = render(NasShareList);
+    await tick();
+
+    const dismiss = getByTestId('nas-result-dismiss');
+    await fireEvent.click(dismiss);
+    expect(mockSourcesActions.clearLastResult).toHaveBeenCalledTimes(1);
+  });
+
+  // Test 30: Result strip success branch has NO dismiss button
+  it('success result strip does NOT render the dismiss button', async () => {
+    mockLastShareResult.set({ success: true, message: 'Saved' });
+    const { queryByTestId } = render(NasShareList);
+    await tick();
+
+    expect(queryByTestId('nas-result-dismiss')).toBeNull();
   });
 });

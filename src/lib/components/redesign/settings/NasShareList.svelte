@@ -5,8 +5,11 @@
     lastShareResult,
     discoveredDevices,
     discoveryLoading,
+    discoveryError,
     browsedShares,
     browseLoading,
+    browseError,
+    mountInFlight,
     sourcesActions,
     type NasShare,
     type AddNasShareRequest,
@@ -15,6 +18,15 @@
   // ── UI state ──────────────────────────────────────────────────────────────
   let showAddForm = $state(false);
   let showDiscover = $state(false);
+
+  // Tracks whether the user has clicked "Discover" at least once. Used to
+  // gate the "no devices found" empty-state so it doesn't appear before the
+  // user has actually attempted a scan.
+  let discoverAttempted = $state(false);
+
+  // Last host the user attempted to browse. Used by the browse-error retry
+  // button so it can re-issue browseShares() against the same host.
+  let lastBrowseHost = $state<string | null>(null);
 
   // ── Add-form fields ───────────────────────────────────────────────────────
   let addName = $state('');
@@ -25,9 +37,10 @@
   let addPassword = $state('');
   let addOptions = $state('');
 
-  // ── Auto-clear last result after 4 s ─────────────────────────────────────
+  // ── Auto-clear last result after 4 s — successes only ────────────────────
+  // Errors are sticky and require an explicit dismiss (per C7 spec).
   $effect(() => {
-    if ($lastShareResult !== null) {
+    if ($lastShareResult !== null && $lastShareResult.success === true) {
       const id = setTimeout(() => {
         sourcesActions.clearLastResult();
       }, 4000);
@@ -84,16 +97,28 @@
   }
 
   function handleDiscover() {
+    discoverAttempted = true;
     sourcesActions.discoverDevices();
   }
 
   function handleBrowse(ip: string) {
+    lastBrowseHost = ip;
     sourcesActions.browseShares(ip);
+  }
+
+  function handleBrowseRetry() {
+    if (lastBrowseHost !== null) {
+      sourcesActions.browseShares(lastBrowseHost);
+    }
   }
 
   function handleUseShare(shareName: string) {
     addPath = shareName;
     showAddForm = true;
+  }
+
+  function handleDismissResult() {
+    sourcesActions.clearLastResult();
   }
 </script>
 
@@ -109,6 +134,7 @@
       <li class="share-row state-msg">No shares configured</li>
     {:else}
       {#each $nasShares as share (share.id)}
+        {@const inFlight = $mountInFlight[share.id] !== undefined}
         <li class="share-row" data-testid="nas-share-{share.id}">
           <div class="share-info">
             <span class="share-name">{share.name}</span>
@@ -122,10 +148,20 @@
               type="button"
               class="icon-btn"
               aria-label={share.mounted ? 'Unmount' : 'Mount'}
+              aria-busy={inFlight}
+              disabled={inFlight}
               data-testid={share.mounted ? `nas-share-unmount-${share.id}` : `nas-share-mount-${share.id}`}
               onclick={() => handleMount(share)}
             >
-              {share.mounted ? '⏏' : '⏩'}
+              {#if inFlight}
+                <span
+                  class="spinner"
+                  aria-hidden="true"
+                  data-testid={`nas-share-mount-spinner-${share.id}`}
+                ></span>
+              {:else}
+                {share.mounted ? '⏏' : '⏩'}
+              {/if}
             </button>
             <button
               type="button"
@@ -257,6 +293,30 @@
         {$discoveryLoading ? 'Discovering…' : 'Discover'}
       </button>
 
+      {#if $discoveryError !== null}
+        <div
+          role="alert"
+          class="error-banner"
+          data-testid="nas-discovery-error-banner"
+        >
+          <span class="error-message">{$discoveryError}</span>
+          <button
+            type="button"
+            class="btn-retry"
+            data-testid="nas-discovery-retry"
+            onclick={handleDiscover}
+          >
+            Retry
+          </button>
+        </div>
+      {/if}
+
+      {#if !$discoveryLoading && $discoveryError === null && discoverAttempted && $discoveredDevices.length === 0}
+        <div class="state-msg empty-state" data-testid="nas-discovery-empty">
+          No devices found on this network
+        </div>
+      {/if}
+
       {#if $discoveredDevices.length > 0}
         <ul class="device-list" role="list">
           {#each $discoveredDevices as device (device.ip)}
@@ -274,6 +334,25 @@
             </li>
           {/each}
         </ul>
+      {/if}
+
+      {#if $browseError !== null}
+        <div
+          role="alert"
+          class="error-banner"
+          data-testid="nas-browse-error-banner"
+        >
+          <span class="error-message">{$browseError}</span>
+          <button
+            type="button"
+            class="btn-retry"
+            data-testid="nas-browse-retry"
+            disabled={lastBrowseHost === null}
+            onclick={handleBrowseRetry}
+          >
+            Retry
+          </button>
+        </div>
       {/if}
 
       {#if $browsedShares.length > 0}
@@ -304,9 +383,22 @@
       class:failure={!$lastShareResult.success}
       data-testid="nas-result-strip"
     >
-      {$lastShareResult.success
-        ? ($lastShareResult.message ?? 'Done')
-        : ($lastShareResult.error ?? 'Something went wrong')}
+      <span class="result-text">
+        {$lastShareResult.success
+          ? ($lastShareResult.message ?? 'Done')
+          : ($lastShareResult.error ?? 'Something went wrong')}
+      </span>
+      {#if !$lastShareResult.success}
+        <button
+          type="button"
+          class="btn-dismiss"
+          aria-label="Dismiss"
+          data-testid="nas-result-dismiss"
+          onclick={handleDismissResult}
+        >
+          ×
+        </button>
+      {/if}
     </div>
   {/if}
 </div>
@@ -599,12 +691,82 @@
     background: rgba(255, 255, 255, 0.06);
   }
 
+  /* Mount/unmount spinner */
+  .icon-btn[disabled] {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.18);
+    border-top-color: var(--color-accent);
+    border-radius: 50%;
+    animation: nas-spin 800ms linear infinite;
+  }
+
+  @keyframes nas-spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* Sticky error banner (discovery + browse) */
+  .error-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: var(--radius-card);
+    background: rgba(208, 69, 69, 0.18);
+    color: #ff8080;
+    font-size: 14px;
+  }
+
+  .error-message {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .btn-retry {
+    min-height: var(--hit-target-min);
+    padding: 0 16px;
+    background: transparent;
+    border: 1px solid #ff8080;
+    border-radius: var(--radius-card);
+    color: #ff8080;
+    font-size: 13px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .btn-retry:hover {
+    background: rgba(208, 69, 69, 0.12);
+  }
+
+  .btn-retry[disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .empty-state {
+    padding: 8px 12px;
+  }
+
   /* Result strip */
   .result-strip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     padding: 8px 12px;
     border-radius: var(--radius-card);
     margin-top: 8px;
     font-size: 14px;
+  }
+
+  .result-text {
+    flex: 1;
+    min-width: 0;
   }
 
   .result-strip.success {
@@ -615,5 +777,22 @@
   .result-strip.failure {
     background: rgba(208, 69, 69, 0.18);
     color: #ff8080;
+  }
+
+  .btn-dismiss {
+    width: 44px;
+    height: 44px;
+    background: transparent;
+    border: none;
+    color: inherit;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    border-radius: var(--radius-card);
+    flex-shrink: 0;
+  }
+
+  .btn-dismiss:hover {
+    background: rgba(255, 255, 255, 0.08);
   }
 </style>
