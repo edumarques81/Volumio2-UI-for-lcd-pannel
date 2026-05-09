@@ -1,11 +1,24 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import LibrarySettings from './settings/LibrarySettings.svelte';
-  import AudioSettings from './settings/AudioSettings.svelte';
   import SystemSettings from './settings/SystemSettings.svelte';
   import { initSourcesStore } from '$lib/stores/sources';
   import { initVersionStore } from '$lib/stores/version';
   import { audioDevicesActions } from '$lib/stores/audioDevices';
+  import type { Component } from 'svelte';
+
+  // Lazy-load AudioSettings (223 lines, second-largest settings child) so the
+  // initial SettingsView chunk stays small. LibrarySettings + SystemSettings
+  // are kept synchronous since they're top-of-fold and small. See plan §C6.2.
+  let AudioSettings = $state<Component | null>(null);
+
+  $effect(() => {
+    if (!AudioSettings) {
+      void import('./settings/AudioSettings.svelte').then((m) => {
+        AudioSettings = m.default as Component;
+      });
+    }
+  });
 
   // Lazy-init stores that only Settings consumes. All three init functions
   // are idempotent, so re-mounting Settings doesn't double-register listeners.
@@ -26,7 +39,9 @@
   </div>
   <div class="separator" aria-hidden="true"></div>
   <div class="column" data-testid="settings-column-audio">
-    <AudioSettings />
+    {#if AudioSettings}
+      <AudioSettings />
+    {/if}
   </div>
   <div class="separator" aria-hidden="true"></div>
   <div class="column" data-testid="settings-column-system">

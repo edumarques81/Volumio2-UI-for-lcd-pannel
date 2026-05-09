@@ -2,8 +2,30 @@
   import { currentView } from '$lib/stores/navigation';
   import PlayerView from './PlayerView.svelte';
   import LibraryView from './LibraryView.svelte';
-  import SettingsView from './SettingsView.svelte';
   import NavColumn from './NavColumn.svelte';
+  import type { Component } from 'svelte';
+
+  // Lazy-load SettingsView (rare-path, heaviest siblings include NasShareList) so
+  // it doesn't ship in the initial App chunk. See plan §C6.1. The import is
+  // gated on the user actually navigating to Settings — a derived $-store read
+  // inside the unsubscribe pattern triggers the load on first transition.
+  let SettingsView = $state<Component | null>(null);
+  let importStarted = false;
+
+  // Subscribe directly to the navigation store so the lazy-load fires on the
+  // first 'settings' transition. ($effect on a $-store read worked in dev but
+  // proved unreliable in jsdom test runs; an explicit subscription is the
+  // simplest reactive primitive that's portable across both runtimes.)
+  const unsubscribeView = currentView.subscribe((view) => {
+    if (view === 'settings' && !importStarted) {
+      importStarted = true;
+      void import('./SettingsView.svelte').then((m) => {
+        SettingsView = m.default as Component;
+      });
+    }
+  });
+  // Clean up on component teardown so the subscription doesn't leak.
+  $effect(() => () => unsubscribeView());
 </script>
 
 <div class="player-layout" data-testid="player-layout">
@@ -11,7 +33,9 @@
     {#if $currentView === 'player'}
       <PlayerView />
     {:else if $currentView === 'settings'}
-      <SettingsView />
+      {#if SettingsView}
+        <SettingsView />
+      {/if}
     {:else}
       <LibraryView />
     {/if}

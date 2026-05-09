@@ -1,6 +1,6 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import SegmentedControl from '$lib/components/redesign/controls/SegmentedControl.svelte';
-  import NasShareList from '$lib/components/redesign/settings/NasShareList.svelte';
   import {
     libraryScope,
     librarySort,
@@ -9,6 +9,18 @@
     type SortOrder,
   } from '$lib/stores/library';
   import { settingsActions } from '$lib/stores/settings';
+  import type { Component } from 'svelte';
+
+  // Lazy-load NasShareList — at 619 lines (browse/discover forms) it's the
+  // heaviest piece of the Settings panel. Splitting it out keeps the initial
+  // SettingsView chunk small. See plan §C6.2.
+  let NasShareList = $state<Component | null>(null);
+
+  onMount(() => {
+    void import('$lib/components/redesign/settings/NasShareList.svelte').then((m) => {
+      NasShareList = m.default as Component;
+    });
+  });
 
   // ---------------------------------------------------------------------------
   // SegmentedControl option arrays — defined as constants (no props, self-contained)
@@ -86,7 +98,9 @@
   <!-- Network shares block -->
   <div class="block">
     <p class="block-label">Network shares</p>
-    <NasShareList />
+    {#if NasShareList}
+      <NasShareList />
+    {/if}
   </div>
 </section>
 
