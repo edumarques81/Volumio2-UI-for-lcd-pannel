@@ -1,5 +1,6 @@
 import { writable, derived, get } from 'svelte/store';
 import { socketService } from '$lib/services/socket';
+import { toastActions } from '$lib/stores/toast';
 
 export interface AudioDevice {
   id: string;
@@ -175,7 +176,18 @@ export const audioDevicesActions = {
           console.log('[AudioDevices] Output changed to:', deviceId);
           resolve(true);
         } else {
+          // Failure branch: leave `selectedAudioOutput` untouched so the prior
+          // valid pick stays in the store. Combined with SelectField being a
+          // controlled component, the visible <select> rolls back to the
+          // previous device automatically. Surface a user-readable toast so
+          // the failure isn't silent (the kept `console.error` is for
+          // diagnostics only).
           console.error('[AudioDevices] Failed to change output:', response);
+          const detail =
+            typeof response?.error === 'string' && response.error.length > 0
+              ? response.error
+              : undefined;
+          toastActions.error('Audio output change failed', detail);
           resolve(false);
         }
       });

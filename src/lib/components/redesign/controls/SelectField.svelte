@@ -71,16 +71,17 @@
       aria-label={effectiveAriaLabel}
       {disabled}
       class="select-native"
+      value={value ?? ''}
       onchange={handleChange}
     >
       {#if value === null && placeholder}
-        <option value="" disabled selected>{placeholder}</option>
+        <option value="" disabled>{placeholder}</option>
       {/if}
       {#each sections() as section}
         {#if section.kind === 'group'}
           <optgroup label={section.name}>
             {#each section.items as opt}
-              <option value={opt.value} disabled={opt.disabled ?? false} selected={opt.value === value}>
+              <option value={opt.value} disabled={opt.disabled ?? false}>
                 {opt.label}
               </option>
             {/each}
@@ -89,7 +90,6 @@
           <option
             value={section.item.value}
             disabled={section.item.disabled ?? false}
-            selected={section.item.value === value}
           >
             {section.item.label}
           </option>

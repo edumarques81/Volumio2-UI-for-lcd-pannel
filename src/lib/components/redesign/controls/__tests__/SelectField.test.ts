@@ -162,4 +162,39 @@ describe('SelectField', () => {
     const select = container.querySelector('select')!;
     expect(select.getAttribute('aria-label')).toBe('Audio output device');
   });
+
+  // 10. Controlled DOM contract — initial value drives the select's DOM value.
+  it('reflects the value prop on the underlying <select>.value at mount', () => {
+    const { container } = render(SelectField, {
+      options: OPTIONS,
+      value: 'headphones' as Device,
+      onchange,
+      id: 'settings-audio-output-device',
+    });
+    const select = container.querySelector('select')!;
+    expect(select.value).toBe('headphones');
+  });
+
+  // 11. When the parent's value prop changes, the <select>.value follows it.
+  // This is the new contract that audioDevices rollback relies on: if the
+  // store keeps the prior selection (because the backend rejected the new
+  // pick), the visible <select> rolls back too.
+  it('updates the <select>.value when the value prop changes', async () => {
+    const { container, rerender } = render(SelectField, {
+      options: OPTIONS,
+      value: 'hdmi' as Device,
+      onchange,
+      id: 'settings-audio-output-device',
+    });
+    const select = container.querySelector('select')!;
+    expect(select.value).toBe('hdmi');
+
+    await rerender({
+      options: OPTIONS,
+      value: 'bluetooth' as Device,
+      onchange,
+      id: 'settings-audio-output-device',
+    });
+    expect(select.value).toBe('bluetooth');
+  });
 });

@@ -12,6 +12,20 @@ vi.mock('$lib/services/socket', () => {
   };
 });
 
+// Mock toast store so we can assert audioDevices surfaces user-facing errors.
+vi.mock('$lib/stores/toast', () => {
+  return {
+    toastActions: {
+      error: vi.fn(),
+      warning: vi.fn(),
+      info: vi.fn(),
+      success: vi.fn(),
+      dismiss: vi.fn(),
+      clearAll: vi.fn(),
+    },
+  };
+});
+
 import {
   audioDevices,
   audioDevicesLoading,
@@ -20,10 +34,12 @@ import {
   audioDevicesActions
 } from '../audioDevices';
 import { socketService } from '$lib/services/socket';
+import { toastActions } from '$lib/stores/toast';
 
 // Get mocked functions
 const mockEmit = vi.mocked(socketService.emit);
 const mockOn = vi.mocked(socketService.on);
+const mockToastError = vi.mocked(toastActions.error);
 
 describe('audioDevices store', () => {
   beforeEach(() => {
@@ -33,6 +49,7 @@ describe('audioDevices store', () => {
     selectedAudioOutput.set(null);
     mockEmit.mockReset();
     mockOn.mockReset();
+    mockToastError.mockReset();
   });
 
   describe('initial state', () => {
@@ -200,6 +217,54 @@ describe('audioDevices store', () => {
         expect.any(Function)
       );
       expect(get(selectedAudioOutput)).toBe('U20SU6');
+    });
+
+    it('does NOT surface a toast on the success branch', async () => {
+      mockEmit.mockImplementationOnce((event, data, callback) => {
+        callback?.({ success: true });
+      });
+
+      const result = await audioDevicesActions.setOutput('U20SU6');
+
+      expect(result).toBe(true);
+      expect(mockToastError).not.toHaveBeenCalled();
+    });
+
+    it('keeps the prior selection and surfaces a toast when the backend rejects the change', async () => {
+      // Prior valid selection.
+      selectedAudioOutput.set('vc4hdmi0');
+
+      mockEmit.mockImplementationOnce((event, data, callback) => {
+        callback?.({ success: false, error: 'Device busy' });
+      });
+
+      const result = await audioDevicesActions.setOutput('U20SU6');
+
+      // Failure branch: store does NOT advance to the rejected device.
+      expect(result).toBe(false);
+      expect(get(selectedAudioOutput)).toBe('vc4hdmi0');
+
+      // And the user gets a toast carrying the backend's error string.
+      expect(mockToastError).toHaveBeenCalledTimes(1);
+      const [title, message] = mockToastError.mock.calls[0];
+      expect(title).toBe('Audio output change failed');
+      expect(message).toBe('Device busy');
+    });
+
+    it('surfaces a toast even when the backend omits an error string', async () => {
+      selectedAudioOutput.set('vc4hdmi0');
+
+      mockEmit.mockImplementationOnce((event, data, callback) => {
+        callback?.({ success: false });
+      });
+
+      const result = await audioDevicesActions.setOutput('U20SU6');
+
+      expect(result).toBe(false);
+      expect(get(selectedAudioOutput)).toBe('vc4hdmi0');
+      expect(mockToastError).toHaveBeenCalledTimes(1);
+      // Title is always present; message is the optional backend detail.
+      expect(mockToastError.mock.calls[0][0]).toBe('Audio output change failed');
     });
   });
 
