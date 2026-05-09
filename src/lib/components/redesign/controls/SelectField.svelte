@@ -54,8 +54,36 @@
     return result;
   });
 
+  // Controlled-DOM bookkeeping. The prop `value` is read-only by design (the
+  // parent owns the source of truth and reacts via `onchange`), so we can't
+  // use `bind:value`. Svelte's `value={...}` shorthand only writes back to
+  // the DOM when the prop *changes* — but if the parent rejects a user pick
+  // and leaves the prop unchanged, Svelte sees no diff and the DOM keeps the
+  // user's stale selection. We close that gap with an `$effect` that:
+  //   1. Reads `value` (so it re-runs whenever the prop ticks), AND
+  //   2. Reads `pickEpoch` (so it ALSO re-runs after every user interaction),
+  // then forcibly mirrors the current `value` onto `selectEl.value`. The net
+  // result: every user pick is followed by a re-sync, and a no-op store
+  // response correctly snaps the visible select back to the prior value.
+  let selectEl: HTMLSelectElement | null = $state(null);
+  let pickEpoch = $state(0);
+
+  $effect(() => {
+    // Track both inputs so the effect re-runs on either change.
+    const next = value;
+    pickEpoch; // explicit read for tracking
+
+    if (selectEl) {
+      const target = next ?? '';
+      if (selectEl.value !== target) {
+        selectEl.value = target;
+      }
+    }
+  });
+
   function handleChange(event: Event) {
     const target = event.target as HTMLSelectElement;
+    pickEpoch += 1; // force the $effect to re-sync after the parent reacts
     onchange(target.value as Parameters<typeof onchange>[0]);
   }
 </script>
@@ -67,11 +95,11 @@
   <!-- svelte-ignore a11y_no_interactive_element_to_noninteractive_role -->
   <div class="select-shell" class:disabled>
     <select
+      bind:this={selectEl}
       id={id}
       aria-label={effectiveAriaLabel}
       {disabled}
       class="select-native"
-      value={value ?? ''}
       onchange={handleChange}
     >
       {#if value === null && placeholder}

@@ -1,5 +1,5 @@
 /**
- * Audio output device picker — list, select, success-ack, error-ack recovery.
+ * Audio output device picker — list, select, success-ack, error-ack rollback.
  *
  * Replaces the legacy `audio-output.spec.ts` (which mixed v1 and v2 selectors
  * and gated behavior on `__testAudioDevices` rather than a real socket mock).
@@ -10,13 +10,10 @@
  *   - Client emits `setPlaybackSettings` with `{ output_device }` and a callback;
  *     the store updates `selectedAudioOutput` only when `response.success !== false`.
  *
- * Behavior gap (documented in E2E-TEST-ISSUES.md): `setOutput` does NOT
- * surface a toast on the error branch and does NOT roll the `<select>` back
- * to the prior value (`audioDevices.ts:172-182` only `console.error`s, and
- * `SelectField` renders an uncontrolled native `<select>`). The C4 plan
- * called for both. The error-path test below asserts the weaker testable
- * property (subsequent selections still work end-to-end) rather than the
- * unobservable rollback.
+ * Cycle 5 closed the silent-failure gap: SelectField is now controlled
+ * (its DOM `<select>.value` mirrors the store), and `audioDevices.setOutput`
+ * surfaces a toast on the error branch instead of just `console.error`. The
+ * error-path test below asserts both behaviors directly.
  */
 
 import { test, expect } from '../tests/e2e/fixtures/mockSocket';
@@ -100,25 +97,16 @@ test.describe('Audio output v2', () => {
     await expect(select).toHaveValue(DEVICE_B.value);
   });
 
-  test('failed setPlaybackSettings does not break subsequent selections', async ({
+  test('failed setPlaybackSettings rolls back the picker and surfaces a toast', async ({
     page,
     mockSocket,
   }) => {
-    // What this test covers:
-    //   - the emit shape on a user pick (output_device payload),
-    //   - the error ack reaching the client without crashing the page,
-    //   - a fresh user-driven selection round-tripping end-to-end after the
-    //     failed attempt.
-    //
-    // What this test does NOT cover (and intentionally so):
-    //   - error-toast appearance,
-    //   - selection rollback in the <select>.
-    // Both are documented in E2E-TEST-ISSUES.md as a real product gap in
-    // src/lib/stores/audioDevices.ts:172-182 — the success branch sets
-    // `selectedAudioOutput` but the failure branch only console.error()s.
-    // If/when SelectField becomes a controlled component and audioDevices
-    // surfaces a toast on failure, this test should be revisited and
-    // strengthened to assert both behaviors directly.
+    // Cycle-5 contract:
+    //   - The store does NOT advance `selectedAudioOutput` to the rejected
+    //     device, so the controlled <select> snaps back to the prior pick.
+    //   - The user sees an error toast carrying the backend's message.
+    //   - A subsequent successful pick of the rejected device round-trips
+    //     end-to-end (recovery path stays clean after a failure).
     await page.click(NAV_SETTINGS);
     mockSocket.send(SOCKET_EVENTS.PUSH_PLAYBACK_OPTIONS, playbackOptionsEnvelope(DEVICE_A.value));
 
@@ -132,27 +120,24 @@ test.describe('Audio output v2', () => {
     expect(emit.payload).toMatchObject({ output_device: DEVICE_B.value });
     emit.ack?.({ success: false, error: 'Device busy' });
 
-    // Re-broadcast the canonical (unchanged) state — what a real backend
-    // would do after rejecting a setPlaybackSettings call. The option list
-    // stays intact, proving the store recovered cleanly from the error ack.
-    mockSocket.send(SOCKET_EVENTS.PUSH_PLAYBACK_OPTIONS, playbackOptionsEnvelope(DEVICE_A.value));
-
-    const optionCount = await select.locator('option').count();
-    expect(optionCount).toBe(2);
-
-    // Recovery selection: re-pick DEVICE_A. This currently fires a change
-    // event because SelectField uses an attribute-only `selected={...}` (i.e.
-    // an uncontrolled native <select>), so the user's previous (failed) pick
-    // of DEVICE_B is still the DOM's `value`, and selecting A is a real
-    // transition. If SelectField is ever made controlled (the documented gap
-    // implies it should be), this `selectOption(A)` becomes a no-op and the
-    // `waitForEmit({ skip: 1 })` below will time out — at which point this
-    // test should be rewritten alongside the SelectField fix.
-    const recoveryEmit = mockSocket.waitForEmit(SOCKET_EVENTS.SET_PLAYBACK_SETTINGS, { skip: 1 });
-    await select.selectOption(DEVICE_A.value);
-    const recovery = await recoveryEmit;
-    expect(recovery.payload).toMatchObject({ output_device: DEVICE_A.value });
-    recovery.ack?.({ success: true });
+    // 1. Picker rolls back: the controlled <select> mirrors the store, which
+    //    did not move off DEVICE_A.
     await expect(select).toHaveValue(DEVICE_A.value);
+
+    // 2. Error toast appears with the title set by audioDevices.setOutput
+    //    and the backend's error string as the body.
+    const toast = page.getByTestId('toast').filter({ hasText: 'Audio output change failed' });
+    await expect(toast).toBeVisible();
+    await expect(toast).toContainText('Device busy');
+
+    // 3. Recovery: the user re-picks DEVICE_B and the backend accepts.
+    //    Note: because the select is controlled and currently shows
+    //    DEVICE_A, picking B is a real transition (not a no-op).
+    const recoveryEmit = mockSocket.waitForEmit(SOCKET_EVENTS.SET_PLAYBACK_SETTINGS, { skip: 1 });
+    await select.selectOption(DEVICE_B.value);
+    const recovery = await recoveryEmit;
+    expect(recovery.payload).toMatchObject({ output_device: DEVICE_B.value });
+    recovery.ack?.({ success: true });
+    await expect(select).toHaveValue(DEVICE_B.value);
   });
 });
