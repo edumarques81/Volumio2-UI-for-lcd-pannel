@@ -11,12 +11,13 @@ export interface VersionInfo {
   gitCommit?: string;
 }
 
-// Frontend version (static, set at build time)
+// Frontend version (injected at build time via Vite's `define`).
+// __APP_VERSION__ is sourced from package.json (single source of truth).
+// __BUILD_TIME__ is set when the Vite process starts (ISO 8601).
 const FRONTEND_VERSION: VersionInfo = {
   name: 'Stellar Volumio',
-  version: '2.0.0',
-  // These could be injected at build time via Vite's define
-  buildTime: '',
+  version: __APP_VERSION__,
+  buildTime: __BUILD_TIME__,
   gitCommit: ''
 };
 

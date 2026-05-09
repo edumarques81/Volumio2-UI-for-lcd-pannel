@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { get } from 'svelte/store';
+import pkg from '../../../../package.json';
 
 // Mock socket service
 vi.mock('$lib/services/socket', () => ({
@@ -44,10 +45,17 @@ describe('Version store', () => {
       expect(version.name).toBe('Stellar Volumio');
     });
 
-    it('should have version string', () => {
+    it('should have version string matching package.json (SSOT)', () => {
       const version = get(frontendVersion);
-      expect(version.version).toBeDefined();
-      expect(version.version.length).toBeGreaterThan(0);
+      expect(version.version).toBe(pkg.version);
+    });
+
+    it('should have a non-empty ISO buildTime injected by Vite', () => {
+      const version = get(frontendVersion);
+      expect(version.buildTime).toBeTruthy();
+      expect(() => new Date(version.buildTime!)).not.toThrow();
+      // Sanity: ISO 8601 shape (YYYY-MM-DDTHH:mm:ss(.sss)?Z)
+      expect(version.buildTime).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/);
     });
   });
 

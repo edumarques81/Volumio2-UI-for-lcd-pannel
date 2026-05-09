@@ -1,6 +1,7 @@
 import { defineConfig, type Plugin } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import path from 'path';
+import pkg from './package.json' with { type: 'json' };
 
 /**
  * Content Security Policy directives for the application.
@@ -64,6 +65,10 @@ function cspMetaTagPlugin(): Plugin {
 
 export default defineConfig({
   plugins: [svelte(), cspMetaTagPlugin()],
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version),
+    __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+  },
   resolve: {
     alias: {
       '$lib': path.resolve('./src/lib'),

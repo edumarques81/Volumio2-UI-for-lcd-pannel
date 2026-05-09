@@ -1,9 +1,14 @@
 import { defineConfig } from 'vitest/config';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import path from 'path';
+import pkg from './package.json' with { type: 'json' };
 
 export default defineConfig({
   plugins: [svelte({ hot: !process.env.VITEST })],
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version),
+    __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+  },
   resolve: {
     alias: {
       '$lib': path.resolve('./src/lib')
