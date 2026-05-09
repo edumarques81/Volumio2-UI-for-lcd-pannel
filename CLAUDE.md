@@ -12,11 +12,13 @@ Stellar Volumio is a modern Svelte 5 web application for controlling Volumio-com
 
 ## Development Environment
 
-> **Key Concept:** Development happens on your Mac, deployment targets the Pi.
+> **Key Concept:** Frontend is served from the Mac (`npm run dev`); the Pi runs only the backend + LCD kiosk.
 
-- Dev mode frontend (`localhost:5173`) connects to Pi backend (`PI_IP:3000`)
-- Configure Pi IP in `src/lib/config.ts` (`DEV_VOLUMIO_IP`)
-- Production: Frontend and backend both run on the Pi
+- Mac dev server (`localhost:5173`) is BOTH the dev surface AND the production frontend for the LCD.
+- The Pi's LCD kiosk launcher (`/usr/local/bin/stellar-kiosk.sh`) loads `http://<MAC_IP>:5173?layout=lcd` (currently hard-pointed at `http://192.168.86.221:5173`).
+- The Pi runs only `stellar-backend` (port 3000), `cage` kiosk (Chromium under Wayland), and `mpd` (port 6600). There is no longer a port-8080 frontend server on the Pi.
+- Configure Pi IP in `src/lib/config.ts` (`DEV_VOLUMIO_IP`).
+- Consequence: if the Mac dev server is down, the LCD shows a load error. Keep `npm run dev` running on the Mac whenever the LCD should be live.
 
 ## Quick Reference
 
@@ -24,8 +26,8 @@ Stellar Volumio is a modern Svelte 5 web application for controlling Volumio-com
 # Setup
 npm install                                     # Install dependencies (first time)
 
-# Development
-npm run dev                                     # Dev server (localhost:5173)
+# Development / Production frontend (the Mac is the frontend host)
+npm run dev                                     # Vite dev server (localhost:5173) — also serves the LCD kiosk
 
 # Testing
 npm test                                        # Unit tests (watch mode)
@@ -39,13 +41,12 @@ npm run test:e2e:ui                             # Playwright UI mode
 npm run test:e2e:debug                          # E2E debug mode
 
 # Build & Type Check
-npm run build                                   # Production build → dist/
+npm run build                                   # Production build → dist/ (used for offline analysis; the LCD does not consume dist/)
 npm run preview                                 # Preview production build locally
 npx tsc --noEmit                                # Type check only
-
-# Deploy to Pi
-npm run deploy                                  # Runs scripts/deploy.sh
 ```
+
+> Note: there is no `npm run deploy`-equivalent script for the frontend any more. The Pi-side `stellar-frontend` systemd service (Python on :8080) was retired; the LCD loads the frontend from the Mac's Vite dev server. The legacy `scripts/deploy.sh` was removed for the same reason. Backend deploy steps are below.
 
 ## Raspberry Pi Development
 
@@ -74,18 +75,19 @@ SSH_CMD="sshpass -p '$RASPBERRY_PI_SSH_PASSWORD' ssh -o StrictHostKeyChecking=no
 
 ### Deployment
 
-**IMPORTANT:** Always stop services before deploying and start them after.
+The frontend "deploys" by running `npm run dev` on the Mac — the LCD kiosk loads from that dev server. Only the backend has a real deploy step.
+
+**Frontend:** `npm run dev` on the Mac. The Pi's `/usr/local/bin/stellar-kiosk.sh` is hard-pointed at `http://192.168.86.221:5173?layout=lcd`. If you change the Mac's IP, update the kiosk script. The legacy `scripts/deploy.sh` (which used to scp `dist/` to the Pi) was removed; the Pi no longer serves a port-8080 frontend.
+
+**Backend:**
 
 ```bash
-# 1. Stop services
+# 1. Stop backend
 source .env
 SSH_CMD="sshpass -p '$RASPBERRY_PI_SSH_PASSWORD' ssh -o StrictHostKeyChecking=no $RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS"
-eval "$SSH_CMD 'sudo systemctl stop stellar-frontend stellar-backend'"
+eval "$SSH_CMD 'sudo systemctl stop stellar-backend'"
 
-# 2. Deploy Frontend (Stellar Volumio)
-npm run deploy
-
-# 3. Deploy Backend (Stellar) - CGO required for SQLite
+# 2. Build (CGO required for SQLite)
 # Install cross-compiler: brew install FiloSottile/musl-cross/musl-cross
 source .env && cd "$STELLAR_BACKEND_FOLDER"
 CGO_ENABLED=1 CC=aarch64-linux-musl-gcc GOOS=linux GOARCH=arm64 \
@@ -93,8 +95,8 @@ CGO_ENABLED=1 CC=aarch64-linux-musl-gcc GOOS=linux GOARCH=arm64 \
 sshpass -p "$RASPBERRY_PI_SSH_PASSWORD" scp stellar-arm64 "$RASPBERRY_PI_SSH_USERNAME@$RASPBERRY_PI_API_ADDRESS:~/stellar-backend/stellar"
 eval "$SSH_CMD 'chmod +x ~/stellar-backend/stellar'"
 
-# 4. Start services
-eval "$SSH_CMD 'sudo systemctl start stellar-backend stellar-frontend'"
+# 3. Start backend
+eval "$SSH_CMD 'sudo systemctl start stellar-backend'"
 ```
 
 **View logs:** `eval "$SSH_CMD 'journalctl -u stellar-backend -f'"`
@@ -103,9 +105,9 @@ eval "$SSH_CMD 'sudo systemctl start stellar-backend stellar-frontend'"
 
 | Service | Port | Description |
 |---------|------|-------------|
-| `stellar-frontend` | 8080 | Python HTTP server serving `~/stellar-volumio` |
 | `stellar-backend` | 3000 | Stellar Go backend (Volumio standard port) |
 | `mpd` | 6600 | Music Player Daemon |
+| `cage` (kiosk) | — | Wayland compositor running Chromium pointed at `http://192.168.86.221:5173?layout=lcd` |
 
 ## Architecture
 
@@ -717,7 +719,7 @@ The backend handles NAS mount failures gracefully with retry logic, periodic hea
 
 **CORS Middleware:**
 - `cmd/stellar/cors.go` - Sets `Access-Control-Allow-Origin: *` on ALL responses (including 404 errors)
-- Prevents CORB (Cross-Origin Read Blocking) when frontend (port 8080) requests fail on backend (port 3000)
+- Prevents CORB (Cross-Origin Read Blocking) when the browser (loaded from the Mac's Vite dev server at `http://<MAC_IP>:5173`) makes cross-origin requests to the Pi backend at `http://<PI_IP>:3000`
 - Handles OPTIONS preflight requests
 - Applied at the server level via `corsMiddleware(mux)` in `main.go`
 

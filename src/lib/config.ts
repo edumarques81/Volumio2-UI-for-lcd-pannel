@@ -1,19 +1,23 @@
 /**
  * Stellar Volumio Configuration
  *
- * This file determines the Volumio backend URL based on the environment.
+ * This file resolves the Stellar backend URL for Socket.IO + asset (albumart)
+ * requests. Production and development share the same topology because the
+ * Pi-side frontend was retired: the LCD kiosk loads the frontend from the
+ * Mac's Vite dev server, just like a regular dev browser session.
  *
- * When running on the Raspberry Pi (kiosk mode):
- *   - The page is served from localhost:8080
- *   - Volumio backend is at localhost:3000
+ * Topology:
+ *   - The page is served from the Mac's Vite dev server (`http://<MAC_IP>:5173`).
+ *     The Pi's LCD kiosk launcher (`/usr/local/bin/stellar-kiosk.sh`) is
+ *     hard-pointed at `http://192.168.86.221:5173?layout=lcd`.
+ *   - All backend (Socket.IO + REST + albumart) requests go to the Pi at
+ *     `http://<PI_IP>:3000`. `DEV_VOLUMIO_IP` below is the default Pi IP
+ *     used when window.location does not give us one (i.e. localhost / .local
+ *     hostnames).
  *
- * When running in development (Mac browser):
- *   - The page is served from localhost:5173 (Vite dev server)
- *   - Volumio backend is at the Pi's IP:3000
- *
- * When accessing Stellar Volumio remotely (from another device):
- *   - The page is served from PI_IP:8080
- *   - Volumio backend is at PI_IP:3000 (same host, different port)
+ * Override at runtime via `/config.json` (fetched once at boot — see
+ * `initConfig` below). If `/config.json` is absent or malformed we fall back
+ * to window.location-based detection.
  */
 
 const DEV_VOLUMIO_IP = '192.168.86.25';

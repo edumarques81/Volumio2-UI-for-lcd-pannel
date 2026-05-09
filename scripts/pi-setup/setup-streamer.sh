@@ -81,7 +81,6 @@ log_section "2. Directory Structure"
 
 log_info "Creating directories..."
 mkdir -p "$STELLAR_HOME/stellar-backend"
-mkdir -p "$STELLAR_HOME/stellar-volumio"
 sudo mkdir -p /data/stellar
 sudo chown "$STELLAR_USER:$STELLAR_USER" /data/stellar
 sudo mkdir -p /mnt/NAS
@@ -178,34 +177,23 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF
 
-log_info "Installing Stellar Frontend service..."
-sudo tee /etc/systemd/system/stellar-frontend.service > /dev/null << EOF
-[Unit]
-Description=Stellar Audio Frontend
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=simple
-User=$STELLAR_USER
-WorkingDirectory=$STELLAR_HOME/stellar-volumio
-ExecStart=/usr/bin/python3 -m http.server 8080
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-EOF
+# Note: there is no stellar-frontend service on the Pi. The LCD kiosk loads the
+# frontend from the Mac's Vite dev server (see kiosk script below). The Pi runs
+# only the backend + cage kiosk + mpd.
 
 sudo systemctl daemon-reload
-sudo systemctl enable stellar-backend stellar-frontend
+sudo systemctl enable stellar-backend
 
 # ============================================================
 log_section "5. Kiosk Configuration"
 # ============================================================
 
 log_info "Installing kiosk script..."
-sudo tee /usr/local/bin/stellar-kiosk.sh > /dev/null << 'KIOSKEOF'
+# The kiosk loads the frontend from the Mac's Vite dev server. Override the
+# default by exporting STELLAR_KIOSK_URL before running setup, otherwise the
+# script bakes in http://192.168.86.221:5173?layout=lcd.
+KIOSK_URL_DEFAULT="${STELLAR_KIOSK_URL:-http://192.168.86.221:5173?layout=lcd}"
+sudo tee /usr/local/bin/stellar-kiosk.sh > /dev/null << KIOSKEOF
 #!/bin/bash
 # ============================================================
 # Stellar Kiosk - Raspberry Pi 5 with Vulkan GPU Acceleration
@@ -216,51 +204,55 @@ sudo tee /usr/local/bin/stellar-kiosk.sh > /dev/null << 'KIOSKEOF'
 # 2. Launches Cage compositor with Chromium in kiosk mode
 # 3. Uses Vulkan for optimal GPU performance on RPi 5
 #
+# Frontend is served from the Mac's Vite dev server (see KIOSK_URL below).
+# If the Mac dev server is down, the LCD shows a load error.
 # ============================================================
 
-export XDG_RUNTIME_DIR=/run/user/$(id -u)
-mkdir -p $XDG_RUNTIME_DIR
+export XDG_RUNTIME_DIR=/run/user/\$(id -u)
+mkdir -p \$XDG_RUNTIME_DIR
+
+KIOSK_URL="\${KIOSK_URL:-$KIOSK_URL_DEFAULT}"
 
 # Wait for Stellar backend to be ready
 echo "Waiting for Stellar backend..."
 MAX_WAIT=60
 WAITED=0
-while [ $WAITED -lt $MAX_WAIT ]; do
-    if curl -sf http://localhost:3000/socket.io/?EIO=4\&transport=polling > /dev/null 2>&1; then
-        echo "Backend ready after ${WAITED}s"
+while [ \$WAITED -lt \$MAX_WAIT ]; do
+    if curl -sf http://localhost:3000/socket.io/?EIO=4\\&transport=polling > /dev/null 2>&1; then
+        echo "Backend ready after \${WAITED}s"
         break
     fi
     sleep 1
-    WAITED=$((WAITED + 1))
-    if [ $((WAITED % 10)) -eq 0 ]; then
-        echo "Still waiting for backend... (${WAITED}s)"
+    WAITED=\$((WAITED + 1))
+    if [ \$((WAITED % 10)) -eq 0 ]; then
+        echo "Still waiting for backend... (\${WAITED}s)"
     fi
 done
 
-if [ $WAITED -ge $MAX_WAIT ]; then
-    echo "Warning: Backend not ready after ${MAX_WAIT}s, starting browser anyway"
+if [ \$WAITED -ge \$MAX_WAIT ]; then
+    echo "Warning: Backend not ready after \${MAX_WAIT}s, starting browser anyway"
 fi
 
 # Launch Chromium in kiosk mode via Cage compositor
-exec cage -- chromium-browser \
-    --kiosk \
-    --noerrdialogs \
-    --disable-infobars \
-    --disable-session-crashed-bubble \
-    --disable-restore-session-state \
-    --no-first-run \
-    --password-store=basic \
-    --remote-debugging-port=9222 \
-    --remote-allow-origins=* \
-    --ignore-gpu-blocklist \
-    --enable-gpu-rasterization \
-    --enable-zero-copy \
-    --enable-accelerated-2d-canvas \
-    --disable-software-rasterizer \
-    --use-vulkan \
-    --use-angle=vulkan \
-    --enable-features=Vulkan,VulkanFromANGLE,DefaultANGLEVulkan,VaapiVideoDecoder,CanvasOopRasterization \
-    "http://localhost:8080?layout=lcd"
+exec cage -- chromium-browser \\
+    --kiosk \\
+    --noerrdialogs \\
+    --disable-infobars \\
+    --disable-session-crashed-bubble \\
+    --disable-restore-session-state \\
+    --no-first-run \\
+    --password-store=basic \\
+    --remote-debugging-port=9222 \\
+    --remote-allow-origins=* \\
+    --ignore-gpu-blocklist \\
+    --enable-gpu-rasterization \\
+    --enable-zero-copy \\
+    --enable-accelerated-2d-canvas \\
+    --disable-software-rasterizer \\
+    --use-vulkan \\
+    --use-angle=vulkan \\
+    --enable-features=Vulkan,VulkanFromANGLE,DefaultANGLEVulkan,VaapiVideoDecoder,CanvasOopRasterization \\
+    "\$KIOSK_URL"
 KIOSKEOF
 
 sudo chmod +x /usr/local/bin/stellar-kiosk.sh
@@ -309,13 +301,6 @@ sudo tee /etc/avahi/services/stellar.service > /dev/null << 'AVAHIEOF'
     <txt-record>UUID=stellar-rpi-001</txt-record>
     <txt-record>state=play</txt-record>
     <txt-record>systemversion=3.0</txt-record>
-  </service>
-
-  <!-- HTTP Web UI -->
-  <service>
-    <type>_http._tcp</type>
-    <port>8080</port>
-    <txt-record>path=/</txt-record>
   </service>
 
   <!-- SSH -->
@@ -409,8 +394,10 @@ echo "Next steps:"
 echo "  1. Deploy the Stellar backend binary:"
 echo "     scp stellar-arm64 $STELLAR_USER@$(hostname):~/stellar-backend/stellar"
 echo ""
-echo "  2. Deploy the frontend files:"
-echo "     rsync -avz dist/ $STELLAR_USER@$(hostname):~/stellar-volumio/"
+echo "  2. Start the Mac's Vite dev server (the LCD reads the frontend from there):"
+echo "     cd Volumio2-UI && npm run dev"
+echo "     The kiosk URL is hard-pointed at http://192.168.86.221:5173?layout=lcd"
+echo "     (override at runtime by exporting KIOSK_URL before stellar-kiosk.sh)."
 echo ""
 echo "  3. Configure your USB DAC in /etc/mpd.conf if needed"
 echo "     Run 'aplay -l' to list audio devices"
@@ -420,8 +407,8 @@ echo "     sudo reboot"
 echo ""
 echo "Services (ports):"
 echo "  - stellar-backend  : 3000 (Socket.IO API)"
-echo "  - stellar-frontend : 8080 (Web UI)"
 echo "  - mpd              : 6600 (Music Player Daemon)"
+echo "  - cage kiosk       :   -  (loads frontend from Mac dev server)"
 echo ""
 echo "The kiosk will start automatically on boot."
 if [ "$INSTALL_AUDIRVANA" = true ]; then

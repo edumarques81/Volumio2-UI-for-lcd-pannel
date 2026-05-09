@@ -1,13 +1,15 @@
 #!/bin/bash
 # ============================================================
-# Deploy Stellar to Raspberry Pi
+# Deploy Stellar Backend to Raspberry Pi
 # ============================================================
 #
-# This script deploys the frontend and optionally the backend
-# to a configured Raspberry Pi.
+# This script deploys the backend binary to a configured Raspberry Pi.
+# The frontend is NOT deployed to the Pi: the LCD kiosk loads the
+# frontend from the Mac's Vite dev server at http://192.168.86.221:5173.
+# Run `npm run dev` on the Mac before powering the LCD.
 #
 # Usage:
-#   ./deploy-to-pi.sh [--backend]
+#   ./deploy-to-pi.sh --backend
 #
 # Requires .env file with:
 #   RASPBERRY_PI_SSH_USERNAME
@@ -57,7 +59,6 @@ PI_HOST="$RASPBERRY_PI_API_ADDRESS"
 
 SSH_CMD="sshpass -p '$PI_PASS' ssh -o StrictHostKeyChecking=no $PI_USER@$PI_HOST"
 SCP_CMD="sshpass -p '$PI_PASS' scp -o StrictHostKeyChecking=no"
-RSYNC_CMD="sshpass -p '$PI_PASS' rsync -avz --delete"
 
 DEPLOY_BACKEND=false
 
@@ -75,61 +76,50 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# ============================================================
-# Build Frontend
-# ============================================================
-log_info "Building frontend..."
-cd "$PROJECT_ROOT"
-npm run build
-
-# ============================================================
-# Deploy Frontend
-# ============================================================
-log_info "Deploying frontend to Pi..."
-eval "$RSYNC_CMD dist/ $PI_USER@$PI_HOST:~/stellar-volumio/"
-
-log_info "Restarting frontend service..."
-eval "$SSH_CMD 'sudo systemctl restart stellar-frontend'"
-
-# ============================================================
-# Deploy Backend (optional)
-# ============================================================
-if [ "$DEPLOY_BACKEND" = true ]; then
-    if [ -z "$STELLAR_BACKEND_FOLDER" ]; then
-        log_error "STELLAR_BACKEND_FOLDER not set in .env"
-        exit 1
-    fi
-
-    if [ ! -d "$STELLAR_BACKEND_FOLDER" ]; then
-        log_error "Backend folder not found: $STELLAR_BACKEND_FOLDER"
-        exit 1
-    fi
-
-    log_info "Building backend for ARM64..."
-    cd "$STELLAR_BACKEND_FOLDER"
-    GOOS=linux GOARCH=arm64 go build -o stellar-arm64 ./cmd/stellar
-
-    log_info "Deploying backend to Pi..."
-    eval "$SCP_CMD stellar-arm64 $PI_USER@$PI_HOST:~/stellar-backend/stellar"
-    eval "$SSH_CMD 'chmod +x ~/stellar-backend/stellar'"
-
-    log_info "Restarting backend service..."
-    eval "$SSH_CMD 'sudo systemctl restart stellar-backend'"
-
-    rm -f stellar-arm64
+if [ "$DEPLOY_BACKEND" != true ]; then
+    log_warn "Nothing to do without --backend. The Pi no longer hosts the frontend;"
+    log_warn "the LCD reads from the Mac's Vite dev server (npm run dev) at"
+    log_warn "http://192.168.86.221:5173. Re-run with --backend to deploy the binary."
+    exit 0
 fi
+
+# ============================================================
+# Deploy Backend
+# ============================================================
+if [ -z "$STELLAR_BACKEND_FOLDER" ]; then
+    log_error "STELLAR_BACKEND_FOLDER not set in .env"
+    exit 1
+fi
+
+if [ ! -d "$STELLAR_BACKEND_FOLDER" ]; then
+    log_error "Backend folder not found: $STELLAR_BACKEND_FOLDER"
+    exit 1
+fi
+
+log_info "Building backend for ARM64..."
+cd "$STELLAR_BACKEND_FOLDER"
+GOOS=linux GOARCH=arm64 go build -o stellar-arm64 ./cmd/stellar
+
+log_info "Deploying backend to Pi..."
+eval "$SCP_CMD stellar-arm64 $PI_USER@$PI_HOST:~/stellar-backend/stellar"
+eval "$SSH_CMD 'chmod +x ~/stellar-backend/stellar'"
+
+log_info "Restarting backend service..."
+eval "$SSH_CMD 'sudo systemctl restart stellar-backend'"
+
+rm -f stellar-arm64
 
 # ============================================================
 # Verify
 # ============================================================
-log_info "Waiting for services to start..."
+log_info "Waiting for backend to start..."
 sleep 3
 
 log_info "Checking service status..."
-eval "$SSH_CMD 'systemctl is-active stellar-frontend stellar-backend'"
+eval "$SSH_CMD 'systemctl is-active stellar-backend'"
 
 log_info "============================================================"
-log_info "Deployment complete!"
+log_info "Backend deployment complete!"
 log_info "============================================================"
-log_info "Frontend: http://$PI_HOST:8080"
 log_info "Backend:  http://$PI_HOST:3000"
+log_info "Frontend: http://192.168.86.221:5173 (Mac dev server — start with 'npm run dev')"

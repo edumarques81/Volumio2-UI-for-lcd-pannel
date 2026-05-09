@@ -1,15 +1,21 @@
 # Raspberry Pi Streamer Setup
 
-Scripts for configuring a Raspberry Pi as a Stellar audio streamer with LCD kiosk display.
+Scripts for configuring a Raspberry Pi as a Stellar audio streamer with an LCD kiosk display.
 
-## Overview
+## Architecture (current)
 
-These scripts automate the setup of a Raspberry Pi as a dedicated audio streamer with:
-- **Stellar Backend** - Go-based audio backend with Socket.IO API
-- **Stellar Frontend** - Svelte web UI optimized for 1920x440 LCD
-- **MPD** - Music Player Daemon for bit-perfect audio playback
-- **Kiosk Mode** - Full-screen browser with Vulkan GPU acceleration
-- **Audirvana Studio** (optional) - High-end audio playback alternative
+The Pi runs only the backend services. The frontend is served from the Mac.
+
+| Component | Where it runs | How to start |
+|-----------|---------------|--------------|
+| Stellar Backend (Go, Socket.IO) | Pi (`stellar-backend` systemd unit, port 3000) | `sudo systemctl start stellar-backend` |
+| MPD | Pi (`mpd` systemd unit, port 6600) | `sudo systemctl start mpd` |
+| Cage kiosk (Wayland + Chromium) | Pi (autostarted on tty1 via `~/.bash_profile`) | reboot Pi |
+| **Stellar Frontend (Svelte/Vite)** | **Mac** (`npm run dev`, port 5173) | `cd Volumio2-UI && npm run dev` |
+
+The kiosk launcher `/usr/local/bin/stellar-kiosk.sh` is hard-pointed at `http://192.168.86.221:5173?layout=lcd`. If the Mac dev server is down, the LCD shows a load error.
+
+> **Always run `npm run dev` on the Mac before powering the LCD.**
 
 ## Prerequisites
 
@@ -17,7 +23,7 @@ These scripts automate the setup of a Raspberry Pi as a dedicated audio streamer
 - Raspberry Pi OS Lite (64-bit) - Bookworm
 - LCD display (1920x440 for kiosk mode)
 - USB DAC for audio output
-- Network connection
+- Network connection (Pi must be able to reach the Mac on port 5173)
 
 ## Quick Start
 
@@ -36,11 +42,11 @@ Configure in Imager (Ctrl+Shift+X):
 SSH into your Pi and run:
 
 ```bash
-# Clone or copy the setup script
-scp scripts/pi-setup/setup-streamer.sh pi@stellar.local:~/
+# Copy the setup script
+scp scripts/pi-setup/setup-streamer.sh eduardo@<PI_IP>:~/
 
 # SSH into the Pi
-ssh pi@stellar.local
+ssh eduardo@<PI_IP>
 
 # Run the setup script
 chmod +x setup-streamer.sh
@@ -50,7 +56,15 @@ chmod +x setup-streamer.sh
 ./setup-streamer.sh --with-audirvana
 ```
 
-### 3. Deploy the Application
+The script installs only `stellar-backend` (not `stellar-frontend` — that service no longer exists). It also installs `/usr/local/bin/stellar-kiosk.sh` which is what Chromium launches under cage.
+
+If the Mac IP differs from `192.168.86.221`, override before running:
+
+```bash
+STELLAR_KIOSK_URL='http://<MAC_IP>:5173?layout=lcd' ./setup-streamer.sh
+```
+
+### 3. Deploy the Backend Binary
 
 From your development machine (requires `.env` file):
 
@@ -59,44 +73,45 @@ From your development machine (requires `.env` file):
 cp .env-example .env
 # Edit .env with your Pi's IP and credentials
 
-# Deploy frontend only
-cd volumio-poc
-./scripts/pi-setup/deploy-to-pi.sh
-
-# Deploy frontend AND backend
+# Deploy the backend binary
 ./scripts/pi-setup/deploy-to-pi.sh --backend
 ```
+
+The frontend is NOT deployed to the Pi. Run `npm run dev` on the Mac instead.
 
 ### 4. Configure USB DAC
 
 List available audio devices:
 ```bash
-ssh pi@stellar.local "aplay -l"
+ssh eduardo@<PI_IP> "aplay -l"
 ```
 
 Edit `/etc/mpd.conf` on the Pi to set the correct device:
 ```bash
-ssh pi@stellar.local "sudo nano /etc/mpd.conf"
+ssh eduardo@<PI_IP> "sudo nano /etc/mpd.conf"
 ```
 
 Update the `audio_output` section with your device (e.g., `hw:2,0`).
 
-### 5. Reboot
+### 5. Start the Mac dev server, then reboot the Pi
 
 ```bash
-ssh pi@stellar.local "sudo reboot"
+# On the Mac, in a terminal that stays open:
+cd Volumio2-UI && npm run dev
+
+# Then reboot the Pi:
+ssh eduardo@<PI_IP> "sudo reboot"
 ```
 
-The kiosk should start automatically showing the Stellar UI.
+The kiosk should start automatically and load the Mac-served frontend.
 
 ## What Gets Installed
 
-### Services
+### Services (systemd, on the Pi)
 
 | Service | Port | Description |
 |---------|------|-------------|
 | `stellar-backend` | 3000 | Go backend with Socket.IO, MPD integration |
-| `stellar-frontend` | 8080 | Python HTTP server serving the UI |
 | `mpd` | 6600 | Music Player Daemon |
 | `audirvanaStudio` | - | Audirvana Studio (if installed) |
 
@@ -105,11 +120,10 @@ The kiosk should start automatically showing the Stellar UI.
 | Path | Description |
 |------|-------------|
 | `~/stellar-backend/stellar` | Backend binary |
-| `~/stellar-volumio/` | Frontend static files |
 | `/data/stellar/` | Persistent data (playlists, history, sources) |
 | `/mnt/NAS/` | NAS mount points |
 | `/var/lib/mpd/music/` | MPD music directory |
-| `/usr/local/bin/stellar-kiosk.sh` | Kiosk launcher script |
+| `/usr/local/bin/stellar-kiosk.sh` | Kiosk launcher script (hard-points at the Mac dev server) |
 | `/opt/audirvana/studio/` | Audirvana installation (if installed) |
 
 ### Configuration Files
@@ -118,7 +132,6 @@ The kiosk should start automatically showing the Stellar UI.
 |------|-------------|
 | `/etc/mpd.conf` | MPD configuration |
 | `/etc/systemd/system/stellar-backend.service` | Backend service |
-| `/etc/systemd/system/stellar-frontend.service` | Frontend service |
 | `/etc/systemd/system/audirvanaStudio.service` | Audirvana service |
 | `/etc/avahi/services/stellar.service` | mDNS discovery |
 | `/etc/sudoers.d/stellar-mount` | Passwordless NAS mounting |
@@ -130,14 +143,23 @@ The kiosk should start automatically showing the Stellar UI.
 2. `.bash_profile` runs `/usr/local/bin/stellar-kiosk.sh`
 3. Kiosk script waits for backend Socket.IO to respond (up to 60s)
 4. Cage compositor launches Chromium in kiosk mode with Vulkan
-5. Chromium loads `http://localhost:8080?layout=lcd`
+5. Chromium loads `http://192.168.86.221:5173?layout=lcd` (the Mac's Vite dev server)
 
 ## Troubleshooting
+
+### LCD shows a load error
+The Mac dev server is most likely not running. From the Mac:
+
+```bash
+cd Volumio2-UI && npm run dev
+```
+
+If the Mac IP changed, edit `/usr/local/bin/stellar-kiosk.sh` on the Pi (or re-run `STELLAR_KIOSK_URL=... setup-streamer.sh`).
 
 ### Check Service Status
 
 ```bash
-systemctl status stellar-backend stellar-frontend mpd
+systemctl status stellar-backend mpd
 ```
 
 ### View Logs
@@ -145,9 +167,6 @@ systemctl status stellar-backend stellar-frontend mpd
 ```bash
 # Backend logs
 journalctl -u stellar-backend -f
-
-# Frontend logs
-journalctl -u stellar-frontend -f
 
 # MPD logs
 journalctl -u mpd -f
@@ -157,7 +176,6 @@ journalctl -u mpd -f
 
 ```bash
 sudo systemctl restart stellar-backend
-sudo systemctl restart stellar-frontend
 sudo systemctl restart mpd
 ```
 
@@ -187,9 +205,9 @@ mpc listall | head
 The browser exposes remote debugging on port 9222:
 ```bash
 # List available pages
-curl http://PI_IP:9222/json
+curl http://<PI_IP>:9222/json
 
-# Open in Chrome: chrome://inspect -> Configure -> add PI_IP:9222
+# Open in Chrome: chrome://inspect -> Configure -> add <PI_IP>:9222
 ```
 
 ### Audio Issues
@@ -207,19 +225,15 @@ grep -A5 "audio_output" /etc/mpd.conf
 
 ## Updating
 
-### Update Frontend Only
+### Update Backend
 
 ```bash
-cd volumio-poc
-./scripts/pi-setup/deploy-to-pi.sh
-```
-
-### Update Frontend and Backend
-
-```bash
-cd volumio-poc
 ./scripts/pi-setup/deploy-to-pi.sh --backend
 ```
+
+### Update Frontend
+
+There is no frontend update step on the Pi: the Mac's `npm run dev` always serves the latest local source. Just save the file.
 
 ### Update Just the Kiosk Script
 
@@ -242,7 +256,6 @@ If installed with `--with-audirvana`:
 
 The device advertises itself via mDNS (Avahi) with:
 - `_Volumio._tcp` - Compatible with Volumio Connect apps
-- `_http._tcp` - Web UI
 - `_ssh._tcp` / `_sftp-ssh._tcp` - SSH/SFTP access
 
 Discover from Mac:
