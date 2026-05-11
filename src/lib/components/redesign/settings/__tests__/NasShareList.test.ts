@@ -288,10 +288,11 @@ describe('NasShareList', () => {
     expect(mockSourcesActions.browseShares).toHaveBeenCalledWith('192.168.1.20');
   });
 
-  // Test 13: "Use this" on a browsed share pre-fills the add-form path field
-  it('"Use this" on a browsed share pre-fills the add-form path field', async () => {
+  // Test 13: "Use this" on a browsed share pre-fills BOTH path AND IP
+  it('"Use this" on a browsed share pre-fills both the path and IP fields from lastBrowseHostAttempt', async () => {
     mockDiscoveredDevices.set([makeDevice()]);
     mockBrowsedShares.set([makeShareInfo({ name: 'movies' })]);
+    mockLastBrowseHostAttempt.set('192.168.1.42');
     const { getByText } = render(NasShareList);
 
     // Expand discover section
@@ -304,10 +305,77 @@ describe('NasShareList', () => {
     await fireEvent.click(useThisBtn);
     await tick();
 
-    // The add-form should be open and the path field filled
+    // The add-form should be open with both path AND IP pre-filled
     const pathInput = document.getElementById('settings-nas-add-path') as HTMLInputElement;
+    const ipInput = document.getElementById('settings-nas-add-ip') as HTMLInputElement;
     expect(pathInput).toBeTruthy();
     expect(pathInput.value).toBe('movies');
+    expect(ipInput).toBeTruthy();
+    expect(ipInput.value).toBe('192.168.1.42');
+  });
+
+  // Test 13b: "Use this" with null lastBrowseHostAttempt leaves IP blank
+  it('"Use this" with null lastBrowseHostAttempt leaves the IP field blank', async () => {
+    mockDiscoveredDevices.set([makeDevice()]);
+    mockBrowsedShares.set([makeShareInfo({ name: 'photos' })]);
+    mockLastBrowseHostAttempt.set(null);
+    const { getByText } = render(NasShareList);
+
+    await fireEvent.click(getByText('Find devices on network'));
+    await tick();
+    await tick();
+
+    await fireEvent.click(getByText('Use this'));
+    await tick();
+
+    const pathInput = document.getElementById('settings-nas-add-path') as HTMLInputElement;
+    const ipInput = document.getElementById('settings-nas-add-ip') as HTMLInputElement;
+    expect(pathInput.value).toBe('photos');
+    expect(ipInput.value).toBe('');
+  });
+
+  // Test 13c: "Use this" scrolls the add-form into view (LCD-below-the-fold case)
+  it('"Use this" scrolls the add-form into view', async () => {
+    mockDiscoveredDevices.set([makeDevice()]);
+    mockBrowsedShares.set([makeShareInfo({ name: 'music' })]);
+    mockLastBrowseHostAttempt.set('192.168.1.10');
+
+    // Spy on the prototype scrollIntoView so any HTMLElement created during
+    // render uses our spy. JSDOM doesn't implement scrollIntoView by default.
+    const scrollSpy = vi.fn();
+    const originalScrollIntoView = (HTMLElement.prototype as unknown as {
+      scrollIntoView?: typeof HTMLElement.prototype.scrollIntoView;
+    }).scrollIntoView;
+    (HTMLElement.prototype as unknown as {
+      scrollIntoView: (opts?: ScrollIntoViewOptions) => void;
+    }).scrollIntoView = scrollSpy;
+
+    try {
+      const { getByText } = render(NasShareList);
+      await fireEvent.click(getByText('Find devices on network'));
+      await tick();
+      await tick();
+
+      await fireEvent.click(getByText('Use this'));
+      await tick();
+      // queueMicrotask flush — vi.useFakeTimers does NOT freeze microtasks,
+      // but we still let any pending microtasks run.
+      await Promise.resolve();
+      await tick();
+
+      expect(scrollSpy).toHaveBeenCalled();
+      const callArg = scrollSpy.mock.calls[0][0];
+      expect(callArg).toMatchObject({ block: 'nearest', behavior: 'smooth' });
+    } finally {
+      if (originalScrollIntoView !== undefined) {
+        (HTMLElement.prototype as unknown as {
+          scrollIntoView: typeof HTMLElement.prototype.scrollIntoView;
+        }).scrollIntoView = originalScrollIntoView;
+      } else {
+        delete (HTMLElement.prototype as unknown as { scrollIntoView?: unknown })
+          .scrollIntoView;
+      }
+    }
   });
 
   // Test 14: Last result strip renders; success vs failure color classes

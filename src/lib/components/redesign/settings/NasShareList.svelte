@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { get } from 'svelte/store';
   import {
     nasShares,
     nasSharesLoading,
@@ -19,6 +20,11 @@
   // ── UI state ──────────────────────────────────────────────────────────────
   let showAddForm = $state(false);
   let showDiscover = $state(false);
+
+  // DOM handle for the add-form card. Used by handleUseShare() to scroll the
+  // form into view after opening it — on the 1920x440 LCD the form may be
+  // below the fold and the user otherwise sees nothing happen.
+  let addFormEl = $state<HTMLDivElement | null>(null);
 
   // Tracks whether the user has clicked "Discover" at least once. Used to
   // gate the "no devices found" empty-state so it doesn't appear before the
@@ -111,7 +117,23 @@
 
   function handleUseShare(shareName: string) {
     addPath = shareName;
+    // The share was browsed from a specific host (lastBrowseHostAttempt), so
+    // the IP is known — pre-fill it too. Defensive null check: if Use-this
+    // is clickable but lastBrowseHostAttempt is somehow null, leave blank.
+    const host = get(lastBrowseHostAttempt);
+    if (host !== null) {
+      addIp = host;
+    }
     showAddForm = true;
+    // After Svelte renders the form (microtask), scroll it into view so the
+    // user sees the pre-filled fields even when the form is below the fold
+    // on the 1920x440 LCD. scrollIntoView is not implemented in JSDOM, so
+    // capability-check before calling.
+    queueMicrotask(() => {
+      if (typeof addFormEl?.scrollIntoView === 'function') {
+        addFormEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+    });
   }
 
   function handleDismissResult() {
@@ -181,7 +203,7 @@
   </button>
 
   {#if showAddForm}
-    <div class="add-form-card">
+    <div class="add-form-card" bind:this={addFormEl}>
       <div class="field-row">
         <label for="settings-nas-add-name">Share name</label>
         <input
