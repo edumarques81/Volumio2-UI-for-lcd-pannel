@@ -21,6 +21,7 @@ import {
   browseError,
   lastBrowseHostAttempt,
   mountInFlight,
+  shareOperationInProgress,
   mountedNasShares,
   unmountedNasShares,
   sourcesActions,
@@ -824,6 +825,135 @@ describe('Sources store (NAS share management)', () => {
       // because cleanup cleared the timer (and reset all stores).
       vi.advanceTimersByTime(SHARE_OPERATION_TIMEOUT_MS);
       expect(get(lastShareResult)).toBeNull();
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // 20. shareOperationInProgress — in-progress feedback during the 3-7s
+  //     normal-case wait. Set synchronously on each mutation, cleared by
+  //     any path that finishes the operation (success/failure/timeout).
+  // -----------------------------------------------------------------------
+  describe('shareOperationInProgress tracking', () => {
+    it('initial value is null', () => {
+      cleanupSourcesStore();
+      expect(get(shareOperationInProgress)).toBeNull();
+    });
+
+    it('addShare sets shareOperationInProgress.action = "add" synchronously', () => {
+      const before = Date.now();
+      sourcesActions.addShare({
+        name: 'X',
+        ip: '10.0.0.1',
+        path: '/x',
+        fstype: 'cifs'
+      });
+      const after = Date.now();
+      const inProgress = get(shareOperationInProgress);
+      expect(inProgress).not.toBeNull();
+      expect(inProgress!.action).toBe('add');
+      expect(inProgress!.startedAt).toBeGreaterThanOrEqual(before);
+      expect(inProgress!.startedAt).toBeLessThanOrEqual(after);
+    });
+
+    it('mountShare sets shareOperationInProgress.action = "mount" synchronously', () => {
+      sourcesActions.mountShare('abc');
+      const inProgress = get(shareOperationInProgress);
+      expect(inProgress).not.toBeNull();
+      expect(inProgress!.action).toBe('mount');
+      expect(typeof inProgress!.startedAt).toBe('number');
+    });
+
+    it('unmountShare sets shareOperationInProgress.action = "unmount" synchronously', () => {
+      sourcesActions.unmountShare('abc');
+      const inProgress = get(shareOperationInProgress);
+      expect(inProgress).not.toBeNull();
+      expect(inProgress!.action).toBe('unmount');
+    });
+
+    it('deleteShare sets shareOperationInProgress.action = "delete" synchronously', () => {
+      sourcesActions.deleteShare('abc');
+      const inProgress = get(shareOperationInProgress);
+      expect(inProgress).not.toBeNull();
+      expect(inProgress!.action).toBe('delete');
+    });
+
+    it('a second mutation updates the action label (addShare → mountShare)', () => {
+      sourcesActions.addShare({
+        name: 'X',
+        ip: '10.0.0.1',
+        path: '/x',
+        fstype: 'cifs'
+      });
+      expect(get(shareOperationInProgress)!.action).toBe('add');
+
+      sourcesActions.mountShare('abc');
+      expect(get(shareOperationInProgress)!.action).toBe('mount');
+    });
+
+    it('pushNasShareResult clears shareOperationInProgress', () => {
+      initSourcesStore();
+      sourcesActions.addShare({
+        name: 'X',
+        ip: '10.0.0.1',
+        path: '/x',
+        fstype: 'cifs'
+      });
+      expect(get(shareOperationInProgress)).not.toBeNull();
+
+      const handler = getHandler<SourceResult>('pushNasShareResult');
+      handler!({ success: true, message: 'Share added' });
+
+      expect(get(shareOperationInProgress)).toBeNull();
+    });
+
+    it('pushNasShareResult clears shareOperationInProgress on failure too', () => {
+      initSourcesStore();
+      sourcesActions.mountShare('abc');
+      expect(get(shareOperationInProgress)).not.toBeNull();
+
+      const handler = getHandler<SourceResult>('pushNasShareResult');
+      handler!({ success: false, error: 'Mount failed' });
+
+      expect(get(shareOperationInProgress)).toBeNull();
+    });
+
+    it('pushListNasShares clears shareOperationInProgress', () => {
+      initSourcesStore();
+      sourcesActions.mountShare('abc');
+      expect(get(shareOperationInProgress)).not.toBeNull();
+
+      const handler = getHandler<NasShare[]>('pushListNasShares');
+      handler!([sampleShare]);
+
+      expect(get(shareOperationInProgress)).toBeNull();
+    });
+
+    it('timeout fire clears shareOperationInProgress (along with synthetic failure)', () => {
+      vi.useFakeTimers();
+      try {
+        initSourcesStore();
+        sourcesActions.mountShare('abc');
+        expect(get(shareOperationInProgress)).not.toBeNull();
+
+        vi.advanceTimersByTime(SHARE_OPERATION_TIMEOUT_MS);
+
+        expect(get(shareOperationInProgress)).toBeNull();
+        expect(get(lastShareResult)).toEqual({
+          success: false,
+          error: 'Operation timed out — try again'
+        });
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('cleanupSourcesStore resets shareOperationInProgress to null', () => {
+      sourcesActions.mountShare('abc');
+      expect(get(shareOperationInProgress)).not.toBeNull();
+
+      cleanupSourcesStore();
+
+      expect(get(shareOperationInProgress)).toBeNull();
     });
   });
 });

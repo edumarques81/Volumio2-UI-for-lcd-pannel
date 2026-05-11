@@ -12,10 +12,27 @@
     browseError,
     lastBrowseHostAttempt,
     mountInFlight,
+    shareOperationInProgress,
     sourcesActions,
     type NasShare,
     type AddNasShareRequest,
   } from '$lib/stores/sources';
+
+  // User-facing copy for each in-progress action. Matches the existing
+  // single-character ellipsis convention used elsewhere in this file
+  // ("Loading…", "Discovering…"). Kept generic — no share name in v1.
+  function progressLabel(action: 'add' | 'mount' | 'unmount' | 'delete'): string {
+    switch (action) {
+      case 'add':
+        return 'Adding NAS share…';
+      case 'mount':
+        return 'Mounting share…';
+      case 'unmount':
+        return 'Unmounting share…';
+      case 'delete':
+        return 'Removing share…';
+    }
+  }
 
   // ── UI state ──────────────────────────────────────────────────────────────
   let showAddForm = $state(false);
@@ -393,8 +410,25 @@
     </div>
   {/if}
 
-  <!-- Last result strip -->
-  {#if $lastShareResult !== null}
+  <!--
+    Bottom strip: in-progress takes precedence over result. While a mutation
+    is in flight (normal 3-7s case), we show the working-state strip; only
+    once the operation finishes (success / failure / 8s timeout fallback)
+    does the result strip take over.
+  -->
+  {#if $shareOperationInProgress !== null}
+    <div
+      role="status"
+      aria-live="polite"
+      class="result-strip in-progress"
+      data-testid="nas-operation-in-progress"
+    >
+      <span class="strip-spinner" aria-hidden="true"></span>
+      <span class="result-text">
+        {progressLabel($shareOperationInProgress.action)}
+      </span>
+    </div>
+  {:else if $lastShareResult !== null}
     <div
       role="status"
       class="result-strip"
@@ -796,6 +830,27 @@
   .result-strip.failure {
     background: rgba(208, 69, 69, 0.18);
     color: #ff8080;
+  }
+
+  /*
+   * In-progress variant — neutral "working" tone, distinct from the
+   * success-green / failure-red palette. Reuses the existing .result-strip
+   * box model so vertical rhythm matches.
+   */
+  .result-strip.in-progress {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--color-text-primary);
+  }
+
+  .strip-spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    border: 2px solid rgba(255, 255, 255, 0.18);
+    border-top-color: var(--color-accent);
+    border-radius: 50%;
+    animation: nas-spin 800ms linear infinite;
   }
 
   .btn-dismiss {

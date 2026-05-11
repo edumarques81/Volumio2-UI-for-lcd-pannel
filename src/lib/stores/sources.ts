@@ -104,6 +104,23 @@ export const lastBrowseHostAttempt = writable<string | null>(null);
  */
 export const mountInFlight = writable<Record<string, 'mounting' | 'unmounting'>>({});
 
+/**
+ * Discriminated label for whichever mutation is currently in flight, or null
+ * when none is. Set synchronously at the top of each mutation action and
+ * cleared by any path that finishes the operation: pushNasShareResult,
+ * pushListNasShares, the timeout-fire fallback, and cleanup. UI consumers
+ * render a "working…" indicator while this is non-null — it covers the
+ * normal 3-7s wait (NFS handshake etc.) before either a real result or the
+ * 8s timeout fallback arrives.
+ *
+ * Mutually exclusive with lastShareResult in the UI by precedence: when
+ * non-null, the in-progress strip takes priority over the result strip.
+ */
+export const shareOperationInProgress = writable<{
+  action: 'add' | 'mount' | 'unmount' | 'delete';
+  startedAt: number;
+} | null>(null);
+
 // -------------------------------------------------------------------------
 // Per-action timeout constants (exported so consumers/tests can read them)
 // -------------------------------------------------------------------------
@@ -153,13 +170,18 @@ function clearShareOperationTimeout(): void {
 }
 
 /**
- * Arm the mutation fallback timer. Cancels any previously-pending mutation
- * timer first so a fresh action always gets a fresh deadline. On fire:
- * surfaces a sticky failure result and clears mountInFlight (mirrors the
- * pushNasShareResult listener's failure path).
+ * Begin a mutation operation: publishes the in-progress label and arms the
+ * fallback timer. Cancels any previously-pending mutation timer first so a
+ * fresh action always gets a fresh deadline. On timer fire: surfaces a
+ * sticky failure result, clears mountInFlight (mirrors the
+ * pushNasShareResult listener's failure path), and clears the in-progress
+ * label so the UI returns to the result strip.
  */
-function armShareOperationTimeout(): void {
+function beginShareOperation(
+  action: 'add' | 'mount' | 'unmount' | 'delete'
+): void {
   clearShareOperationTimeout();
+  shareOperationInProgress.set({ action, startedAt: Date.now() });
   shareOperationTimeoutId = setTimeout(() => {
     shareOperationTimeoutId = null;
     lastShareResult.set({
@@ -167,6 +189,7 @@ function armShareOperationTimeout(): void {
       error: 'Operation timed out — try again'
     });
     mountInFlight.set({});
+    shareOperationInProgress.set(null);
   }, SHARE_OPERATION_TIMEOUT_MS);
 }
 
@@ -195,27 +218,27 @@ export const sourcesActions = {
 
   /** Add a new NAS share. Backend broadcasts pushListNasShares on success. */
   addShare(req: AddNasShareRequest): void {
-    armShareOperationTimeout();
+    beginShareOperation('add');
     socketService.emit('addNasShare', req);
   },
 
   /** Delete an existing share by id. Backend broadcasts pushListNasShares on success. */
   deleteShare(id: string): void {
-    armShareOperationTimeout();
+    beginShareOperation('delete');
     socketService.emit('deleteNasShare', { id });
   },
 
   /** Mount a share by id. Backend broadcasts pushListNasShares on success. */
   mountShare(id: string): void {
     mountInFlight.update((m) => ({ ...m, [id]: 'mounting' }));
-    armShareOperationTimeout();
+    beginShareOperation('mount');
     socketService.emit('mountNasShare', { id });
   },
 
   /** Unmount a share by id. Backend broadcasts pushListNasShares on success. */
   unmountShare(id: string): void {
     mountInFlight.update((m) => ({ ...m, [id]: 'unmounting' }));
-    armShareOperationTimeout();
+    beginShareOperation('unmount');
     socketService.emit('unmountNasShare', { id });
   },
 
@@ -279,8 +302,10 @@ export function initSourcesStore(): void {
     // A fresh share list is the natural "operation finished" signal for any
     // pending mount/unmount — the backend broadcasts pushListNasShares on
     // every successful mutation. Cancel the mutation fallback timer so it
-    // doesn't synthesize a "timed out" failure on top of a real success.
+    // doesn't synthesize a "timed out" failure on top of a real success,
+    // and drop the in-progress label so the UI returns to the result strip.
     clearShareOperationTimeout();
+    shareOperationInProgress.set(null);
     nasShares.set(shares ?? []);
     nasSharesLoading.set(false);
     mountInFlight.set({});
@@ -288,8 +313,10 @@ export function initSourcesStore(): void {
 
   socketService.on<SourceResult>('pushNasShareResult', (result) => {
     // A real result arrived — cancel the mutation fallback timer so it
-    // doesn't overwrite this result with a synthetic timeout failure.
+    // doesn't overwrite this result with a synthetic timeout failure, and
+    // drop the in-progress label so the UI returns to the result strip.
     clearShareOperationTimeout();
+    shareOperationInProgress.set(null);
     lastShareResult.set(result);
     // Do NOT touch nasShares here — the backend separately broadcasts
     // pushListNasShares to all clients on successful mutations.
@@ -340,5 +367,6 @@ export function cleanupSourcesStore(): void {
   browseError.set(null);
   lastBrowseHostAttempt.set(null);
   mountInFlight.set({});
+  shareOperationInProgress.set(null);
   initialized = false;
 }

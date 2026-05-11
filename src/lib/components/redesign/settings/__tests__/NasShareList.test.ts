@@ -17,6 +17,7 @@ const {
   mockBrowseError,
   mockLastBrowseHostAttempt,
   mockMountInFlight,
+  mockShareOperationInProgress,
   mockSourcesActions,
 } = vi.hoisted(() => {
   const { writable } = require('svelte/store');
@@ -31,6 +32,7 @@ const {
   const mockBrowseError = writable(null);
   const mockLastBrowseHostAttempt = writable(null);
   const mockMountInFlight = writable({});
+  const mockShareOperationInProgress = writable(null);
 
   const mockSourcesActions = {
     listShares: vi.fn(),
@@ -59,6 +61,7 @@ const {
     mockBrowseError,
     mockLastBrowseHostAttempt,
     mockMountInFlight,
+    mockShareOperationInProgress,
     mockSourcesActions,
   };
 });
@@ -75,6 +78,7 @@ vi.mock('$lib/stores/sources', () => ({
   browseError: mockBrowseError,
   lastBrowseHostAttempt: mockLastBrowseHostAttempt,
   mountInFlight: mockMountInFlight,
+  shareOperationInProgress: mockShareOperationInProgress,
   sourcesActions: mockSourcesActions,
   DISCOVERY_TIMEOUT_MS: 8000,
   BROWSE_TIMEOUT_MS: 8000,
@@ -135,6 +139,7 @@ describe('NasShareList', () => {
     mockBrowseError.set(null);
     mockLastBrowseHostAttempt.set(null);
     mockMountInFlight.set({});
+    mockShareOperationInProgress.set(null);
   });
 
   afterEach(() => {
@@ -689,5 +694,76 @@ describe('NasShareList', () => {
     await tick();
 
     expect(queryByTestId('nas-result-dismiss')).toBeNull();
+  });
+
+  // ──────────────────────────────────────────────────────────────────────
+  // C7-followup: in-progress strip during NAS mutations
+  // ──────────────────────────────────────────────────────────────────────
+
+  // Test 31: in-progress strip renders with the right label per action
+  const progressCases: Array<{ action: 'add' | 'mount' | 'unmount' | 'delete'; label: string }> = [
+    { action: 'add', label: 'Adding NAS share…' },
+    { action: 'mount', label: 'Mounting share…' },
+    { action: 'unmount', label: 'Unmounting share…' },
+    { action: 'delete', label: 'Removing share…' },
+  ];
+
+  for (const c of progressCases) {
+    it(`renders in-progress strip with label "${c.label}" when action is "${c.action}"`, async () => {
+      mockShareOperationInProgress.set({ action: c.action, startedAt: Date.now() });
+      const { getByTestId } = render(NasShareList);
+      await tick();
+
+      const strip = getByTestId('nas-operation-in-progress');
+      expect(strip).toBeTruthy();
+      expect(strip.getAttribute('role')).toBe('status');
+      expect(strip.getAttribute('aria-live')).toBe('polite');
+      expect(strip.textContent).toContain(c.label);
+    });
+  }
+
+  // Test 32: Precedence — in-progress takes priority over result strip
+  it('in-progress strip takes precedence over result strip when both stores are set', async () => {
+    mockShareOperationInProgress.set({ action: 'mount', startedAt: Date.now() });
+    mockLastShareResult.set({ success: false, error: 'old failure' });
+    const { getByTestId, queryByTestId } = render(NasShareList);
+    await tick();
+
+    expect(getByTestId('nas-operation-in-progress')).toBeTruthy();
+    expect(queryByTestId('nas-result-strip')).toBeNull();
+  });
+
+  // Test 33: Regression — result strip still renders when in-progress is null
+  it('result strip renders normally when shareOperationInProgress is null', async () => {
+    mockShareOperationInProgress.set(null);
+    mockLastShareResult.set({ success: true, message: 'Saved' });
+    const { getByTestId, queryByTestId } = render(NasShareList);
+    await tick();
+
+    expect(getByTestId('nas-result-strip')).toBeTruthy();
+    expect(queryByTestId('nas-operation-in-progress')).toBeNull();
+  });
+
+  // Test 34: In-progress strip has no dismiss button (sticky-by-completion-only)
+  it('in-progress strip does NOT render a dismiss button', async () => {
+    mockShareOperationInProgress.set({ action: 'mount', startedAt: Date.now() });
+    const { queryByTestId } = render(NasShareList);
+    await tick();
+
+    expect(queryByTestId('nas-result-dismiss')).toBeNull();
+  });
+
+  // Test 35: In-progress strip clears when the store flips back to null
+  it('in-progress strip disappears when shareOperationInProgress is cleared', async () => {
+    mockShareOperationInProgress.set({ action: 'add', startedAt: Date.now() });
+    const { getByTestId, queryByTestId } = render(NasShareList);
+    await tick();
+
+    expect(getByTestId('nas-operation-in-progress')).toBeTruthy();
+
+    mockShareOperationInProgress.set(null);
+    await tick();
+
+    expect(queryByTestId('nas-operation-in-progress')).toBeNull();
   });
 });
