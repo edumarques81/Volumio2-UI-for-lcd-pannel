@@ -716,9 +716,13 @@ describe('Sources store (NAS share management)', () => {
       expect(SHARE_OPERATION_TIMEOUT_MS).toBe(8000);
     });
 
-    const mutations: Array<{ name: string; fire: () => void }> = [
+    // Per-action timeout copy: each mutation maps to its own message so the
+    // user knows which operation actually timed out. Copy mirrors the
+    // discover/browse pattern ("X timed out — try again").
+    const mutations = [
       {
         name: 'addShare',
+        expectedMessage: 'Add timed out — try again',
         fire: () =>
           sourcesActions.addShare({
             name: 'X',
@@ -727,31 +731,45 @@ describe('Sources store (NAS share management)', () => {
             fstype: 'cifs'
           })
       },
-      { name: 'mountShare', fire: () => sourcesActions.mountShare('abc') },
-      { name: 'unmountShare', fire: () => sourcesActions.unmountShare('abc') },
-      { name: 'deleteShare', fire: () => sourcesActions.deleteShare('abc') }
-    ];
+      {
+        name: 'mountShare',
+        expectedMessage: 'Mount timed out — try again',
+        fire: () => sourcesActions.mountShare('abc')
+      },
+      {
+        name: 'unmountShare',
+        expectedMessage: 'Unmount timed out — try again',
+        fire: () => sourcesActions.unmountShare('abc')
+      },
+      {
+        name: 'deleteShare',
+        expectedMessage: 'Delete timed out — try again',
+        fire: () => sourcesActions.deleteShare('abc')
+      }
+    ] as const;
 
-    for (const mutation of mutations) {
-      it(`${mutation.name}: surfaces sticky failure result after SHARE_OPERATION_TIMEOUT_MS when no response arrives`, () => {
+    it.each(mutations)(
+      '$name: surfaces sticky per-action failure result after SHARE_OPERATION_TIMEOUT_MS when no response arrives',
+      ({ expectedMessage, fire }) => {
         initSourcesStore();
-        mutation.fire();
+        fire();
 
         // Just before the deadline — no synthetic failure yet.
         vi.advanceTimersByTime(SHARE_OPERATION_TIMEOUT_MS - 1);
         expect(get(lastShareResult)).toBeNull();
 
-        // Cross the deadline — sticky failure result is set.
+        // Cross the deadline — sticky failure result is set with the per-
+        // action message so the user knows which operation timed out.
         vi.advanceTimersByTime(1);
         expect(get(lastShareResult)).toEqual({
           success: false,
-          error: 'Operation timed out — try again'
+          error: expectedMessage
         });
         // mountInFlight is cleared on the failure path (mirrors the
         // pushNasShareResult listener's failure behavior).
         expect(get(mountInFlight)).toEqual({});
-      });
-    }
+      }
+    );
 
     it('pushNasShareResult arrival cancels the pending mutation timeout', () => {
       initSourcesStore();
@@ -825,6 +843,44 @@ describe('Sources store (NAS share management)', () => {
       // because cleanup cleared the timer (and reset all stores).
       vi.advanceTimersByTime(SHARE_OPERATION_TIMEOUT_MS);
       expect(get(lastShareResult)).toBeNull();
+    });
+
+    // ── Documented store-level race ─────────────────────────────────────
+    // With one shared module-level timer handle, if mutation B is fired
+    // while A is in-flight, A's timer is cancelled in favour of B's. If A
+    // then completes (real result arrives), the listeners cancel B's timer
+    // too — leaving B with NO fallback. This is the multi-outstanding race
+    // the reviewers flagged. The contracted fix is at the UI layer: gate
+    // the buttons so a second mutation can't be fired while one is in
+    // flight (see NasShareList.test.ts). This test locks in the current
+    // store-level behaviour so any future change is intentional.
+    it('multi-outstanding mutations: first completes leaves second without a fallback (documented race)', () => {
+      initSourcesStore();
+
+      sourcesActions.addShare({
+        name: 'X',
+        ip: '10.0.0.1',
+        path: '/x',
+        fstype: 'cifs'
+      });
+      // T1 armed (deadline t=8000)
+      vi.advanceTimersByTime(4000);
+
+      sourcesActions.mountShare('abc');
+      // T2 armed (deadline t=12000); T1 cancelled.
+
+      // First mutation completes at t=6000.
+      const resultHandler = getHandler<SourceResult>('pushNasShareResult');
+      resultHandler!({ success: true, message: 'Added' });
+      // The pushNasShareResult listener calls clearShareOperationTimeout()
+      // → T2 is now also cancelled.
+
+      // Walk past the original t=12000 deadline. The synthetic failure must
+      // NOT fire (timer cancelled), and lastShareResult stays as the FIRST
+      // mutation's success — leaving the second mutation silently
+      // unfeedback if it keeps hanging on the backend.
+      vi.advanceTimersByTime(SHARE_OPERATION_TIMEOUT_MS);
+      expect(get(lastShareResult)).toEqual({ success: true, message: 'Added' });
     });
   });
 
@@ -938,9 +994,10 @@ describe('Sources store (NAS share management)', () => {
         vi.advanceTimersByTime(SHARE_OPERATION_TIMEOUT_MS);
 
         expect(get(shareOperationInProgress)).toBeNull();
+        // Per-action message (action was 'mount').
         expect(get(lastShareResult)).toEqual({
           success: false,
-          error: 'Operation timed out — try again'
+          error: 'Mount timed out — try again'
         });
       } finally {
         vi.useRealTimers();

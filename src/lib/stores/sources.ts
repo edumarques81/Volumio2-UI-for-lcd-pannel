@@ -170,10 +170,26 @@ function clearShareOperationTimeout(): void {
 }
 
 /**
+ * Per-action copy for the timeout-fire synthetic failure. The user knows
+ * which operation actually timed out. Mirrors the discover/browse copy
+ * pattern ("X timed out — try again"); the em-dash and trailing
+ * "— try again" are kept verbatim for cross-flow consistency.
+ */
+const TIMEOUT_MESSAGES: Record<
+  'add' | 'mount' | 'unmount' | 'delete',
+  string
+> = {
+  add: 'Add timed out — try again',
+  mount: 'Mount timed out — try again',
+  unmount: 'Unmount timed out — try again',
+  delete: 'Delete timed out — try again'
+};
+
+/**
  * Begin a mutation operation: publishes the in-progress label and arms the
  * fallback timer. Cancels any previously-pending mutation timer first so a
  * fresh action always gets a fresh deadline. On timer fire: surfaces a
- * sticky failure result, clears mountInFlight (mirrors the
+ * sticky per-action failure result, clears mountInFlight (mirrors the
  * pushNasShareResult listener's failure path), and clears the in-progress
  * label so the UI returns to the result strip.
  */
@@ -186,8 +202,8 @@ function beginShareOperation(
     shareOperationTimeoutId = null;
     lastShareResult.set({
       success: false,
-      error: 'Operation timed out — try again'
-    });
+      error: TIMEOUT_MESSAGES[action]
+    } satisfies SourceResult);
     mountInFlight.set({});
     shareOperationInProgress.set(null);
   }, SHARE_OPERATION_TIMEOUT_MS);

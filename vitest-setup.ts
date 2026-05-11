@@ -56,3 +56,10 @@ if (typeof Element.prototype.animate !== 'function') {
     timeline: null,
   });
 }
+
+// Polyfill scrollIntoView — jsdom doesn't implement it, but our components
+// call it (e.g. NasShareList.handleUseShare). A noop is enough for tests
+// to assert behavior; component tests that care use vi.spyOn over this.
+if (typeof Element.prototype.scrollIntoView !== 'function') {
+  Element.prototype.scrollIntoView = vi.fn();
+}

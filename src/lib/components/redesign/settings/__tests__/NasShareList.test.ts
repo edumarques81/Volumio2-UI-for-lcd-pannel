@@ -144,6 +144,7 @@ describe('NasShareList', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.restoreAllMocks();
   });
 
   // Test 1: Empty state
@@ -345,42 +346,25 @@ describe('NasShareList', () => {
     mockBrowsedShares.set([makeShareInfo({ name: 'music' })]);
     mockLastBrowseHostAttempt.set('192.168.1.10');
 
-    // Spy on the prototype scrollIntoView so any HTMLElement created during
-    // render uses our spy. JSDOM doesn't implement scrollIntoView by default.
-    const scrollSpy = vi.fn();
-    const originalScrollIntoView = (HTMLElement.prototype as unknown as {
-      scrollIntoView?: typeof HTMLElement.prototype.scrollIntoView;
-    }).scrollIntoView;
-    (HTMLElement.prototype as unknown as {
-      scrollIntoView: (opts?: ScrollIntoViewOptions) => void;
-    }).scrollIntoView = scrollSpy;
+    // vi.spyOn auto-restores via vi.restoreAllMocks() in afterEach.
+    const scrollSpy = vi
+      .spyOn(HTMLElement.prototype, 'scrollIntoView')
+      .mockImplementation(() => {});
 
-    try {
-      const { getByText } = render(NasShareList);
-      await fireEvent.click(getByText('Find devices on network'));
-      await tick();
-      await tick();
+    const { getByText } = render(NasShareList);
+    await fireEvent.click(getByText('Find devices on network'));
+    await tick();
+    await tick();
 
-      await fireEvent.click(getByText('Use this'));
-      await tick();
-      // queueMicrotask flush — vi.useFakeTimers does NOT freeze microtasks,
-      // but we still let any pending microtasks run.
-      await Promise.resolve();
-      await tick();
+    await fireEvent.click(getByText('Use this'));
+    // handleUseShare is async; let its `await tick()` resolve.
+    await tick();
+    await tick();
 
-      expect(scrollSpy).toHaveBeenCalled();
-      const callArg = scrollSpy.mock.calls[0][0];
-      expect(callArg).toMatchObject({ block: 'nearest', behavior: 'smooth' });
-    } finally {
-      if (originalScrollIntoView !== undefined) {
-        (HTMLElement.prototype as unknown as {
-          scrollIntoView: typeof HTMLElement.prototype.scrollIntoView;
-        }).scrollIntoView = originalScrollIntoView;
-      } else {
-        delete (HTMLElement.prototype as unknown as { scrollIntoView?: unknown })
-          .scrollIntoView;
-      }
-    }
+    expect(scrollSpy).toHaveBeenCalled();
+    const callArg = scrollSpy.mock.calls[0][0];
+    // Default (no reduced-motion preference) is smooth.
+    expect(callArg).toMatchObject({ block: 'nearest', behavior: 'smooth' });
   });
 
   // Test 14: Last result strip renders; success vs failure color classes
@@ -701,16 +685,17 @@ describe('NasShareList', () => {
   // ──────────────────────────────────────────────────────────────────────
 
   // Test 31: in-progress strip renders with the right label per action
-  const progressCases: Array<{ action: 'add' | 'mount' | 'unmount' | 'delete'; label: string }> = [
+  const progressCases = [
     { action: 'add', label: 'Adding NAS share…' },
     { action: 'mount', label: 'Mounting share…' },
     { action: 'unmount', label: 'Unmounting share…' },
     { action: 'delete', label: 'Removing share…' },
-  ];
+  ] as const;
 
-  for (const c of progressCases) {
-    it(`renders in-progress strip with label "${c.label}" when action is "${c.action}"`, async () => {
-      mockShareOperationInProgress.set({ action: c.action, startedAt: Date.now() });
+  it.each(progressCases)(
+    'renders in-progress strip with label "$label" when action is "$action"',
+    async ({ action, label }) => {
+      mockShareOperationInProgress.set({ action, startedAt: Date.now() });
       const { getByTestId } = render(NasShareList);
       await tick();
 
@@ -718,9 +703,9 @@ describe('NasShareList', () => {
       expect(strip).toBeTruthy();
       expect(strip.getAttribute('role')).toBe('status');
       expect(strip.getAttribute('aria-live')).toBe('polite');
-      expect(strip.textContent).toContain(c.label);
-    });
-  }
+      expect(strip.textContent).toContain(label);
+    }
+  );
 
   // Test 32: Precedence — in-progress takes priority over result strip
   it('in-progress strip takes precedence over result strip when both stores are set', async () => {
@@ -765,5 +750,206 @@ describe('NasShareList', () => {
     await tick();
 
     expect(queryByTestId('nas-operation-in-progress')).toBeNull();
+  });
+
+  // ──────────────────────────────────────────────────────────────────────
+  // C7-review (multi-mutation race): UI gate. Buttons that would fire a
+  // second mutation MUST be disabled while one is already in flight. This
+  // is the contracted CRITICAL fix — collapses the multi-outstanding state
+  // to unreachable at the UI layer.
+  // ──────────────────────────────────────────────────────────────────────
+
+  // Test 36: "+ Add share" toggle is disabled while a mutation is in-flight
+  it('"+ Add share" button is disabled while shareOperationInProgress is set', async () => {
+    mockShareOperationInProgress.set({ action: 'mount', startedAt: Date.now() });
+    const { getByText } = render(NasShareList);
+    await tick();
+
+    const btn = getByText('+ Add share') as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+  });
+
+  // Test 37: Add button inside the add-form is disabled while in-flight
+  it('"Add" submit button is disabled while shareOperationInProgress is set', async () => {
+    const { getByText } = render(NasShareList);
+    // Open the form while no mutation in flight, then start one.
+    await fireEvent.click(getByText('+ Add share'));
+    await tick();
+
+    mockShareOperationInProgress.set({ action: 'add', startedAt: Date.now() });
+    await tick();
+
+    const addBtn = getByText('Add') as HTMLButtonElement;
+    expect(addBtn.disabled).toBe(true);
+  });
+
+  // Test 38: Mount/Unmount toggle on share row is disabled while in-flight
+  it('Mount/Unmount button on each share row is disabled while shareOperationInProgress is set', async () => {
+    mockNasShares.set([makeShare({ id: 'a', mounted: false })]);
+    mockShareOperationInProgress.set({ action: 'delete', startedAt: Date.now() });
+    const { getByTestId } = render(NasShareList);
+    await tick();
+
+    const mountBtn = getByTestId('nas-share-mount-a') as HTMLButtonElement;
+    expect(mountBtn.disabled).toBe(true);
+  });
+
+  // Test 39: Delete button on each share row is disabled while in-flight
+  it('Delete button on each share row is disabled while shareOperationInProgress is set', async () => {
+    mockNasShares.set([makeShare({ id: 'b', mounted: true })]);
+    mockShareOperationInProgress.set({ action: 'mount', startedAt: Date.now() });
+    const { getByTestId } = render(NasShareList);
+    await tick();
+
+    const delBtn = getByTestId('nas-share-delete-b') as HTMLButtonElement;
+    expect(delBtn.disabled).toBe(true);
+  });
+
+  // Test 40: Re-enabled when the in-flight store clears (regression guard)
+  it('gated buttons re-enable once shareOperationInProgress flips back to null', async () => {
+    mockNasShares.set([makeShare({ id: 'c', mounted: false })]);
+    mockShareOperationInProgress.set({ action: 'add', startedAt: Date.now() });
+    const { getByText, getByTestId } = render(NasShareList);
+    await tick();
+
+    expect((getByText('+ Add share') as HTMLButtonElement).disabled).toBe(true);
+    expect((getByTestId('nas-share-mount-c') as HTMLButtonElement).disabled).toBe(true);
+    expect((getByTestId('nas-share-delete-c') as HTMLButtonElement).disabled).toBe(true);
+
+    mockShareOperationInProgress.set(null);
+    await tick();
+
+    expect((getByText('+ Add share') as HTMLButtonElement).disabled).toBe(false);
+    expect((getByTestId('nas-share-mount-c') as HTMLButtonElement).disabled).toBe(false);
+    expect((getByTestId('nas-share-delete-c') as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  // ──────────────────────────────────────────────────────────────────────
+  // C7-review (a11y batch): explicit aria-live + aria-atomic on both
+  // strips so screen reader behaviour is consistent across implementations.
+  // ──────────────────────────────────────────────────────────────────────
+
+  // Test 41: result-strip has explicit aria-live="polite" and aria-atomic="true"
+  it('result strip has explicit aria-live="polite" and aria-atomic="true"', async () => {
+    mockLastShareResult.set({ success: true, message: 'ok' });
+    const { getByTestId } = render(NasShareList);
+    await tick();
+
+    const strip = getByTestId('nas-result-strip');
+    expect(strip.getAttribute('aria-live')).toBe('polite');
+    expect(strip.getAttribute('aria-atomic')).toBe('true');
+  });
+
+  // Test 42: in-progress strip has aria-atomic="true" (aria-live already covered above)
+  it('in-progress strip has aria-atomic="true"', async () => {
+    mockShareOperationInProgress.set({ action: 'mount', startedAt: Date.now() });
+    const { getByTestId } = render(NasShareList);
+    await tick();
+
+    const strip = getByTestId('nas-operation-in-progress');
+    expect(strip.getAttribute('aria-atomic')).toBe('true');
+  });
+
+  // ──────────────────────────────────────────────────────────────────────
+  // C7-review (a11y batch): focus management + reduced-motion in handleUseShare
+  // ──────────────────────────────────────────────────────────────────────
+
+  // Test 43: focus moves to the first add-form input after "Use this"
+  it('"Use this" moves focus to the first add-form input', async () => {
+    mockDiscoveredDevices.set([makeDevice()]);
+    mockBrowsedShares.set([makeShareInfo({ name: 'movies' })]);
+    mockLastBrowseHostAttempt.set('192.168.1.42');
+    // No real scrolling in JSDOM — mock both so the focus call isn't
+    // clobbered by anything.
+    vi.spyOn(HTMLElement.prototype, 'scrollIntoView').mockImplementation(() => {});
+    const focusSpy = vi
+      .spyOn(HTMLInputElement.prototype, 'focus')
+      .mockImplementation(() => {});
+
+    const { getByText } = render(NasShareList);
+    await fireEvent.click(getByText('Find devices on network'));
+    await tick();
+    await tick();
+
+    await fireEvent.click(getByText('Use this'));
+    await tick();
+    await tick();
+
+    expect(focusSpy).toHaveBeenCalled();
+  });
+
+  // Test 44: prefers-reduced-motion: reduce → scroll uses behavior="auto"
+  it('"Use this" honours prefers-reduced-motion: reduce (behavior="auto")', async () => {
+    mockDiscoveredDevices.set([makeDevice()]);
+    mockBrowsedShares.set([makeShareInfo({ name: 'movies' })]);
+    mockLastBrowseHostAttempt.set('192.168.1.42');
+
+    // Override matchMedia to claim the user prefers reduced motion.
+    vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => ({
+      matches: query === '(prefers-reduced-motion: reduce)',
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    }) as MediaQueryList);
+
+    const scrollSpy = vi
+      .spyOn(HTMLElement.prototype, 'scrollIntoView')
+      .mockImplementation(() => {});
+
+    const { getByText } = render(NasShareList);
+    await fireEvent.click(getByText('Find devices on network'));
+    await tick();
+    await tick();
+
+    await fireEvent.click(getByText('Use this'));
+    await tick();
+    await tick();
+
+    expect(scrollSpy).toHaveBeenCalled();
+    expect(scrollSpy.mock.calls[0][0]).toMatchObject({
+      block: 'nearest',
+      behavior: 'auto',
+    });
+  });
+
+  // Test 45: prefers-reduced-motion: no-preference → scroll uses behavior="smooth"
+  it('"Use this" defaults to behavior="smooth" when reduced-motion is not set', async () => {
+    mockDiscoveredDevices.set([makeDevice()]);
+    mockBrowsedShares.set([makeShareInfo({ name: 'movies' })]);
+    mockLastBrowseHostAttempt.set('192.168.1.42');
+
+    vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    }) as MediaQueryList);
+
+    const scrollSpy = vi
+      .spyOn(HTMLElement.prototype, 'scrollIntoView')
+      .mockImplementation(() => {});
+
+    const { getByText } = render(NasShareList);
+    await fireEvent.click(getByText('Find devices on network'));
+    await tick();
+    await tick();
+
+    await fireEvent.click(getByText('Use this'));
+    await tick();
+    await tick();
+
+    expect(scrollSpy).toHaveBeenCalled();
+    expect(scrollSpy.mock.calls[0][0]).toMatchObject({
+      block: 'nearest',
+      behavior: 'smooth',
+    });
   });
 });

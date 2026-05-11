@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { get } from 'svelte/store';
+  import { tick } from 'svelte';
   import {
     nasShares,
     nasSharesLoading,
@@ -17,6 +17,19 @@
     type NasShare,
     type AddNasShareRequest,
   } from '$lib/stores/sources';
+
+  /**
+   * Respect the user's OS-level reduced-motion preference. Used by
+   * handleUseShare() to pick scroll behavior. Defensive against
+   * non-browser environments and tests where matchMedia may be stubbed.
+   */
+  function getReducedMotion(): boolean {
+    return (
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    );
+  }
 
   // User-facing copy for each in-progress action. Matches the existing
   // single-character ellipsis convention used elsewhere in this file
@@ -132,24 +145,23 @@
     }
   }
 
-  function handleUseShare(shareName: string) {
+  async function handleUseShare(shareName: string) {
     addPath = shareName;
     // The share was browsed from a specific host (lastBrowseHostAttempt), so
-    // the IP is known — pre-fill it too. Defensive null check: if Use-this
-    // is clickable but lastBrowseHostAttempt is somehow null, leave blank.
-    const host = get(lastBrowseHostAttempt);
-    if (host !== null) {
-      addIp = host;
-    }
+    // the IP is known — pre-fill it too. Defensive nullish-coalesce: if
+    // Use-this is clickable but lastBrowseHostAttempt is somehow null,
+    // leave the field as it was.
+    addIp = $lastBrowseHostAttempt ?? addIp;
     showAddForm = true;
-    // After Svelte renders the form (microtask), scroll it into view so the
-    // user sees the pre-filled fields even when the form is below the fold
-    // on the 1920x440 LCD. scrollIntoView is not implemented in JSDOM, so
-    // capability-check before calling.
-    queueMicrotask(() => {
-      if (typeof addFormEl?.scrollIntoView === 'function') {
-        addFormEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-      }
+    // Wait for Svelte to flush the {#if showAddForm} block so addFormEl is
+    // bound, then move focus to the first input AND scroll the card into
+    // view. Focus first so the browser's auto-scroll-to-focused-element
+    // doesn't clobber our explicit scrollIntoView call.
+    await tick();
+    addFormEl?.querySelector<HTMLInputElement>('input')?.focus();
+    addFormEl?.scrollIntoView?.({
+      block: 'nearest',
+      behavior: getReducedMotion() ? 'auto' : 'smooth',
     });
   }
 
@@ -171,6 +183,7 @@
     {:else}
       {#each $nasShares as share (share.id)}
         {@const inFlight = $mountInFlight[share.id] !== undefined}
+        {@const gated = $shareOperationInProgress !== null}
         <li class="share-row" data-testid="nas-share-{share.id}">
           <div class="share-info">
             <span class="share-name">{share.name}</span>
@@ -183,9 +196,10 @@
             <button
               type="button"
               class="icon-btn"
+              class:gated={gated && !inFlight}
               aria-label={share.mounted ? 'Unmount' : 'Mount'}
               aria-busy={inFlight}
-              disabled={inFlight}
+              disabled={inFlight || gated}
               data-testid={share.mounted ? `nas-share-unmount-${share.id}` : `nas-share-mount-${share.id}`}
               onclick={() => handleMount(share)}
             >
@@ -202,7 +216,9 @@
             <button
               type="button"
               class="icon-btn delete-btn"
+              class:gated
               aria-label="Delete"
+              disabled={gated}
               data-testid="nas-share-delete-{share.id}"
               onclick={() => handleDelete(share.id)}
             >
@@ -215,7 +231,13 @@
   </ul>
 
   <!-- Add-share toggle + form -->
-  <button type="button" class="toggle-btn" onclick={toggleAddForm}>
+  <button
+    type="button"
+    class="toggle-btn"
+    class:gated={$shareOperationInProgress !== null}
+    disabled={$shareOperationInProgress !== null}
+    onclick={toggleAddForm}
+  >
     + Add share
   </button>
 
@@ -308,7 +330,15 @@
 
       <div class="form-actions">
         <button type="button" class="btn-cancel" onclick={cancelAdd}>Cancel</button>
-        <button type="button" class="btn-add" onclick={handleAdd}>Add</button>
+        <button
+          type="button"
+          class="btn-add"
+          class:gated={$shareOperationInProgress !== null}
+          disabled={$shareOperationInProgress !== null}
+          onclick={handleAdd}
+        >
+          Add
+        </button>
       </div>
     </div>
   {/if}
@@ -420,6 +450,7 @@
     <div
       role="status"
       aria-live="polite"
+      aria-atomic="true"
       class="result-strip in-progress"
       data-testid="nas-operation-in-progress"
     >
@@ -431,6 +462,8 @@
   {:else if $lastShareResult !== null}
     <div
       role="status"
+      aria-live="polite"
+      aria-atomic="true"
       class="result-strip"
       class:success={$lastShareResult.success}
       class:failure={!$lastShareResult.success}
@@ -747,6 +780,20 @@
   /* Mount/unmount spinner */
   .icon-btn[disabled] {
     opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  /*
+   * Globally-gated state — applied to every mutation trigger while a
+   * NAS mutation is in flight. Visually distinct from the in-flight
+   * per-row spinner state so the user understands the difference between
+   * "this row is working" and "all triggers temporarily paused".
+   */
+  .gated,
+  .toggle-btn.gated,
+  .btn-add.gated,
+  .icon-btn.gated {
+    opacity: 0.5;
     cursor: not-allowed;
   }
 
