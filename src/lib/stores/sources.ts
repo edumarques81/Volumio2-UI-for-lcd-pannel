@@ -114,10 +114,22 @@ export const DISCOVERY_TIMEOUT_MS = 8000;
 /** Browse times out and surfaces an error after this many ms. */
 export const BROWSE_TIMEOUT_MS = 8000;
 
-// Module-level handles for the pending discovery/browse timers. Held outside
-// the action object so the listener and cleanup paths can clear them too.
+/**
+ * Mutation (add / mount / unmount / delete) times out and surfaces a sticky
+ * failure result after this many ms. Fallback for when the backend hangs in
+ * a kernel syscall (e.g. NFS-mounting a non-NFS host) and never emits
+ * pushNasShareResult or pushListNasShares.
+ */
+export const SHARE_OPERATION_TIMEOUT_MS = 8000;
+
+// Module-level handles for the pending discovery/browse/mutation timers.
+// Held outside the action object so the listener and cleanup paths can clear
+// them too. Only one mutation timer is tracked: from the user's perspective
+// only one mutation should sensibly be outstanding at a time, and firing a
+// second mutation cancels the first's fallback.
 let discoveryTimeoutId: ReturnType<typeof setTimeout> | null = null;
 let browseTimeoutId: ReturnType<typeof setTimeout> | null = null;
+let shareOperationTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
 function clearDiscoveryTimeout(): void {
   if (discoveryTimeoutId !== null) {
@@ -131,6 +143,31 @@ function clearBrowseTimeout(): void {
     clearTimeout(browseTimeoutId);
     browseTimeoutId = null;
   }
+}
+
+function clearShareOperationTimeout(): void {
+  if (shareOperationTimeoutId !== null) {
+    clearTimeout(shareOperationTimeoutId);
+    shareOperationTimeoutId = null;
+  }
+}
+
+/**
+ * Arm the mutation fallback timer. Cancels any previously-pending mutation
+ * timer first so a fresh action always gets a fresh deadline. On fire:
+ * surfaces a sticky failure result and clears mountInFlight (mirrors the
+ * pushNasShareResult listener's failure path).
+ */
+function armShareOperationTimeout(): void {
+  clearShareOperationTimeout();
+  shareOperationTimeoutId = setTimeout(() => {
+    shareOperationTimeoutId = null;
+    lastShareResult.set({
+      success: false,
+      error: 'Operation timed out — try again'
+    });
+    mountInFlight.set({});
+  }, SHARE_OPERATION_TIMEOUT_MS);
 }
 
 // -------------------------------------------------------------------------
@@ -158,23 +195,27 @@ export const sourcesActions = {
 
   /** Add a new NAS share. Backend broadcasts pushListNasShares on success. */
   addShare(req: AddNasShareRequest): void {
+    armShareOperationTimeout();
     socketService.emit('addNasShare', req);
   },
 
   /** Delete an existing share by id. Backend broadcasts pushListNasShares on success. */
   deleteShare(id: string): void {
+    armShareOperationTimeout();
     socketService.emit('deleteNasShare', { id });
   },
 
   /** Mount a share by id. Backend broadcasts pushListNasShares on success. */
   mountShare(id: string): void {
     mountInFlight.update((m) => ({ ...m, [id]: 'mounting' }));
+    armShareOperationTimeout();
     socketService.emit('mountNasShare', { id });
   },
 
   /** Unmount a share by id. Backend broadcasts pushListNasShares on success. */
   unmountShare(id: string): void {
     mountInFlight.update((m) => ({ ...m, [id]: 'unmounting' }));
+    armShareOperationTimeout();
     socketService.emit('unmountNasShare', { id });
   },
 
@@ -235,15 +276,20 @@ export function initSourcesStore(): void {
   console.log('[Sources] Initializing sources store...');
 
   socketService.on<NasShare[]>('pushListNasShares', (shares) => {
-    nasShares.set(shares ?? []);
-    nasSharesLoading.set(false);
     // A fresh share list is the natural "operation finished" signal for any
     // pending mount/unmount — the backend broadcasts pushListNasShares on
-    // every successful mutation.
+    // every successful mutation. Cancel the mutation fallback timer so it
+    // doesn't synthesize a "timed out" failure on top of a real success.
+    clearShareOperationTimeout();
+    nasShares.set(shares ?? []);
+    nasSharesLoading.set(false);
     mountInFlight.set({});
   });
 
   socketService.on<SourceResult>('pushNasShareResult', (result) => {
+    // A real result arrived — cancel the mutation fallback timer so it
+    // doesn't overwrite this result with a synthetic timeout failure.
+    clearShareOperationTimeout();
     lastShareResult.set(result);
     // Do NOT touch nasShares here — the backend separately broadcasts
     // pushListNasShares to all clients on successful mutations.
@@ -282,6 +328,7 @@ export function initSourcesStore(): void {
 export function cleanupSourcesStore(): void {
   clearDiscoveryTimeout();
   clearBrowseTimeout();
+  clearShareOperationTimeout();
   nasShares.set([]);
   nasSharesLoading.set(false);
   lastShareResult.set(null);

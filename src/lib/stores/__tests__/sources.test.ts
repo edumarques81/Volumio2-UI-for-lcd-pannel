@@ -28,6 +28,7 @@ import {
   cleanupSourcesStore,
   DISCOVERY_TIMEOUT_MS,
   BROWSE_TIMEOUT_MS,
+  SHARE_OPERATION_TIMEOUT_MS,
   type NasShare,
   type NasDevice,
   type ShareInfo,
@@ -694,6 +695,135 @@ describe('Sources store (NAS share management)', () => {
       sourcesActions.mountShare('abc');
       cleanupSourcesStore();
       expect(get(mountInFlight)).toEqual({});
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // 19. Per-action timeouts on mutation actions (addShare/mountShare/
+  //     unmountShare/deleteShare) — fallback when backend never responds.
+  // -----------------------------------------------------------------------
+  describe('per-action timeouts on mutation actions', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('exposes SHARE_OPERATION_TIMEOUT_MS = 8000', () => {
+      expect(SHARE_OPERATION_TIMEOUT_MS).toBe(8000);
+    });
+
+    const mutations: Array<{ name: string; fire: () => void }> = [
+      {
+        name: 'addShare',
+        fire: () =>
+          sourcesActions.addShare({
+            name: 'X',
+            ip: '10.0.0.1',
+            path: '/x',
+            fstype: 'cifs'
+          })
+      },
+      { name: 'mountShare', fire: () => sourcesActions.mountShare('abc') },
+      { name: 'unmountShare', fire: () => sourcesActions.unmountShare('abc') },
+      { name: 'deleteShare', fire: () => sourcesActions.deleteShare('abc') }
+    ];
+
+    for (const mutation of mutations) {
+      it(`${mutation.name}: surfaces sticky failure result after SHARE_OPERATION_TIMEOUT_MS when no response arrives`, () => {
+        initSourcesStore();
+        mutation.fire();
+
+        // Just before the deadline — no synthetic failure yet.
+        vi.advanceTimersByTime(SHARE_OPERATION_TIMEOUT_MS - 1);
+        expect(get(lastShareResult)).toBeNull();
+
+        // Cross the deadline — sticky failure result is set.
+        vi.advanceTimersByTime(1);
+        expect(get(lastShareResult)).toEqual({
+          success: false,
+          error: 'Operation timed out — try again'
+        });
+        // mountInFlight is cleared on the failure path (mirrors the
+        // pushNasShareResult listener's failure behavior).
+        expect(get(mountInFlight)).toEqual({});
+      });
+    }
+
+    it('pushNasShareResult arrival cancels the pending mutation timeout', () => {
+      initSourcesStore();
+      sourcesActions.addShare({
+        name: 'X',
+        ip: '10.0.0.1',
+        path: '/x',
+        fstype: 'cifs'
+      });
+
+      // Backend pushes a real success result halfway through the window.
+      vi.advanceTimersByTime(4000);
+      const handler = getHandler<SourceResult>('pushNasShareResult');
+      handler!({ success: true, message: 'Share added' });
+
+      // Push well past the original deadline.
+      vi.advanceTimersByTime(SHARE_OPERATION_TIMEOUT_MS);
+
+      // The real success result must be preserved — no synthetic failure
+      // overwrites it after the deadline.
+      expect(get(lastShareResult)).toEqual({
+        success: true,
+        message: 'Share added'
+      });
+    });
+
+    it('pushListNasShares arrival cancels the pending mutation timeout', () => {
+      initSourcesStore();
+      sourcesActions.mountShare('abc');
+
+      // Backend pushes the authoritative share list halfway through the window.
+      vi.advanceTimersByTime(4000);
+      const handler = getHandler<NasShare[]>('pushListNasShares');
+      handler!([sampleShare]);
+
+      // Push past the original deadline; lastShareResult must stay null.
+      vi.advanceTimersByTime(SHARE_OPERATION_TIMEOUT_MS);
+
+      expect(get(lastShareResult)).toBeNull();
+    });
+
+    it('a second mutation cancels the first mutation\'s pending timeout', () => {
+      initSourcesStore();
+      sourcesActions.addShare({
+        name: 'X',
+        ip: '10.0.0.1',
+        path: '/x',
+        fstype: 'cifs'
+      });
+
+      // Halfway through the first window, fire a different mutation.
+      vi.advanceTimersByTime(4000);
+      sourcesActions.mountShare('abc');
+
+      // Advance just past the first mutation's original deadline (4000 + 4001
+      // = 8001ms total). The first timer must have been cancelled, so no
+      // synthetic failure result yet.
+      vi.advanceTimersByTime(4001);
+      expect(get(lastShareResult)).toBeNull();
+    });
+
+    it('cleanupSourcesStore() clears the pending mutation timeout', () => {
+      initSourcesStore();
+      sourcesActions.mountShare('abc');
+
+      // Advance halfway, then clean up.
+      vi.advanceTimersByTime(4000);
+      cleanupSourcesStore();
+
+      // Push well past the original deadline — no fallback should fire,
+      // because cleanup cleared the timer (and reset all stores).
+      vi.advanceTimersByTime(SHARE_OPERATION_TIMEOUT_MS);
+      expect(get(lastShareResult)).toBeNull();
     });
   });
 });
