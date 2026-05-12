@@ -5,14 +5,14 @@
   type Cell = {
     icon: string;
     label: string;
-    activeWhen?: 'player' | 'library' | 'settings';
+    activeWhen?: 'player' | 'library' | 'settings' | 'vu-meter';
     onTap: () => void;
   };
 
   const cells: Cell[] = [
     { icon: 'music-2',     label: 'Player',   activeWhen: 'player',   onTap: viewActions.goToPlayer  },
     { icon: 'library',     label: 'Library',  activeWhen: 'library',  onTap: viewActions.goToLibrary },
-    { icon: 'audio-lines', label: 'VU Meter',                          onTap: viewActions.tapVuMeter },
+    { icon: 'audio-lines', label: 'VU Meter', activeWhen: 'vu-meter',  onTap: viewActions.tapVuMeter },
     { icon: 'refresh-cw',  label: 'Refresh',                           onTap: viewActions.tapRefresh },
     { icon: 'settings',    label: 'Settings', activeWhen: 'settings', onTap: viewActions.tapSettings },
     { icon: 'power',       label: 'Power',                             onTap: viewActions.tapPower   },
