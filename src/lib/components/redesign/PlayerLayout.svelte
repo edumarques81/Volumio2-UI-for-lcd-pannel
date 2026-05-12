@@ -5,22 +5,29 @@
   import NavColumn from './NavColumn.svelte';
   import type { Component } from 'svelte';
 
-  // Lazy-load SettingsView (rare-path, heaviest siblings include NasShareList) so
-  // it doesn't ship in the initial App chunk. See plan §C6.1. The import is
-  // gated on the user actually navigating to Settings — a derived $-store read
-  // inside the unsubscribe pattern triggers the load on first transition.
+  // Lazy-load rare-path views so they don't ship in the initial App chunk.
+  // Settings: snug-summit C6 (heavy children include NasShareList).
+  // VuMeter:  M1.E (its own chunk; bundle guard in PlayerLayout.test.ts).
   let SettingsView = $state<Component | null>(null);
-  let importStarted = false;
+  let VuMeterView = $state<Component | null>(null);
+  let settingsImportStarted = false;
+  let vuMeterImportStarted = false;
 
   // Subscribe directly to the navigation store so the lazy-load fires on the
-  // first 'settings' transition. ($effect on a $-store read worked in dev but
-  // proved unreliable in jsdom test runs; an explicit subscription is the
-  // simplest reactive primitive that's portable across both runtimes.)
+  // first transition into the target view. ($effect on a $-store read worked
+  // in dev but proved unreliable in jsdom test runs; an explicit subscription
+  // is the simplest reactive primitive that's portable across both runtimes.)
   const unsubscribeView = currentView.subscribe((view) => {
-    if (view === 'settings' && !importStarted) {
-      importStarted = true;
+    if (view === 'settings' && !settingsImportStarted) {
+      settingsImportStarted = true;
       void import('./SettingsView.svelte').then((m) => {
         SettingsView = m.default as Component;
+      });
+    }
+    if (view === 'vu-meter' && !vuMeterImportStarted) {
+      vuMeterImportStarted = true;
+      void import('./VuMeterView.svelte').then((m) => {
+        VuMeterView = m.default as Component;
       });
     }
   });
@@ -35,6 +42,10 @@
     {:else if $currentView === 'settings'}
       {#if SettingsView}
         <SettingsView />
+      {/if}
+    {:else if $currentView === 'vu-meter'}
+      {#if VuMeterView}
+        <VuMeterView />
       {/if}
     {:else}
       <LibraryView />
