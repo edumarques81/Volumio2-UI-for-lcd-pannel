@@ -3,8 +3,13 @@ import { get } from 'svelte/store';
 
 // Hoisted so it's initialized BEFORE vi.mock's factory (which Vitest hoists
 // to the top of the file). The plan's Task 4 (VuMeterView test) uses the
-// same pattern.
-const { onMock } = vi.hoisted(() => ({ onMock: vi.fn(() => () => {}) }));
+// same pattern. Explicit signature so `mock.calls` destructures have known
+// tuple shape (event: string, handler: fn) under `strict` tsc.
+const { onMock } = vi.hoisted(() => ({
+  onMock: vi.fn<(event: string, handler: (data: unknown) => void) => () => void>(
+    () => () => {},
+  ),
+}));
 
 vi.mock('$lib/services/socket', () => ({
   socketService: {
@@ -79,12 +84,14 @@ describe('spectrum store frame handling', () => {
   it('replaces the frame on a second push', () => {
     initSpectrumStore();
     const pushHandler = onMock.mock.calls.find(([event]) => event === 'pushSpectrum')?.[1] as
-      ((frame: SpectrumFrame) => void);
+      | ((frame: SpectrumFrame) => void)
+      | undefined;
+    expect(pushHandler).toBeTypeOf('function');
 
-    pushHandler({
+    pushHandler!({
       binsL: [], binsR: [], peakL: 0, peakR: 0, rmsL: 0.5, rmsR: 0.5, sampleRate: 44100, ts: 1,
     } as unknown as SpectrumFrame);
-    pushHandler({
+    pushHandler!({
       binsL: [], binsR: [], peakL: 0, peakR: 0, rmsL: 0.01, rmsR: 1.0, sampleRate: 44100, ts: 2,
     } as unknown as SpectrumFrame);
 
