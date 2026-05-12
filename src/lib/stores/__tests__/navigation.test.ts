@@ -81,3 +81,11 @@ describe('settings routing (Settings v2)', () => {
     expect(get(currentView)).toBe('settings');
   });
 });
+
+describe('viewActions.tapVuMeter', () => {
+  it('routes currentView to vu-meter', () => {
+    currentView.set('player');
+    viewActions.tapVuMeter();
+    expect(get(currentView)).toBe('vu-meter');
+  });
+});
