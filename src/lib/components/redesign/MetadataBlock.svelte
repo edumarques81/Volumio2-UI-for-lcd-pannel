@@ -1,8 +1,12 @@
 <script lang="ts">
   import Icon from '$lib/components/Icon.svelte';
+  import { selectedArtist, libraryActions } from '$lib/stores/library';
+
   export let title: string = '';
   export let artist: string = '';
   export let album: string = '';
+
+  $: isFiltered = $selectedArtist === artist && artist !== '';
 </script>
 
 <div class="metadata-block" data-testid="metadata-block">
@@ -10,9 +14,17 @@
     <h1 class="title-row" data-testid="metadata-title">{title}</h1>
   {/if}
   {#if artist}
-    <div class="artist-row" data-testid="metadata-artist">
+    <div class="artist-row" class:is-filter-active={isFiltered} data-testid="metadata-artist">
       <Icon name="user" size={22} />
       <span>{artist}</span>
+      {#if isFiltered}
+        <button
+          class="clear-filter"
+          data-testid="clear-artist-filter"
+          aria-label="Clear artist filter"
+          on:click={() => libraryActions.clearArtistFilter()}
+        >✕</button>
+      {/if}
     </div>
   {/if}
   {#if album}
@@ -48,6 +60,7 @@
     font-weight: 300;
     color: var(--color-text-secondary);
     overflow: hidden;
+    transition: color 200ms ease-out;
   }
   .artist-row span, .album-row span {
     min-width: 0;
@@ -59,5 +72,28 @@
   .artist-row :global(svg), .album-row :global(svg) {
     color: var(--color-accent);
     flex-shrink: 0;
+  }
+  .artist-row.is-filter-active {
+    color: var(--color-accent-bright);
+  }
+  .clear-filter {
+    background: transparent;
+    border: none;
+    color: var(--color-accent);
+    font-size: 18px;
+    line-height: 1;
+    padding: 0 8px;
+    margin-left: 4px;
+    cursor: pointer;
+    transition: color 200ms ease-out;
+    flex-shrink: 0;
+  }
+  .clear-filter:hover, .clear-filter:focus-visible {
+    color: var(--color-accent-bright);
+    outline: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .artist-row, .clear-filter { transition: none; }
   }
 </style>
