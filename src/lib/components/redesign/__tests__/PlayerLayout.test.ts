@@ -36,12 +36,23 @@ const libraryMocks = await vi.hoisted(async () => {
   const { writable } = await import('svelte/store');
   return {
     libraryAlbums: writable<any[]>([]),
+    // M2.C: LibraryView now imports artistAlbums/selectedArtist/libraryPageKind
+    // for the filtered-list + page-kind renderer switch. Mock them as writables
+    // so this test (which renders LibraryView via PlayerLayout's library branch)
+    // doesn't blow up on subscribe-to-undefined.
+    libraryArtists: writable<any[]>([]),
+    artistAlbums: writable<any[]>([]),
+    selectedArtist: writable<string | null>(null),
+    libraryPageKind: writable<'albums' | 'artists'>('albums'),
     libraryAlbumTracks: writable<any[]>([]),
+    libraryAlbumTotalDuration: writable(0),
     currentLibraryIndex: writable(0),
     selectedLibraryAlbum: writable<any>(null),
     libraryActions: {
       fetchAlbumTracks: vi.fn(),
       replaceQueueAndPlay: vi.fn(),
+      playAlbum: vi.fn(),
+      cyclePageKind: vi.fn(),
     },
     currentAlbumBio: writable({ summary: '', sourceUrl: '', kind: '' }),
     bioLoading: writable(false),
@@ -68,7 +79,12 @@ vi.mock('$lib/stores/player', () => ({
 vi.mock('$lib/stores/queue', () => ({ queue: mocks.queue }));
 vi.mock('$lib/stores/library', () => ({
   libraryAlbums: libraryMocks.libraryAlbums,
+  libraryArtists: libraryMocks.libraryArtists,
+  artistAlbums: libraryMocks.artistAlbums,
+  selectedArtist: libraryMocks.selectedArtist,
+  libraryPageKind: libraryMocks.libraryPageKind,
   libraryAlbumTracks: libraryMocks.libraryAlbumTracks,
+  libraryAlbumTotalDuration: libraryMocks.libraryAlbumTotalDuration,
   currentLibraryIndex: libraryMocks.currentLibraryIndex,
   selectedLibraryAlbum: libraryMocks.selectedLibraryAlbum,
   libraryActions: libraryMocks.libraryActions,

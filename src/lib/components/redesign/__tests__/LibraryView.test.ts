@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
 import { get } from 'svelte/store';
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { Album } from '$lib/stores/library';
 
 const albums: Album[] = [
@@ -9,8 +12,19 @@ const albums: Album[] = [
   { id: '3', uri: 'a3', title: 'C', artist: 'Z', albumArt: '/c', trackCount: 0, source: 'local' },
 ];
 
+// Stub ArtistsPage so we don't drag its full dependency tree into this suite.
+// The plan dynamic-imports ArtistsPage when libraryPageKind === 'artists'; the
+// mock keeps the dynamic-import path resolvable while emitting nothing into
+// the DOM (so the bundle-guard regex assertion in the second describe block
+// is the only "is ArtistsPage statically imported?" signal).
+vi.mock('../ArtistsPage.svelte', () => ({ default: vi.fn(() => null) }));
+
 const {
   libraryAlbums,
+  libraryArtists,
+  artistAlbums,
+  selectedArtist,
+  libraryPageKind,
   libraryAlbumTracks,
   libraryAlbumTotalDuration,
   currentLibraryIndex,
@@ -28,6 +42,10 @@ const {
     { id: '3', uri: 'a3', title: 'C', artist: 'Z', albumArt: '/c', trackCount: 0, source: 'local' },
   ];
   const libraryAlbumsStore = writable(initialAlbums);
+  const libraryArtistsStore = writable<any[]>([]);
+  const artistAlbumsStore = writable<any[]>([]);
+  const selectedArtistStore = writable<string | null>(null);
+  const libraryPageKindStore = writable<'albums' | 'artists'>('albums');
   const libraryAlbumTracksStore = writable<any[]>([]);
   const libraryAlbumTotalDurationStore = writable(0);
   const currentLibraryIndexStore = writable(0);
@@ -35,6 +53,10 @@ const {
 
   return {
     libraryAlbums: libraryAlbumsStore,
+    libraryArtists: libraryArtistsStore,
+    artistAlbums: artistAlbumsStore,
+    selectedArtist: selectedArtistStore,
+    libraryPageKind: libraryPageKindStore,
     libraryAlbumTracks: libraryAlbumTracksStore,
     libraryAlbumTotalDuration: libraryAlbumTotalDurationStore,
     currentLibraryIndex: currentLibraryIndexStore,
@@ -45,6 +67,17 @@ const {
         libraryAlbumTracksStore.set([{ uri: 't1', title: 'Track', duration: 60 }]);
       }),
       playAlbum: vi.fn(),
+      // cyclePageKind is asserted on directly by the M2.C tests; the mock body
+      // mirrors the wrap-modulo semantics of the real action so subsequent
+      // reactive `$libraryPageKind` reads stay consistent even though most
+      // tests only check the spy's call args.
+      cyclePageKind: vi.fn((delta: 1 | -1) => {
+        const kinds = ['albums', 'artists'] as const;
+        libraryPageKindStore.update((k) => {
+          const idx = kinds.indexOf(k);
+          return kinds[((idx + delta) % kinds.length + kinds.length) % kinds.length];
+        });
+      }),
     },
     bioActions: { requestBio: vi.fn(), refreshBio: vi.fn() },
     viewActions: { goToPlayer: vi.fn() },
@@ -54,13 +87,21 @@ const {
 });
 
 vi.mock('$lib/stores/library', () => ({
-  libraryAlbums, libraryAlbumTracks, libraryAlbumTotalDuration,
-  currentLibraryIndex, selectedLibraryAlbum, libraryActions,
+  libraryAlbums,
+  libraryArtists,
+  artistAlbums,
+  selectedArtist,
+  libraryPageKind,
+  libraryAlbumTracks,
+  libraryAlbumTotalDuration,
+  currentLibraryIndex,
+  selectedLibraryAlbum,
+  libraryActions,
 }));
 vi.mock('$lib/stores/bios', () => ({ currentAlbumBio, bioLoading, bioActions }));
 vi.mock('$lib/stores/navigation', () => ({ viewActions }));
 vi.mock('$lib/stores/player', () => ({
-  formatTime: (s: number) => `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`,
+  formatTime: (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`,
 }));
 
 import LibraryView from '../LibraryView.svelte';
@@ -70,8 +111,13 @@ describe('LibraryView', () => {
     currentLibraryIndex.set(0);
     libraryAlbumTracks.set([]);
     libraryAlbums.set(albums);
+    libraryArtists.set([]);
+    artistAlbums.set([]);
+    selectedArtist.set(null);
+    libraryPageKind.set('albums');
     libraryActions.fetchAlbumTracks.mockClear();
     libraryActions.playAlbum.mockClear();
+    libraryActions.cyclePageKind.mockClear();
     viewActions.goToPlayer.mockClear();
     bioActions.requestBio.mockClear();
   });
@@ -228,4 +274,114 @@ describe('LibraryView', () => {
     await fireEvent.click(chevron);
     expect(get(currentLibraryIndex)).toBe(1);
   });
+});
+
+// --- M2.C Wave 3: vertical-swipe page-kind switch + filtered list -----------
+
+// Note on titles: plan uses literal 'A' / 'B'. The real AlbumPage renders
+// the literal eyebrow "ALBUM" and button text "Play Album", both of which
+// contain the letter 'A'. To preserve the plan's textContent.not.toContain
+// assertion intent ("the OTHER album's title is NOT in the DOM") we use
+// distinctive multi-letter titles that don't collide with AlbumPage chrome.
+const albumA = { id: '1', title: 'TitleAlpha', artist: 'ArtistAlpha', uri: 'nas:a', albumArt: '/a', trackCount: 0, source: 'nas' as const };
+const albumB = { id: '2', title: 'TitleBravo', artist: 'ArtistBravo', uri: 'nas:b', albumArt: '/b', trackCount: 0, source: 'nas' as const };
+
+describe('LibraryView page-kind renderer + vertical swipe + filtered list', () => {
+  beforeEach(() => {
+    libraryAlbums.set([albumA, albumB]);
+    libraryArtists.set([]);
+    artistAlbums.set([]);
+    selectedArtist.set(null);
+    libraryPageKind.set('albums');
+    currentLibraryIndex.set(0);
+    libraryActions.cyclePageKind.mockClear();
+  });
+
+  it('renders AlbumPage when libraryPageKind === "albums"', () => {
+    const { container } = render(LibraryView);
+    expect(container.querySelector('[data-testid="album-slide-wrapper"]')).toBeTruthy();
+  });
+
+  it('renders ArtistsPage stub when libraryPageKind === "artists"', () => {
+    libraryPageKind.set('artists');
+    const { container } = render(LibraryView);
+    expect(container.querySelector('[data-testid="album-slide-wrapper"]')).toBeNull();
+  });
+
+  it('pointer-up with vertical dy >= 50px up calls cyclePageKind(+1)', async () => {
+    const { container } = render(LibraryView);
+    const root = container.querySelector('[data-testid="library-view"]')!;
+    await fireEvent.pointerDown(root, { clientX: 500, clientY: 300 });
+    await fireEvent.pointerUp(root, { clientX: 500, clientY: 200 });
+    expect(libraryActions.cyclePageKind).toHaveBeenCalledWith(1);
+  });
+
+  it('pointer-up with vertical dy >= 50px down calls cyclePageKind(-1)', async () => {
+    const { container } = render(LibraryView);
+    const root = container.querySelector('[data-testid="library-view"]')!;
+    await fireEvent.pointerDown(root, { clientX: 500, clientY: 300 });
+    await fireEvent.pointerUp(root, { clientX: 500, clientY: 400 });
+    expect(libraryActions.cyclePageKind).toHaveBeenCalledWith(-1);
+  });
+
+  it('pointer-up with dominant horizontal swipe calls existing advance, not cyclePageKind', async () => {
+    const { container } = render(LibraryView);
+    const root = container.querySelector('[data-testid="library-view"]')!;
+    await fireEvent.pointerDown(root, { clientX: 500, clientY: 300 });
+    await fireEvent.pointerUp(root, { clientX: 600, clientY: 280 });
+    expect(libraryActions.cyclePageKind).not.toHaveBeenCalled();
+  });
+
+  it('diagonal where |dx| === |dy| takes the horizontal branch (tie-break)', async () => {
+    const { container } = render(LibraryView);
+    const root = container.querySelector('[data-testid="library-view"]')!;
+    await fireEvent.pointerDown(root, { clientX: 500, clientY: 300 });
+    await fireEvent.pointerUp(root, { clientX: 600, clientY: 400 });
+    expect(libraryActions.cyclePageKind).not.toHaveBeenCalled();
+  });
+
+  it('below the 50px threshold on both axes is a no-op', async () => {
+    const { container } = render(LibraryView);
+    const root = container.querySelector('[data-testid="library-view"]')!;
+    await fireEvent.pointerDown(root, { clientX: 500, clientY: 300 });
+    await fireEvent.pointerUp(root, { clientX: 540, clientY: 320 });
+    expect(libraryActions.cyclePageKind).not.toHaveBeenCalled();
+    expect(get(currentLibraryIndex)).toBe(0);
+  });
+
+  it('selectedArtist set + kind albums: renders from artistAlbums, not libraryAlbums', () => {
+    selectedArtist.set('ArtistBravo');
+    artistAlbums.set([albumB]);
+    const { container } = render(LibraryView);
+    const wrapper = container.querySelector('[data-testid="album-slide-wrapper"]');
+    expect(wrapper).toBeTruthy();
+    expect(container.textContent).toContain('TitleBravo');
+    expect(container.textContent).not.toContain('TitleAlpha');
+  });
+
+  it('selectedArtist null + kind albums: renders from libraryAlbums', () => {
+    selectedArtist.set(null);
+    const { container } = render(LibraryView);
+    expect(container.textContent).toContain('TitleAlpha');
+  });
+});
+
+describe('LibraryView bundle-size guard (ArtistsPage stays lazy)', () => {
+  function staticImportRegexFor(filename: string): RegExp {
+    return new RegExp(
+      String.raw`^\s*import\b[^;\n]*\bfrom\s+['"][^'"]*${filename.replace(/\./g, '\\.')}['"]\s*;?`,
+      'm',
+    );
+  }
+
+  it.each([['ArtistsPage.svelte']])(
+    'does not statically import %s (stays in a separate chunk)',
+    (filename) => {
+      const here = dirname(fileURLToPath(import.meta.url));
+      const libraryViewPath = resolve(here, '..', 'LibraryView.svelte');
+      const src = readFileSync(libraryViewPath, 'utf8');
+      expect(staticImportRegexFor(filename).test(src)).toBe(false);
+      expect(src.includes(`import('./${filename}')`)).toBe(true);
+    },
+  );
 });
