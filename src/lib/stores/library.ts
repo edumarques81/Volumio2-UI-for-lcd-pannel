@@ -601,14 +601,6 @@ export const libraryActions = {
   },
 
   /**
-   * Clear selected artist
-   */
-  clearSelectedArtist() {
-    selectedArtist.set(null);
-    artistAlbums.set([]);
-  },
-
-  /**
    * Cycle the library page kind by `delta` (+1 forward, -1 backward).
    * Wrap-modulo over LIBRARY_PAGE_KINDS so adding M3.A's 'qobuz' is
    * a single-character change.
