@@ -26,7 +26,7 @@ M2.C adds a second library page kind that surfaces a horizontal carousel of circ
 8. **Search input:** Deferred. Out of scope for this unit.
 9. **View-all link / down chevron:** Removed (mockup carry-overs not adopted).
 10. **Page-kind structure:** Discriminated-union store + renderer switch. Forward-compatible with M3.A's `'qobuz'` kind.
-11. **Backend rescan hook:** After every cache rebuild, the existing artist-enrichment scan is auto-triggered alongside the album-enrichment scan. Async, no polling, no permanent runner. Per user direction.
+11. **Backend rescan hook:** Per user direction, artist metadata should be fetched after every library rescan as an async job. **This behavior already exists in v1.5.0+ and requires no code change for M2.C.** `stellar-volumio-audioplayer-backend/internal/transport/socketio/server.go:2234,2271,2278` (`triggerEnrichment`) is invoked after every cache rebuild (MPD database event), initial-empty-cache build, and on-disk cache load. It calls `enrichment_handlers.go:147` (`QueueMissingArtwork`), which sequentially chains album-scan → `QueueMissingArtistImages` → coordinator's artist scan, all async in goroutines. Documented here as a hard precondition; M2.C ships frontend-only.
 
 ## Out of scope
 
@@ -55,8 +55,6 @@ Three new frontend files plus tests, three frontend edits, one backend edit plus
 | `src/lib/components/redesign/__tests__/LibraryView.test.ts` | EDIT — renderer selection, axis-dominant swipe gate, filtered list routing |
 | `src/lib/components/redesign/MetadataBlock.svelte` | EDIT — amber artist name + inline `✕` when `$selectedArtist === currentAlbum.artist` |
 | `src/lib/components/redesign/__tests__/MetadataBlock.test.ts` | EDIT — accent + button presence, click → `clearArtistFilter`, default styling when filter null |
-| `stellar-volumio-audioplayer-backend/internal/infra/enrichment/coordinator.go` | EDIT — chain artist-enrichment scan after album-enrichment scan |
-| `stellar-volumio-audioplayer-backend/internal/infra/enrichment/coordinator_test.go` | EDIT — assert chained scan order; assert artist scan runs even on album-scan failure |
 | Bundle-size guard test (existing M1.E file at `src/lib/components/redesign/__tests__/PlayerLayout.test.ts`) | EDIT — extend assertion: `LibraryView` chunk does not statically import `ArtistsPage` / `ArtistTile` |
 
 ## Section 1 — Store extension (`src/lib/stores/library.ts`)
@@ -324,25 +322,16 @@ Renderer switch with vertical fly animation:
 
 The amber colour is applied via `.is-filter-active { color: var(--color-accent-bright); }`. The button is inline-flush with the name; hit area widens via padding (32 × 32 effective) per the visual spec.
 
-## Section 7 — Backend coordinator chain
+## Section 7 — Backend coordinator chain (already shipped)
 
-`stellar-volumio-audioplayer-backend/internal/infra/enrichment/coordinator.go` already runs an album-enrichment scan when a cache rebuild completes. Append a sequential artist-enrichment scan within the same async goroutine:
+No backend code change required. The chain the user asked for already lives in v1.5.0+:
 
-```go
-// inside the existing post-rebuild routine
-go func() {
-    // existing album scan
-    if err := c.scanForMissingAlbumArtwork(ctx); err != nil {
-        log.Error().Err(err).Msg("album artwork scan failed")
-        // do NOT return — artist scan must still run
-    }
-    if err := c.scanForMissingArtistArtwork(ctx); err != nil {
-        log.Error().Err(err).Msg("artist artwork scan failed")
-    }
-}()
-```
+- `internal/transport/socketio/server.go:2234,2271,2278` — `s.triggerEnrichment()` is invoked after every MPD-driven cache rebuild, after the empty-cache initial build, and after a successful on-disk cache load on boot.
+- `internal/transport/socketio/server.go:2282-2287` — `triggerEnrichment()` delegates to `s.enrichmentHandlers.QueueMissingArtwork()`.
+- `internal/transport/socketio/enrichment_handlers.go:143-155` — `QueueMissingArtwork()` runs in a goroutine: first invokes the coordinator's album scan, then calls `QueueMissingArtistImages()` which spawns its own goroutine for the coordinator's artist scan.
+- Net effect: album-scan completes → artist-scan begins, both async, both rate-limited at the upstream MusicBrainz / Fanart.tv / Deezer clients.
 
-The artist scan is the same code path the live `enrichment:artists:queue` Socket.IO handler invokes today, just called from a different trigger. No new public surface. MusicBrainz / Fanart.tv / Deezer rate-limits (1 req/s, already enforced upstream) cap the load.
+Verification step for the executor (Task 9 manual smoke): trigger a cache rebuild via the browser console (`window.libraryActions.rebuildCache()`) and watch `journalctl -u stellar-backend -f` for the log lines "Starting artwork enrichment queue processing" followed shortly after by similar artist-scan lines. No new test, no new code.
 
 ## Section 8 — Visual spec (LCD 1920×440, content area 1680×440)
 
@@ -447,13 +436,11 @@ Scenarios when unblocked:
 
 `gotoApp()` includes the M1.E page-ready gate (`Play button enabled OR library-view mounted`) to prevent false-pass on env failure.
 
-### Backend (Go)
+### Backend
 
-**`internal/infra/enrichment/coordinator_test.go`** (+~40 L)
-- `TestCoordinator_ChainsArtistScanAfterAlbumScan`: with fake album-scan + fake artist-scan recording invocations, a simulated cache-rebuild completion triggers album-scan once, then artist-scan once, in that order, sequentially.
-- `TestCoordinator_DoesNotChainOnAlbumScanFailure`: album scan returns an error → artist scan still runs once.
+No new Go tests. The chain is shipped and exercised by the existing v1.5.0+ test suite. Manual smoke (Task 9) confirms it fires on cache rebuild.
 
-### Final verification gate (T9)
+### Final verification gate (T8)
 
 - `npx tsc --noEmit` exit 0
 - `npm run test:run` all green; baseline + ~30 new cases
@@ -473,7 +460,6 @@ Scenarios when unblocked:
 |---|---|
 | Vertical vs horizontal swipe ambiguity on diagonal drag | Dominant axis wins (`Math.abs(dy) > Math.abs(dx)`). Diagonal-input unit test pins the tie-break. |
 | Drag-to-scroll triggering accidental tap on release | Pointer-up handler additionally requires `|dx| < 5` and `|dy| < 5` to count as tap (not a scroll). |
-| Backend coordinator regression: album-scan error blocks artist-scan | Coordinator change runs scans sequentially but does not propagate the album error before invoking the artist scan. Go test guards. |
 | Bundle size growth | `ArtistsPage` + `ArtistTile` dynamic-imported via the M1.E lazy-load pattern in `LibraryView`. Bundle-guard regex (widened in M1.E) catches accidental static imports. |
 | `/artistart` 302 redirect to Deezer hotlinks blocked by browser CORS | Standard `<img>` requests follow 302s without CORS preflight (no `crossorigin` attribute set). If a fallback is needed, `onerror` retries with `?id=` form. |
 | Filter clear on swipe-away surprises users | Explicit `✕` is the primary control; the implicit clear-on-leave is a fallback for users who never tap `✕`. If feedback flags it, the subscriber inside `library.ts` is removed in a one-line change. |
@@ -498,22 +484,19 @@ Per saved memory preference (subagent-driven for multi-plan work, `/clear` betwe
 - **Wave 3 (2 parallel tasks, depends on Wave 2):**
   - T5: `LibraryView.svelte` vertical-swipe + renderer switch + filtered-list routing + extend `LibraryView.test.ts` + bundle-guard regex update
   - T6: `MetadataBlock.svelte` filter accent + `✕` button + extend `MetadataBlock.test.ts`
-- **Wave 4 (1 task, can run anytime in parallel with W1–W3):**
-  - T7: Backend `coordinator.go` chain + extend `coordinator_test.go`
-- **Wave 5 (2 tasks, after all above):**
-  - T8: `e2e/artists-page.spec.ts` skipped placeholder + TODO block
-  - T9: Final verification gate (tsc, full Vitest, build, backend test, manual LCD smoke, project-note update)
+- **Wave 4 (2 tasks, after Wave 3):**
+  - T7: `e2e/artists-page.spec.ts` skipped placeholder + TODO block
+  - T8: Final verification gate (tsc, full Vitest, build, manual LCD smoke incl. backend enrichment-chain log check, project-note update)
 
 ### Definition of done
 
 - All Vitest tests green (baseline + ~30 new cases)
 - `npx tsc --noEmit` exit 0
 - `npm run build` exit 0
-- Backend `make test` + `make test-race` green
 - Bundle-size guard green (`ArtistsPage` lazy-loaded only)
 - Manual LCD smoke completes the 5-step sequence
-- ≥ 9 atomic commits on `Volumio2-UI` master (one per task)
-- 1 atomic commit on `stellar-volumio-audioplayer-backend` main
+- Backend enrichment chain log check (existing v1.5.0+ wiring) confirmed via `journalctl -u stellar-backend` during smoke
+- ≥ 8 atomic commits on `Volumio2-UI` master (one per task); zero backend commits
 - Project note `Last Context Switch` updated with the resume hook before `/clear`
 
 ### Follow-ups deferred (not in this unit of work)
