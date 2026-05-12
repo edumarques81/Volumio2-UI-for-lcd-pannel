@@ -181,8 +181,65 @@ EOF
 # frontend from the Mac's Vite dev server (see kiosk script below). The Pi runs
 # only the backend + cage kiosk + mpd.
 
+log_info "Installing Stellar Spectrum daemon service..."
+# stellar-spectrum (M1.B) — reads MPD's local FIFO, computes per-channel L/R
+# FFT frames, and POSTs them to the Mac-hosted backend. Required when the
+# main backend runs off-Pi (post-M1.C cutover). Harmless to install
+# pre-cutover: if /etc/stellar-spectrum.env is absent, the unit fails fast
+# without spamming logs (RestartSec=10 + budget caps).
+#
+# Configuration lives in /etc/stellar-spectrum.env so the Mac URL and shared
+# key can be rotated without rebuilding the binary. The EnvironmentFile is
+# prefixed with `-` so systemd treats a missing file as non-fatal during
+# initial provisioning.
+sudo tee /etc/systemd/system/stellar-spectrum.service > /dev/null << EOF
+[Unit]
+Description=Stellar Spectrum Daemon (Pi-side L/R FFT forwarder)
+After=network-online.target mpd.service
+Wants=network-online.target mpd.service
+
+[Service]
+Type=simple
+User=$STELLAR_USER
+WorkingDirectory=$STELLAR_HOME/stellar-backend
+EnvironmentFile=-/etc/stellar-spectrum.env
+ExecStart=$STELLAR_HOME/stellar-backend/stellar-spectrum
+Restart=always
+RestartSec=10
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Seed a template env file if none exists. Operators must edit this before
+# enabling the service or stellar-spectrum will refuse to start (the
+# binary fatals on empty STELLAR_SPECTRUM_KEY). The bracketed values are
+# placeholders intentionally — `enable` here, `start` after manual edit.
+if [ ! -f /etc/stellar-spectrum.env ]; then
+    log_info "Seeding /etc/stellar-spectrum.env template (edit before enabling stellar-spectrum)..."
+    sudo tee /etc/stellar-spectrum.env > /dev/null << 'SPECENV'
+# stellar-spectrum daemon environment
+# Set both keys before `sudo systemctl enable --now stellar-spectrum`.
+# The Mac-side backend must read the same STELLAR_SPECTRUM_KEY value.
+
+STELLAR_MAC_URL=http://192.168.86.221:3000/internal/spectrum
+STELLAR_SPECTRUM_KEY=
+STELLAR_SPECTRUM_FIFO=/tmp/mpd_spectrum.fifo
+STELLAR_SPECTRUM_FPS=20
+SPECENV
+    sudo chmod 600 /etc/stellar-spectrum.env
+fi
+
 sudo systemctl daemon-reload
 sudo systemctl enable stellar-backend
+# Note: do NOT enable stellar-spectrum here. The unit is installed but
+# stays disabled until M1.C cutover when the Mac-side backend takes over.
+# Operator workflow at cutover:
+#   1. Edit /etc/stellar-spectrum.env with the shared key.
+#   2. `sudo systemctl enable --now stellar-spectrum`
+#   3. `sudo systemctl disable --now stellar-backend`
 
 # ============================================================
 log_section "5. Kiosk Configuration"
