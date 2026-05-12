@@ -108,27 +108,43 @@ describe('PlayerLayout', () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Bundle-size guard (plan §C6.1, §C6.4)
+  // Bundle-size guard (plan §C6.1 + M1.E)
   //
-  // SettingsView must not be transitively loaded at module-load time when the
-  // user is idle on the player view — it's a rare-path screen and ships in a
-  // separate Vite chunk (SettingsView-*.js + child chunks NasShareList-*.js
-  // and AudioSettings-*.js). We assert this at the source level: PlayerLayout
-  // must NOT contain a static `import` statement for SettingsView; it must
-  // pull SettingsView in via dynamic `import()` so Rollup can split it out.
-  // (A mock-based assertion is unreliable here — Vitest's `vi.mock` does not
-  // consistently intercept dynamic `import()` of .svelte files when the real
-  // Vite-Svelte plugin is in the resolver chain — so we guard the chunking
-  // intent at the source level instead.)
+  // Rare-path views must not be transitively loaded at module-load time when
+  // the user is idle on the player view — they ship in their own Vite chunks.
+  // We assert this at the source level: PlayerLayout must NOT contain a
+  // static `import` statement for these views; they must be pulled in via
+  // dynamic `import()` so Rollup can split them out. (A mock-based assertion
+  // is unreliable here — Vitest's `vi.mock` does not consistently intercept
+  // dynamic `import()` of .svelte files when the real Vite-Svelte plugin is
+  // in the resolver chain — so we guard the chunking intent at the source
+  // level instead.)
+  //
+  // Regex shape (M1.E widening — C6 reviewers flagged the original \w+ form
+  // as too narrow): matches `import X from`, `import { X } from`,
+  // `import * as X from`, `import type X from`, and combinations with
+  // destructured siblings. Source must NOT contain such a static import for
+  // the lazy views; source MUST contain the dynamic-import call site.
   // ---------------------------------------------------------------------------
-  it('does not statically import SettingsView (so it stays in a separate chunk)', () => {
+  function staticImportRegexFor(filename: string): RegExp {
+    // [^;\n]* between `import` and `from` covers every import shape Vite/Rollup
+    // would treat as a static import; the trailing path arm ensures we only
+    // catch imports of THIS file.
+    return new RegExp(
+      String.raw`^\s*import\b[^;\n]*\bfrom\s+['"][^'"]*${filename.replace(/\./g, '\\.')}['"]\s*;?`,
+      'm',
+    );
+  }
+
+  it.each([
+    ['SettingsView.svelte'],
+    ['VuMeterView.svelte'],
+  ])('does not statically import %s (so it stays in a separate chunk)', (filename) => {
     const here = dirname(fileURLToPath(import.meta.url));
     const playerLayoutPath = resolve(here, '..', 'PlayerLayout.svelte');
     const src = readFileSync(playerLayoutPath, 'utf8');
-    // Static-import shape: `import <Anything> from '...SettingsView.svelte';`
-    const staticImportRegex = /^\s*import\s+\w+\s+from\s+['"][^'"]*SettingsView\.svelte['"]\s*;?/m;
-    expect(staticImportRegex.test(src)).toBe(false);
+    expect(staticImportRegexFor(filename).test(src)).toBe(false);
     // And confirm the lazy hookup is in place (dynamic-import call site).
-    expect(src.includes("import('./SettingsView.svelte')")).toBe(true);
+    expect(src.includes(`import('./${filename}')`)).toBe(true);
   });
 });
