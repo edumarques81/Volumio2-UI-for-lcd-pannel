@@ -157,6 +157,13 @@ export const artistAlbums = writable<Album[]>([]);
 export const artistAlbumsLoading = writable<boolean>(false);
 export const artistAlbumsError = writable<string | null>(null);
 
+// ----- Library page kind (M2.C) ---------------------------------------------
+// Drives the renderer switch inside LibraryView. Add 'qobuz' here when M3.A
+// lands; the wrap-modulo cyclePageKind handles arbitrary list lengths.
+export const LIBRARY_PAGE_KINDS = ['albums', 'artists'] as const;
+export type LibraryPageKind = typeof LIBRARY_PAGE_KINDS[number];
+export const libraryPageKind = writable<LibraryPageKind>('albums');
+
 // Album tracks store state
 export const selectedLibraryAlbum = writable<Album | null>(null);
 export const libraryAlbumTracks = writable<Track[]>([]);
@@ -318,6 +325,15 @@ export function initLibraryStore() {
         }
       }
       wasConnected = true;
+    }
+  });
+
+  // Implicitly clear any active artist filter when the user swipes back to
+  // ArtistsPage. The ✕ button on MetadataBlock is the explicit path; this
+  // subscriber catches the "I'm leaving the filtered context" case.
+  libraryPageKind.subscribe((kind) => {
+    if (kind === 'artists' && get(selectedArtist) !== null) {
+      libraryActions.clearArtistFilter();
     }
   });
 }
@@ -590,6 +606,31 @@ export const libraryActions = {
   clearSelectedArtist() {
     selectedArtist.set(null);
     artistAlbums.set([]);
+  },
+
+  /**
+   * Cycle the library page kind by `delta` (+1 forward, -1 backward).
+   * Wrap-modulo over LIBRARY_PAGE_KINDS so adding M3.A's 'qobuz' is
+   * a single-character change.
+   */
+  cyclePageKind(delta: 1 | -1) {
+    const kinds = LIBRARY_PAGE_KINDS;
+    const len = kinds.length;
+    libraryPageKind.update((k) => {
+      const idx = kinds.indexOf(k);
+      return kinds[((idx + delta) % len + len) % len];
+    });
+  },
+
+  /**
+   * Clear the active per-artist filter. Called when the user taps the
+   * inline ✕ on MetadataBlock OR implicitly when the page-kind subscriber
+   * fires on 'albums' → 'artists'.
+   */
+  clearArtistFilter() {
+    selectedArtist.set(null);
+    artistAlbums.set([]);
+    currentLibraryIndex.set(0);
   },
 
   /**

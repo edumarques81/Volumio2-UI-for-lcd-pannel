@@ -12,6 +12,11 @@ import {
   libraryAlbumTracks,
   libraryActions,
   initLibraryStore,
+  LIBRARY_PAGE_KINDS,
+  libraryPageKind,
+  selectedArtist,
+  artistAlbums,
+  currentLibraryIndex,
   type Album,
   type Artist,
   type RadioStation,
@@ -484,5 +489,84 @@ describe('Library Store', () => {
       const newEmits = afterEmits.slice(beforeEmits);
       expect(newEmits.some((c: any[]) => c[0] === 'clearQueue')).toBe(false);
     });
+  });
+});
+
+describe('libraryPageKind', () => {
+  beforeEach(() => {
+    libraryPageKind.set('albums');
+    selectedArtist.set(null);
+    artistAlbums.set([]);
+    currentLibraryIndex.set(0);
+  });
+
+  it('LIBRARY_PAGE_KINDS is readonly ["albums","artists"]', () => {
+    expect(LIBRARY_PAGE_KINDS).toEqual(['albums', 'artists']);
+  });
+
+  it('libraryPageKind initial value is "albums"', () => {
+    expect(get(libraryPageKind)).toBe('albums');
+  });
+
+  it('cyclePageKind(+1) wraps albums → artists → albums', () => {
+    libraryActions.cyclePageKind(1);
+    expect(get(libraryPageKind)).toBe('artists');
+    libraryActions.cyclePageKind(1);
+    expect(get(libraryPageKind)).toBe('albums');
+  });
+
+  it('cyclePageKind(-1) wraps albums → artists → albums (opposite direction, same destination on a 2-kind cycle)', () => {
+    libraryActions.cyclePageKind(-1);
+    expect(get(libraryPageKind)).toBe('artists');
+    libraryActions.cyclePageKind(-1);
+    expect(get(libraryPageKind)).toBe('albums');
+  });
+
+  it('clearArtistFilter resets selectedArtist, artistAlbums, currentLibraryIndex', () => {
+    selectedArtist.set('Hollow Tides');
+    artistAlbums.set([{ id: 'x', title: 't', artist: 'a', albumArtist: 'a', uri: 'u', source: 'NAS' } as never]);
+    currentLibraryIndex.set(7);
+
+    libraryActions.clearArtistFilter();
+
+    expect(get(selectedArtist)).toBeNull();
+    expect(get(artistAlbums)).toEqual([]);
+    expect(get(currentLibraryIndex)).toBe(0);
+  });
+
+  it('subscriber: albums → artists with selectedArtist set triggers clearArtistFilter', () => {
+    initLibraryStore();           // registers the subscriber (idempotent)
+    selectedArtist.set('Nils Frahm');
+    artistAlbums.set([{ id: 'x', title: 't', artist: 'a', albumArtist: 'a', uri: 'u', source: 'NAS' } as never]);
+    currentLibraryIndex.set(5);
+
+    libraryActions.cyclePageKind(1);              // albums → artists
+
+    expect(get(libraryPageKind)).toBe('artists');
+    expect(get(selectedArtist)).toBeNull();
+    expect(get(artistAlbums)).toEqual([]);
+    expect(get(currentLibraryIndex)).toBe(0);
+  });
+
+  it('subscriber: artists → albums does NOT clear selectedArtist (post-tap filter must survive the trip back)', () => {
+    initLibraryStore();
+    libraryPageKind.set('artists');
+    selectedArtist.set('Max Richter');
+
+    libraryActions.cyclePageKind(1);              // artists → albums
+
+    expect(get(libraryPageKind)).toBe('albums');
+    expect(get(selectedArtist)).toBe('Max Richter');
+  });
+
+  it('subscriber: albums → artists with selectedArtist null is a no-op (no spurious resets)', () => {
+    initLibraryStore();
+    selectedArtist.set(null);
+    currentLibraryIndex.set(9);
+
+    libraryActions.cyclePageKind(1);              // albums → artists
+
+    expect(get(libraryPageKind)).toBe('artists');
+    expect(get(currentLibraryIndex)).toBe(9);     // unchanged
   });
 });
