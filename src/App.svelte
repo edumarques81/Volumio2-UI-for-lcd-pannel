@@ -33,6 +33,7 @@
   let lastVisibleTime = Date.now();
   let mobileReconnectCleanup: (() => void) | null = null;
   let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+  let clientsReloadStop: (() => void) | null = null;
 
   onMount(() => {
     console.log('App mounted, initializing...');
@@ -69,6 +70,15 @@
     setViewActionHandlers({
       onRefresh: triggerLibraryRefresh,
       onPower: () => modalActions.openPower(),
+    });
+
+    // Reload-all-clients channel. After a user-initiated library refresh
+    // completes, libraryRefresh.ts emits `clients:reload`; the backend
+    // broadcasts `pushClientsReload` to every connected client (LCD kiosk,
+    // mobile, desktop). Everyone reloads to pick up freshly-cached data.
+    clientsReloadStop = socketService.on('pushClientsReload', () => {
+      console.log('[ClientsReload] Server-broadcast reload received');
+      location.reload();
     });
 
     // ====================================================================
@@ -300,6 +310,9 @@
       // closures or duplicate subscriptions.
       cancelLibraryRefresh();
       clearViewActionHandlers();
+
+      clientsReloadStop?.();
+      clientsReloadStop = null;
 
       socketService.disconnect();
     };

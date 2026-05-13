@@ -44,6 +44,10 @@ export function triggerLibraryRefresh(): void {
 
   cacheUpdatedStop = socketService.on('library:cache:updated', () => {
     libraryActions.fetchAlbums();
+    // Ask the backend to broadcast a page-reload to every connected client
+    // (including the LCD kiosk). The broadcast echoes back to us; App.svelte
+    // owns the listener that calls location.reload().
+    socketService.emit('clients:reload');
     refreshInProgress.set(false);
     cacheUpdatedStop?.();
     cacheUpdatedStop = null;
