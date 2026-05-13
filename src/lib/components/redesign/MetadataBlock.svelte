@@ -1,6 +1,6 @@
 <script lang="ts">
   import Icon from '$lib/components/Icon.svelte';
-  import { selectedArtist, libraryActions } from '$lib/stores/library';
+  import { selectedArtist } from '$lib/stores/library';
 
   export let title: string = '';
   export let artist: string = '';
@@ -17,14 +17,6 @@
     <div class="artist-row" class:is-filter-active={isFiltered} data-testid="metadata-artist">
       <Icon name="user" size={22} />
       <span>{artist}</span>
-      {#if isFiltered}
-        <button
-          class="clear-filter"
-          data-testid="clear-artist-filter"
-          aria-label="Clear artist filter"
-          on:click={() => libraryActions.clearArtistFilter()}
-        >✕</button>
-      {/if}
     </div>
   {/if}
   {#if album}
@@ -76,24 +68,8 @@
   .artist-row.is-filter-active {
     color: var(--color-accent-bright);
   }
-  .clear-filter {
-    background: transparent;
-    border: none;
-    color: var(--color-accent);
-    font-size: 18px;
-    line-height: 1;
-    padding: 0 8px;
-    margin-left: 4px;
-    cursor: pointer;
-    transition: color 200ms ease-out;
-    flex-shrink: 0;
-  }
-  .clear-filter:hover, .clear-filter:focus-visible {
-    color: var(--color-accent-bright);
-    outline: none;
-  }
 
   @media (prefers-reduced-motion: reduce) {
-    .artist-row, .clear-filter { transition: none; }
+    .artist-row { transition: none; }
   }
 </style>
