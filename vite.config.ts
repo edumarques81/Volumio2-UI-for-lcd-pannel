@@ -1,4 +1,4 @@
-import { defineConfig, type Plugin } from 'vite';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import path from 'path';
 import pkg from './package.json' with { type: 'json' };
@@ -63,23 +63,42 @@ function cspMetaTagPlugin(): Plugin {
   };
 }
 
-export default defineConfig({
-  plugins: [svelte(), cspMetaTagPlugin()],
-  define: {
-    __APP_VERSION__: JSON.stringify(pkg.version),
-    __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
-  },
-  resolve: {
-    alias: {
-      '$lib': path.resolve('./src/lib'),
+export default defineConfig(({ mode }) => {
+  // Read RASPBERRY_PI_API_ADDRESS from .env so the dev server proxies
+  // /artistart and /albumart to the Pi backend instead of serving the
+  // SPA fallback HTML (which the browser then fails to decode as an
+  // image). Same env var used by scripts/* for deploy.
+  const env = loadEnv(mode, process.cwd(), '');
+  const piHost = env.RASPBERRY_PI_API_ADDRESS || '192.168.86.25';
+  const piBackend = `http://${piHost}:3000`;
+
+  return {
+    plugins: [svelte(), cspMetaTagPlugin()],
+    define: {
+      __APP_VERSION__: JSON.stringify(pkg.version),
+      __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
     },
-  },
-  server: {
-    port: 5173,
-    host: '0.0.0.0',
-    headers: {
-      // Dev-mode CSP with unsafe-eval for Vite HMR
-      'Content-Security-Policy': buildCspString(true),
+    resolve: {
+      alias: {
+        '$lib': path.resolve('./src/lib'),
+      },
     },
-  },
+    server: {
+      port: 5173,
+      host: '0.0.0.0',
+      // Proxy backend asset endpoints to the Pi. Without this, relative
+      // URLs like ArtistTile's /artistart?name=... resolve to Vite's SPA
+      // fallback (200 HTML), and the browser errors out on the <img>.
+      // /albumart is already routed via absolute URLs by fixVolumioAssetUrl,
+      // but proxy it too so relative usage works as a fallback.
+      proxy: {
+        '/artistart': { target: piBackend, changeOrigin: true },
+        '/albumart':  { target: piBackend, changeOrigin: true },
+      },
+      headers: {
+        // Dev-mode CSP with unsafe-eval for Vite HMR
+        'Content-Security-Policy': buildCspString(true),
+      },
+    },
+  };
 });
