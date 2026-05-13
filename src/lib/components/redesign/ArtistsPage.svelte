@@ -64,11 +64,16 @@
     width: 100%;
     height: 100%;
     background: #050507;
-    padding: 20px 0 0 0;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
+    /* Vertically center the [header + strip] pair within the LCD viewport.
+       Previously the page used padding: 20px 0 0 0 with no justify-content,
+       so the strip stacked against the top of the 1920x440 LCD leaving
+       most of the height empty below it. */
+    justify-content: center;
     gap: 16px;
+    padding: 0;
   }
   .artists-page-header {
     padding-left: 48px;
