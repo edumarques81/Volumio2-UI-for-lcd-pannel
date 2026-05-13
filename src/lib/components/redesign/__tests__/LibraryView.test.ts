@@ -340,6 +340,17 @@ describe('LibraryView page-kind renderer + vertical swipe + filtered list', () =
     expect(libraryActions.cyclePageKind).not.toHaveBeenCalled();
   });
 
+  it('horizontal pointer-up while libraryPageKind === "artists" does NOT call advance', async () => {
+    libraryPageKind.set('artists');
+    // currentLibraryIndex starts at 0 from beforeEach
+    const { container } = render(LibraryView);
+    const root = container.querySelector('[data-testid="library-view"]')!;
+    await fireEvent.pointerDown(root, { clientX: 500, clientY: 300 });
+    await fireEvent.pointerUp(root, { clientX: 200, clientY: 290 }); // dx = -300 dominant
+    expect(libraryActions.cyclePageKind).not.toHaveBeenCalled();
+    expect(get(currentLibraryIndex)).toBe(0);
+  });
+
   it('below the 50px threshold on both axes is a no-op', async () => {
     const { container } = render(LibraryView);
     const root = container.querySelector('[data-testid="library-view"]')!;

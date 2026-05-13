@@ -70,6 +70,7 @@
       lastVertDir = dy < 0 ? 'up' : 'down';
       libraryActions.cyclePageKind(dy < 0 ? 1 : -1);
     } else {
+      if ($libraryPageKind !== 'albums') return;  // M2.C: don't shift currentLibraryIndex while on ArtistsPage; the strip's pan-x bubbles pointerup up here
       if (Math.abs(dx) < SWIPE_THRESHOLD) return;
       advance(dx < 0 ? 1 : -1);
     }
