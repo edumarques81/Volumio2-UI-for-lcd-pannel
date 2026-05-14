@@ -336,6 +336,13 @@ export function initLibraryStore() {
       libraryActions.clearArtistFilter();
     }
   });
+
+  // Kick off initial albums fetch. Without this, a fresh boot — including
+  // the post-`pushClientsReload` `location.reload()` triggered by the
+  // refresh-button flow — registers listeners but never requests data,
+  // leaving libraryAlbums stuck at []. emitWhenConnected handles the
+  // not-yet-connected case by queueing until 'connected'.
+  libraryActions.fetchAlbums();
 }
 
 /**

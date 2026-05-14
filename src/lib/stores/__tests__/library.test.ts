@@ -534,6 +534,19 @@ describe('libraryPageKind', () => {
     expect(get(currentLibraryIndex)).toBe(0);
   });
 
+  it('initLibraryStore emits library:albums:list on boot (regression: refresh-reload empty-page bug)', () => {
+    // Pre-fix bug: clients:reload at libraryRefresh.ts:50 triggered
+    // location.reload() in App.svelte:79-82; the post-reload boot registered
+    // pushLibraryAlbums listeners but never *requested* albums, so
+    // libraryAlbums stuck at [] and LCD AlbumsPage stuck on "No albums in
+    // library". Fix at library.ts:end-of-initLibraryStore adds
+    // libraryActions.fetchAlbums(). This test relies on being the first
+    // initLibraryStore() call in the file (the module-level `initialized`
+    // flag is sticky across tests).
+    initLibraryStore();
+    expect(socketService.emit).toHaveBeenCalledWith('library:albums:list', expect.any(Object));
+  });
+
   it('subscriber: albums → artists with selectedArtist set triggers clearArtistFilter', () => {
     initLibraryStore();           // registers the subscriber (idempotent)
     selectedArtist.set('Nils Frahm');

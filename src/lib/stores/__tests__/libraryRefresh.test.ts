@@ -95,14 +95,19 @@ describe('triggerLibraryRefresh', () => {
   });
 
   it('a subsequent tap after completion starts a fresh refresh', () => {
-    // First refresh, completes.
+    // First refresh cycle = 2 emits: library:cache:rebuild + clients:reload
+    // (the page-reload broadcast added in 13b044f8 — runs from inside the
+    // cache-updated handler).
     triggerLibraryRefresh();
     onHandlers.get('library:cache:updated')!.forEach(h => h(undefined));
-    expect(socketEmit).toHaveBeenCalledTimes(1);
-
-    // Second tap after the first finished.
-    triggerLibraryRefresh();
     expect(socketEmit).toHaveBeenCalledTimes(2);
+    expect(socketEmit).toHaveBeenCalledWith('library:cache:rebuild');
+    expect(socketEmit).toHaveBeenCalledWith('clients:reload');
+
+    // Second tap after the first finished — fires only library:cache:rebuild
+    // (the new listener won't fire until we replay the cache-updated handler).
+    triggerLibraryRefresh();
+    expect(socketEmit).toHaveBeenCalledTimes(3);
     expect(listenerCount('library:cache:updated')).toBe(1);
   });
 
