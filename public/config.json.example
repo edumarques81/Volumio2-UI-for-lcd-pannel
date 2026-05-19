@@ -1,3 +1,9 @@
 {
-  "backendUrl": "http://192.168.86.25:3000"
+  "_comment": "Runtime config consumed by src/lib/config.ts initConfig(). Copy to config.json (without the _comment fields) and fill in the right backendUrl for your deployment. The page fetches /config.json once at boot; falls back to window.location-based detection if missing.",
+
+  "_pre-m1c-example": "Pre-cutover topology — backend lives on the Pi",
+  "_pre-m1c-backendUrl": "http://192.168.86.25:3000",
+
+  "_post-m1c-example": "M1.C topology — backend lives on the Mac",
+  "backendUrl": "http://192.168.86.221:3000"
 }
