@@ -1,0 +1,27 @@
+[Unit]
+Description=Stellar NAS Mount Control Service
+Documentation=https://github.com/edumarques81/Volumio2-UI/tree/master/pi-kiosk
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStart=/usr/bin/node /opt/stellar-mount-control/mount-control-service.js
+Restart=always
+RestartSec=5
+Environment=MOUNT_CONTROL_PORT=8082
+Environment=MOUNT_CONTROL_TOKEN_FILE=/etc/stellar-mount-control/token
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=stellar-mount-control
+
+# Security: needs root for mount.cifs and write access under /mnt.
+# Token-gated + LAN-only bind matches the lcd-control.service threat model.
+NoNewPrivileges=false
+ProtectSystem=false
+ProtectHome=read-only
+PrivateTmp=false
+
+[Install]
+WantedBy=multi-user.target
