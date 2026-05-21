@@ -40,11 +40,14 @@
 
   function shutdown() {
     errorMsg = '';
-    socketService.emit('system:shutdown');
+    // Canonical bare event name; SettingsView emits the same. Backend
+    // `SystemActionHandlers` dispatches both — auth-gated, routed to Pi
+    // via mount-control /api/system/* on Mac/Windows backend hosts.
+    socketService.emit('shutdown');
   }
   function reboot() {
     errorMsg = '';
-    socketService.emit('system:reboot');
+    socketService.emit('reboot');
   }
   function cancel() {
     modalActions.closePower();

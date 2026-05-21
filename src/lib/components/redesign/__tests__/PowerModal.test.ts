@@ -50,18 +50,18 @@ describe('PowerModal', () => {
     expect(container.querySelector('[aria-label="Reset"]')).toBeTruthy();
   });
 
-  it('emits system:shutdown on Shutdown click', async () => {
+  it('emits shutdown on Shutdown click (M1.D: bare event, converged with SettingsView)', async () => {
     powerModalOpen.set(true);
     const { container } = render(PowerModal);
     await fireEvent.click(container.querySelector('[aria-label="Shutdown"]')!);
-    expect(socketEmit).toHaveBeenCalledWith('system:shutdown');
+    expect(socketEmit).toHaveBeenCalledWith('shutdown');
   });
 
-  it('emits system:reboot on Reset click', async () => {
+  it('emits reboot on Reset click (M1.D: bare event, converged with SettingsView)', async () => {
     powerModalOpen.set(true);
     const { container } = render(PowerModal);
     await fireEvent.click(container.querySelector('[aria-label="Reset"]')!);
-    expect(socketEmit).toHaveBeenCalledWith('system:reboot');
+    expect(socketEmit).toHaveBeenCalledWith('reboot');
   });
 
   it('closes when backdrop is clicked (tap-outside)', async () => {
@@ -95,8 +95,8 @@ describe('PowerModal', () => {
     // (a)+(b) modal is open and Shutdown is clicked
     await fireEvent.click(container.querySelector('[aria-label="Shutdown"]')!);
 
-    // (c) emit was called with system:shutdown exactly once
-    expect(socketEmit).toHaveBeenCalledWith('system:shutdown');
+    // (c) emit was called with shutdown exactly once (M1.D bare event)
+    expect(socketEmit).toHaveBeenCalledWith('shutdown');
     expect(socketEmit).toHaveBeenCalledTimes(1);
 
     // (d) backend reports failure via the captured handler

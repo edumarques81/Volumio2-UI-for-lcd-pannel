@@ -231,6 +231,31 @@ async function removeSymlink(query) {
   catch (e) { return { status: 500, body: { success: false, error: e.message } }; }
 }
 
+// --- System power handlers (M1.D) ---
+// Mac-resident stellar proxies system:shutdown / system:reboot socket events
+// through these endpoints so the action lands on the audio appliance (Pi),
+// not on the backend host (Mac). Service runs as root, so no sudo needed.
+// `?dry=1` returns success without executing — used to verify the chain end
+// to end without actually powering off the streamer.
+
+async function systemAction(action, query) {
+  const cmd = action === 'reboot' ? 'shutdown -r now' : 'shutdown -h now';
+  const dry = query.dry === '1' || query.dry === 'true';
+  if (dry) {
+    console.log(`[mount-control] system:${action} dry-run (would: ${cmd})`);
+    return { status: 200, body: { success: true, dry: true, action } };
+  }
+  // Defer the exec so the HTTP response flushes first — without this the
+  // caller often sees a connection reset instead of the 200.
+  setTimeout(() => {
+    console.log(`[mount-control] executing: ${cmd}`);
+    exec(cmd, (err) => {
+      if (err) console.error(`[mount-control] ${action} failed: ${err.message}`);
+    });
+  }, 100);
+  return { status: 200, body: { success: true, action } };
+}
+
 // --- Router ---
 
 const server = http.createServer(async (req, res) => {
@@ -272,6 +297,12 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === 'DELETE' && u.pathname === '/api/mount/symlink') {
       const r = await removeSymlink(q); return sendJson(res, r.status, r.body);
+    }
+    if (req.method === 'POST' && u.pathname === '/api/system/shutdown') {
+      const r = await systemAction('shutdown', q); return sendJson(res, r.status, r.body);
+    }
+    if (req.method === 'POST' && u.pathname === '/api/system/reboot') {
+      const r = await systemAction('reboot', q); return sendJson(res, r.status, r.body);
     }
     if (u.pathname === '/' || u.pathname === '/api') {
       return sendJson(res, 200, {
