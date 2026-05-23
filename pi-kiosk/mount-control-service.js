@@ -26,6 +26,8 @@
  *     → 200 {"id","host","name","type","serviceName","hardware","variant"}
  *   GET    /api/system/device
  *     → 200 {"uuid","name"}
+ *   GET    /api/network/status
+ *     → 200 {"type","ip","ssid","strength","interface"}
  */
 
 const http = require('http');
@@ -304,6 +306,50 @@ async function handleSystemDevice(req, res) {
   }
 }
 
+async function handleNetworkStatus(req, res) {
+  try {
+    // Default-route interface
+    let iface = '';
+    const routeRaw = await execFileQuiet('ip', ['-j', 'route', 'get', '1.1.1.1']);
+    try {
+      const route = JSON.parse(routeRaw);
+      iface = (route[0] && route[0].dev) || '';
+    } catch {}
+
+    // IPv4 address on that interface
+    let ip = '';
+    if (iface) {
+      const addrRaw = await execFileQuiet('ip', ['-j', 'addr', 'show', 'dev', iface]);
+      try {
+        const addrs = JSON.parse(addrRaw);
+        const inet = (addrs[0] && addrs[0].addr_info || []).find(a => a.family === 'inet');
+        ip = (inet && inet.local) || '';
+      } catch {}
+    }
+
+    // Wi-Fi metadata (only for wireless interfaces)
+    let type = 'ethernet';
+    let ssid = '';
+    let strength = 0;
+    const isWifi = iface.startsWith('wlan') || iface.startsWith('wl');
+    if (isWifi) {
+      type = 'wifi';
+      ssid = await execFileQuiet('iwgetid', ['-r']);
+      const iwconfigOut = await execFileQuiet('iwconfig', [iface]);
+      const m = iwconfigOut.match(/Signal level=(-?\d+)\s*dBm/);
+      if (m) {
+        const dbm = parseInt(m[1], 10);
+        // Convert dBm to 0-100 percentage (rough: -50dBm=100, -100dBm=0)
+        strength = Math.max(0, Math.min(100, 2 * (dbm + 100)));
+      }
+    }
+
+    sendJson(res, 200, { type, ip, ssid, strength, interface: iface });
+  } catch (e) {
+    sendJson(res, 500, { error: e.message, code: 'network_status_failed' });
+  }
+}
+
 // --- Router ---
 
 const server = http.createServer(async (req, res) => {
@@ -357,6 +403,9 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === 'GET' && u.pathname === '/api/system/device') {
       return await handleSystemDevice(req, res);
+    }
+    if (req.method === 'GET' && u.pathname === '/api/network/status') {
+      return await handleNetworkStatus(req, res);
     }
     if (u.pathname === '/' || u.pathname === '/api') {
       return sendJson(res, 200, {
