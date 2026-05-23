@@ -256,6 +256,58 @@ async function systemAction(action, query) {
   return { status: 200, body: { success: true, action } };
 }
 
+async function handleSystemInfo(req, res) {
+  try {
+    const { execFile } = require('child_process');
+    const exec = (cmd, args) => new Promise((resolve) => {
+      execFile(cmd, args, { timeout: 1500 }, (err, stdout) => {
+        resolve(err ? '' : stdout.toString().trim());
+      });
+    });
+    const fs = require('fs').promises;
+    const [hostname, model] = await Promise.all([
+      exec('hostname', []),
+      fs.readFile('/proc/device-tree/model', 'utf8').then(s => s.replace(/\0/g, '').trim()).catch(() => 'Raspberry Pi'),
+    ]);
+    const payload = {
+      id: hostname,
+      host: hostname,
+      name: hostname,
+      type: 'audio_player',
+      serviceName: 'stellar',
+      hardware: model,
+      variant: 'stellar-pi',
+    };
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(payload));
+  } catch (e) {
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: e.message, code: 'system_info_failed' }));
+  }
+}
+
+async function handleSystemDevice(req, res) {
+  try {
+    const fs = require('fs').promises;
+    const { execFile } = require('child_process');
+    const exec = (cmd, args) => new Promise((resolve) => {
+      execFile(cmd, args, { timeout: 1500 }, (err, stdout) => {
+        resolve(err ? '' : stdout.toString().trim());
+      });
+    });
+    const [machineId, hostname] = await Promise.all([
+      fs.readFile('/etc/machine-id', 'utf8').then(s => s.trim()).catch(() => ''),
+      exec('hostname', []),
+    ]);
+    const uuid = machineId || hostname || '';
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ uuid, name: hostname || 'Stellar' }));
+  } catch (e) {
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: e.message, code: 'system_device_failed' }));
+  }
+}
+
 // --- Router ---
 
 const server = http.createServer(async (req, res) => {
@@ -303,6 +355,12 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === 'POST' && u.pathname === '/api/system/reboot') {
       const r = await systemAction('reboot', q); return sendJson(res, r.status, r.body);
+    }
+    if (req.method === 'GET' && u.pathname === '/api/system/info') {
+      return await handleSystemInfo(req, res);
+    }
+    if (req.method === 'GET' && u.pathname === '/api/system/device') {
+      return await handleSystemDevice(req, res);
     }
     if (u.pathname === '/' || u.pathname === '/api') {
       return sendJson(res, 200, {
