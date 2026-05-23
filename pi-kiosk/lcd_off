@@ -22,6 +22,32 @@ error() {
     echo "[$SCRIPT_NAME] ERROR: $*" >&2
 }
 
+# Method 0 (preferred — cage/Wayland on this Pi): wlr-randr with the
+# kiosk user's XDG_RUNTIME_DIR. Cage runs as uid 1000 (eduardo), holding
+# /run/user/1000/wayland-0. The lcd-control.service runs as root, which
+# can still talk to that socket as long as we point wlr-randr at it via
+# env. Output name is HDMI-A-1. The X11/xset path below stays as a
+# fallback for systems that don't use Wayland.
+wlr_randr_off() {
+    log "Attempting wlr-randr --off (Wayland)..."
+    local runtime="/run/user/1000"
+    local sock="$runtime/wayland-0"
+    if [ ! -S "$sock" ]; then
+        log "wlr-randr skipped: no wayland socket at $sock"
+        return 1
+    fi
+    if ! command -v wlr-randr >/dev/null 2>&1; then
+        log "wlr-randr skipped: binary not installed"
+        return 1
+    fi
+    if XDG_RUNTIME_DIR="$runtime" WAYLAND_DISPLAY="wayland-0" \
+       wlr-randr --output HDMI-A-1 --off 2>&1 | while IFS= read -r line; do log "wlr-randr: $line"; done; then
+        log "wlr-randr --off succeeded"
+        return 0
+    fi
+    return 1
+}
+
 # Find X11 display and auth
 find_x11_env() {
     # Try to find DISPLAY
@@ -105,6 +131,13 @@ ensure_dpms_enabled() {
 
 main() {
     log "Starting LCD off sequence..."
+
+    # Method 0: Wayland (cage) — current Pi setup. Try first because
+    # all the X11/DPMS methods below fail on this system (no X server).
+    if wlr_randr_off; then
+        log "LCD off successful (wlr-randr)"
+        exit 0
+    fi
 
     find_x11_env
 
