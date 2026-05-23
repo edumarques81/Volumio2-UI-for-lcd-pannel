@@ -38,6 +38,8 @@
  *     → 200 {"mode","success"} | 400 invalid mode | 500 write/restart failure
  *   POST   /api/audio/mixer        body {enabled: bool}
  *     → 200 {"enabled","success"} | 400 invalid input | 500 write/restart failure
+ *   POST   /api/audio/bitperfect/apply   body {} (ignored)
+ *     → 200 {"success","applied":string[],"errors":string[]} | 500 write/restart failure
  */
 
 const http = require('http');
@@ -674,6 +676,85 @@ async function handleAudioMixerWrite(req, res) {
   sendJson(res, 200, { enabled, success: true });
 }
 
+// POST /api/audio/bitperfect/apply — Apply all optimal bit-perfect settings.
+// Body: ignored (empty or {}). Ports ApplyBitPerfect() from audio_config.go:656-741.
+// Idempotency: if all settings already optimal, return success without write+restart (D6).
+async function handleAudioBitperfectApply(req, res) {
+  // No body needed — ignore any payload.
+  let content;
+  try {
+    content = await fs.promises.readFile('/etc/mpd.conf', 'utf8');
+  } catch (e) {
+    return sendJson(res, 500, { success: false, applied: [], errors: ['Failed to read MPD config: ' + e.message] });
+  }
+
+  // Mirror settingsToApply from ApplyBitPerfect() (audio_config.go:676-705):
+  const settingsToApply = [
+    {
+      name:        'mixer_type',
+      pattern:     /(mixer_type\s+)"software"/,
+      replacement: '$1"none"',
+      checkOk:     /mixer_type\s+"none"/,
+    },
+    {
+      name:        'auto_resample',
+      pattern:     /(auto_resample\s+)"yes"/,
+      replacement: '$1"no"',
+      checkOk:     /auto_resample\s+"no"/,
+    },
+    {
+      name:        'auto_format',
+      pattern:     /(auto_format\s+)"yes"/,
+      replacement: '$1"no"',
+      checkOk:     /auto_format\s+"no"/,
+    },
+    {
+      name:        'auto_channels',
+      pattern:     /(auto_channels\s+)"yes"/,
+      replacement: '$1"no"',
+      checkOk:     /auto_channels\s+"no"/,
+    },
+  ];
+
+  const applied = [];
+  let newContent = content;
+
+  for (const s of settingsToApply) {
+    if (s.pattern.test(newContent)) {
+      newContent = newContent.replace(s.pattern, s.replacement);
+      applied.push(s.name + ' = bit-perfect');
+    }
+  }
+
+  // Idempotency / no-op path (D6): mirrors audio_config.go:712-722.
+  if (applied.length === 0) {
+    const alreadyOptimal = [];
+    for (const s of settingsToApply) {
+      if (s.checkOk.test(content)) {
+        alreadyOptimal.push(s.name + ' already set to optimal');
+      }
+    }
+    console.log('[m1e1] bit-perfect settings already optimal');
+    return sendJson(res, 200, { success: true, applied: alreadyOptimal, errors: [] });
+  }
+
+  try {
+    await fs.promises.writeFile('/etc/mpd.conf', newContent, 'utf8');
+  } catch (e) {
+    return sendJson(res, 500, { success: false, applied, errors: ['Failed to write MPD config: ' + e.message] });
+  }
+
+  // systemctl restart mpd (30s budget — mirrors write handler timeout in D3).
+  await execFileQuiet('systemctl', ['restart', 'mpd'], 30000);
+  const active = await execFileQuiet('systemctl', ['is-active', 'mpd'], 3000);
+  if (active !== 'active') {
+    return sendJson(res, 500, { success: false, applied, errors: ['Config updated but MPD failed to restart'] });
+  }
+
+  console.log('[m1e1] bit-perfect applied:', applied);
+  sendJson(res, 200, { success: true, applied, errors: [] });
+}
+
 // --- Router ---
 
 const server = http.createServer(async (req, res) => {
@@ -745,6 +826,9 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === 'POST' && u.pathname === '/api/audio/mixer') {
       return await handleAudioMixerWrite(req, res);
+    }
+    if (req.method === 'POST' && u.pathname === '/api/audio/bitperfect/apply') {
+      return await handleAudioBitperfectApply(req, res);
     }
     if (u.pathname === '/' || u.pathname === '/api') {
       return sendJson(res, 200, {
