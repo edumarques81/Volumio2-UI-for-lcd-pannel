@@ -36,6 +36,8 @@
  *     → 200 {"enabled","success","error"?}
  *   POST   /api/audio/dsd          body {mode: "native"|"dop"}
  *     → 200 {"mode","success"} | 400 invalid mode | 500 write/restart failure
+ *   POST   /api/audio/mixer        body {enabled: bool}
+ *     → 200 {"enabled","success"} | 400 invalid input | 500 write/restart failure
  */
 
 const http = require('http');
@@ -623,6 +625,55 @@ async function handleAudioDsdWrite(req, res) {
   sendJson(res, 200, { mode, success: true });
 }
 
+// POST /api/audio/mixer — Enable or disable software mixer. Body: {enabled: bool}
+// Ports SetMixerMode() from audio_config.go:610-653.
+// Idempotency: skip write+restart if content unchanged (D6).
+async function handleAudioMixerWrite(req, res) {
+  let body;
+  try { body = await parseBody(req); } catch (_) { body = {}; }
+
+  if (typeof body.enabled !== 'boolean') {
+    return sendJson(res, 400, { enabled: false, success: false, error: "Body must contain 'enabled' (boolean)", code: 'invalid_input' });
+  }
+  const enabled = body.enabled;
+
+  let content;
+  try {
+    content = await fs.promises.readFile('/etc/mpd.conf', 'utf8');
+  } catch (e) {
+    return sendJson(res, 500, { enabled, success: false, error: 'Failed to read MPD config: ' + e.message, code: 'mixer_read_failed' });
+  }
+
+  const mixerValue = enabled ? 'software' : 'none';
+  // Mirror regex from SetMixerMode() (audio_config.go:630): (mixer_type\s+)"(?:software|none)"
+  const re = /(mixer_type\s+)"(?:software|none)"/;
+  if (!re.test(content)) {
+    return sendJson(res, 500, { enabled, success: false, error: 'Could not find mixer_type setting in MPD config', code: 'mixer_setting_not_found' });
+  }
+  const newContent = content.replace(re, '$1"' + mixerValue + '"');
+
+  // Idempotency check (D6).
+  if (newContent === content) {
+    console.log('[m1e1] mixer_type already set to', mixerValue, '— no write needed');
+    return sendJson(res, 200, { enabled, success: true });
+  }
+
+  try {
+    await fs.promises.writeFile('/etc/mpd.conf', newContent, 'utf8');
+  } catch (e) {
+    return sendJson(res, 500, { enabled, success: false, error: 'Failed to write MPD config: ' + e.message, code: 'mixer_write_failed' });
+  }
+
+  const active = await execFileQuiet('systemctl', ['restart', 'mpd'], 30000)
+    .then(() => execFileQuiet('systemctl', ['is-active', 'mpd'], 3000));
+  if (active !== 'active') {
+    return sendJson(res, 500, { enabled, success: false, error: 'Config updated but MPD failed to restart', code: 'mixer_restart_failed' });
+  }
+
+  console.log('[m1e1] mixer_type set to', mixerValue);
+  sendJson(res, 200, { enabled, success: true });
+}
+
 // --- Router ---
 
 const server = http.createServer(async (req, res) => {
@@ -691,6 +742,9 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === 'POST' && u.pathname === '/api/audio/dsd') {
       return await handleAudioDsdWrite(req, res);
+    }
+    if (req.method === 'POST' && u.pathname === '/api/audio/mixer') {
+      return await handleAudioMixerWrite(req, res);
     }
     if (u.pathname === '/' || u.pathname === '/api') {
       return sendJson(res, 200, {
