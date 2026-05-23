@@ -15,8 +15,8 @@ Stellar Volumio is a modern Svelte 5 web application for controlling Volumio-com
 > **Key Concept:** Frontend is served from the Mac (`npm run dev`); the Pi runs only the backend + LCD kiosk.
 
 - Mac dev server (`localhost:5173`) is BOTH the dev surface AND the production frontend for the LCD.
-- The Pi's LCD kiosk launcher (`/usr/local/bin/stellar-kiosk.sh`) loads `http://<MAC_IP>:5173?layout=lcd` (currently hard-pointed at `http://192.168.86.221:5173`).
-- The Pi runs only `stellar-backend` (port 3000), `cage` kiosk (Chromium under Wayland), and `mpd` (port 6600). There is no longer a port-8080 frontend server on the Pi.
+- The Pi's LCD kiosk launcher (`/usr/local/bin/stellar-kiosk.sh`) loads `http://<MAC_IP>:5173` (currently hard-pointed at `http://192.168.86.221:5173`). Layout is detected by screen size only — no `?layout=lcd` URL param.
+- The Pi runs `mpd` (port 6600), `cage` kiosk (Chromium under Wayland — loads `http://<MAC_IP>:5173/`), and three small ops services: `lcd-control` (:8081, LCD power), `stellar-mount-control` (:8082, NAS mount + M1.E read/M1.E.1 write proxy for audio config), `stellar-spectrum` (FFT FIFO streamer). The Pi-resident `stellar-backend` service is `disabled` post-M1.C cutover; the kiosk talks to the Mac backend at `http://<MAC_IP>:3000`. There is no longer a port-8080 frontend server on the Pi.
 - Configure Pi IP in `src/lib/config.ts` (`DEV_VOLUMIO_IP`).
 - Consequence: if the Mac dev server is down, the LCD shows a load error. Keep `npm run dev` running on the Mac whenever the LCD should be live.
 
@@ -77,7 +77,7 @@ SSH_CMD="sshpass -p '$RASPBERRY_PI_SSH_PASSWORD' ssh -o StrictHostKeyChecking=no
 
 The frontend "deploys" by running `npm run dev` on the Mac — the LCD kiosk loads from that dev server. Only the backend has a real deploy step.
 
-**Frontend:** `npm run dev` on the Mac. The Pi's `/usr/local/bin/stellar-kiosk.sh` is hard-pointed at `http://192.168.86.221:5173?layout=lcd`. If you change the Mac's IP, update the kiosk script. The legacy `scripts/deploy.sh` (which used to scp `dist/` to the Pi) was removed; the Pi no longer serves a port-8080 frontend.
+**Frontend:** `npm run dev` on the Mac. The Pi's `/usr/local/bin/stellar-kiosk.sh` is hard-pointed at `http://192.168.86.221:5173`. If you change the Mac's IP, update the kiosk script. Layout is detected by screen size — no `?layout=lcd` param needed. The legacy `scripts/deploy.sh` (which used to scp `dist/` to the Pi) was removed; the Pi no longer serves a port-8080 frontend.
 
 **Backend:**
 
@@ -105,9 +105,12 @@ eval "$SSH_CMD 'sudo systemctl start stellar-backend'"
 
 | Service | Port | Description |
 |---------|------|-------------|
-| `stellar-backend` | 3000 | Stellar Go backend (Volumio standard port) |
 | `mpd` | 6600 | Music Player Daemon |
-| `cage` (kiosk) | — | Wayland compositor running Chromium pointed at `http://192.168.86.221:5173?layout=lcd` |
+| `cage` (kiosk) | — | Wayland compositor running Chromium pointed at `http://192.168.86.221:5173` (layout by screen size, no `?layout=lcd`) |
+| `lcd-control` | 8081 | LCD power on/off (Wayland wlr-randr) |
+| `stellar-mount-control` | 8082 | NAS mount/umount + M1.E read + M1.E.1 write endpoints |
+| `stellar-spectrum` | — | FFT FIFO streamer → Mac backend `/internal/spectrum` |
+| ~~`stellar-backend`~~ | ~~3000~~ | Disabled post-M1.C; kiosk now talks to Mac backend at `http://<MAC_IP>:3000` |
 
 ## Architecture
 
@@ -133,7 +136,7 @@ eval "$SSH_CMD 'sudo systemctl start stellar-backend'"
 - Each store exports: `init*Store()` function, writable stores, derived stores, and `*Actions` object
 - Tests in `__tests__/` directories adjacent to source files
 - Layouts: `LCDLayout` (1920x440), `MobileLayout`, `DesktopLayout`
-- Force layout via URL: `?layout=lcd` or `?layout=mobile`
+- Layout is determined by screen size only; the `?layout=lcd` / `?layout=mobile` URL params are dead and have no effect.
 
 **Store Pattern Example:**
 ```typescript
@@ -465,7 +468,7 @@ interface MultiRoomDevices {
 - Two standby modes: CSS Dimmed (default, instant wake) or Hardware (wlr-randr, saves power)
 - Key files: `lcd.ts` (store), `StandbyOverlay.svelte` (overlay + touch handling)
 - State: ON -> DIMMED -> STANDBY
-- Force layout via URL: `?layout=lcd` or `?layout=mobile`
+- Layout is determined by screen size only; the `?layout=lcd` / `?layout=mobile` URL params are dead and have no effect.
 
 **Stand By Tile (v2.0.2+, updated v2.3.0):**
 - Located in `AppLauncher.svelte` (LCD layout) and `MobileHomeScreen.svelte` (mobile layout as "LCD Panel")
@@ -719,7 +722,7 @@ The backend handles NAS mount failures gracefully with retry logic, periodic hea
 
 **CORS Middleware:**
 - `cmd/stellar/cors.go` - Sets `Access-Control-Allow-Origin: *` on ALL responses (including 404 errors)
-- Prevents CORB (Cross-Origin Read Blocking) when the browser (loaded from the Mac's Vite dev server at `http://<MAC_IP>:5173`) makes cross-origin requests to the Pi backend at `http://<PI_IP>:3000`
+- Prevents CORB (Cross-Origin Read Blocking) when the browser (loaded from the Mac's Vite dev server at `http://<MAC_IP>:5173`) makes cross-origin requests to the Mac backend at `http://<MAC_IP>:3000`. Same Mac host but different ports = different origins, so CORS headers are required.
 - Handles OPTIONS preflight requests
 - Applied at the server level via `corsMiddleware(mux)` in `main.go`
 
