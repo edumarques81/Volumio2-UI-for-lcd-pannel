@@ -28,6 +28,12 @@
  *     → 200 {"uuid","name"}
  *   GET    /api/network/status
  *     → 200 {"type","ip","ssid","strength","interface"}
+ *   GET    /api/audio/bitperfect
+ *     → 200 {"status","issues","warnings","config"}
+ *   GET    /api/audio/dsd
+ *     → 200 {"mode","success","error"?}
+ *   GET    /api/audio/mixer
+ *     → 200 {"enabled","success","error"?}
  */
 
 const http = require('http');
@@ -90,6 +96,47 @@ function execFileQuiet(cmd, args, timeoutMs = 1500) {
       resolve(err ? '' : stdout.toString().trim());
     });
   });
+}
+
+// --- Audio config helpers (ported from audio_config.go) ---
+
+// matchConfigValue checks if a config setting has a specific value.
+// Mirrors matchConfigValue() in audio_config.go lines 429-446.
+function matchConfigValue(config, setting, value) {
+  const lines = config.split('\n');
+  for (let line of lines) {
+    line = line.trim();
+    if (line.startsWith('#')) continue;
+    if (line.startsWith(setting)) {
+      let rest = line.slice(setting.length).trimStart();
+      const expectedValue = '"' + value + '"';
+      if (rest.startsWith(expectedValue) || rest === expectedValue) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+// extractConfigValue extracts the value for a config setting (inside double quotes).
+// Mirrors extractConfigValue() in audio_config.go lines 449-469.
+function extractConfigValue(config, setting) {
+  const lines = config.split('\n');
+  for (let line of lines) {
+    line = line.trim();
+    if (line.startsWith('#')) continue;
+    if (line.startsWith(setting)) {
+      let rest = line.slice(setting.length).trimStart();
+      const start = rest.indexOf('"');
+      if (start !== -1) {
+        const end = rest.indexOf('"', start + 1);
+        if (end !== -1) {
+          return rest.slice(start + 1, end);
+        }
+      }
+    }
+  }
+  return '';
 }
 
 function shellQuote(s) {
@@ -350,6 +397,170 @@ async function handleNetworkStatus(req, res) {
   }
 }
 
+// --- Audio handlers (M1.E) ---
+// Response shapes mirror Go structs: BitPerfectStatus, DsdModeResponse, MixerModeResponse.
+// Algorithms ported verbatim from audio_config.go (GetBitPerfectStatus,
+// CheckBitPerfectFromConfig, GetDsdMode, GetMixerMode).
+
+async function handleAudioBitperfect(req, res) {
+  try {
+    // Read configs gracefully — on failure continue with empty string (matches Go warn+continue).
+    let mpdConfig = '';
+    try {
+      mpdConfig = await fs.promises.readFile('/etc/mpd.conf', 'utf8');
+    } catch (e) {
+      console.warn('[m1e] Failed to read /etc/mpd.conf:', e.message);
+    }
+
+    let alsaConfig = '';
+    try {
+      alsaConfig = await fs.promises.readFile('/etc/asound.conf', 'utf8');
+    } catch (_) {}
+
+    const aplayOutput = await execFileQuiet('aplay', ['-l']);
+
+    const result = { status: 'ok', issues: [], warnings: [], config: [] };
+
+    // Check 1: MPD resampler
+    if (mpdConfig.includes('resampler')) {
+      if (mpdConfig.includes('plugin') && (mpdConfig.includes('soxr') || mpdConfig.includes('libsamplerate'))) {
+        result.issues.push('MPD: Resampler is enabled - audio will be resampled');
+      }
+    } else {
+      result.config.push('MPD: No resampler configured (good)');
+    }
+
+    // Check 2: Volume normalization
+    if (mpdConfig.includes('volume_normalization') && mpdConfig.includes('"yes"')) {
+      if (matchConfigValue(mpdConfig, 'volume_normalization', 'yes')) {
+        result.issues.push('MPD: Volume normalization is enabled - audio will be modified');
+      }
+    } else {
+      result.config.push('MPD: Volume normalization disabled (good)');
+    }
+
+    // Check 3: Direct hardware output
+    if (mpdConfig.includes('device') && mpdConfig.includes('"hw:')) {
+      const device = extractConfigValue(mpdConfig, 'device');
+      if (device !== '' && device.startsWith('hw:')) {
+        result.config.push('MPD: Direct hardware output: ' + device + ' (good)');
+      }
+    } else if (mpdConfig.includes('device') && mpdConfig.includes('"volumio"')) {
+      result.issues.push("MPD: Using 'volumio' device (goes through plug layer)");
+    } else if (mpdConfig !== '') {
+      result.warnings.push('MPD: Could not determine audio device');
+    }
+
+    // Check 4: Auto conversion settings
+    for (const setting of ['auto_resample', 'auto_format', 'auto_channels']) {
+      if (matchConfigValue(mpdConfig, setting, 'no')) {
+        result.config.push(setting + ': disabled (good)');
+      } else if (matchConfigValue(mpdConfig, setting, 'yes')) {
+        result.issues.push(setting + ': enabled - audio may be converted');
+      }
+    }
+
+    // Check 5: DSD playback mode
+    if (matchConfigValue(mpdConfig, 'dop', 'yes')) {
+      result.warnings.push('DSD over PCM (DoP): enabled - consider native DSD for true bit-perfect');
+    } else if (matchConfigValue(mpdConfig, 'dop', 'no')) {
+      result.config.push('DSD: Native DSD mode (DoP disabled) - true bit-perfect DSD');
+    } else if (mpdConfig !== '') {
+      result.config.push('DSD: DoP not configured (native DSD assumed)');
+    }
+
+    // Check 6: Mixer type
+    if (matchConfigValue(mpdConfig, 'mixer_type', 'none')) {
+      result.config.push('Mixer: disabled (bit-perfect volume)');
+    } else if (matchConfigValue(mpdConfig, 'mixer_type', 'software')) {
+      result.warnings.push('Mixer: software mixing enabled (not bit-perfect)');
+    }
+
+    // Check 7: ALSA config
+    if (alsaConfig !== '') {
+      if (alsaConfig.includes('type') && alsaConfig.includes('plug')) {
+        result.warnings.push("ALSA: 'plug' type detected - may convert formats");
+      }
+      if (alsaConfig.includes('type') && alsaConfig.includes('hw')) {
+        result.config.push('ALSA: Direct hardware access configured (good)');
+      }
+    }
+
+    // Check 8: USB DAC presence (Singxer SU-6)
+    if (aplayOutput !== '') {
+      if (aplayOutput.includes('U20SU6') || aplayOutput.includes('SU-6') || aplayOutput.includes('SU6')) {
+        result.config.push('Hardware: Singxer SU-6 detected (native DSD capable)');
+      } else {
+        result.warnings.push('Hardware: Singxer SU-6 not detected');
+      }
+    }
+
+    // Determine overall status
+    if (result.issues.length > 0) {
+      result.status = 'error';
+    } else if (result.warnings.length > 0) {
+      result.status = 'warning';
+    } else {
+      result.status = 'ok';
+    }
+
+    sendJson(res, 200, result);
+  } catch (e) {
+    sendJson(res, 500, { status: 'error', issues: ['handler exception: ' + e.message], warnings: [], config: [] });
+  }
+}
+
+async function handleAudioDsd(req, res) {
+  try {
+    let content;
+    try {
+      content = await fs.promises.readFile('/etc/mpd.conf', 'utf8');
+    } catch (_) {
+      return sendJson(res, 200, { mode: 'native', success: false, error: 'Failed to read MPD config' });
+    }
+
+    let mode = 'native';
+    if (content.includes('dop')) {
+      // 13 spaces between dop and "yes" — matches the Go source literal exactly
+      if (content.includes('dop             "yes"') || content.includes('dop "yes"')) {
+        mode = 'dop';
+      }
+    }
+
+    sendJson(res, 200, { mode, success: true });
+  } catch (e) {
+    sendJson(res, 200, { mode: 'native', success: false, error: e.message });
+  }
+}
+
+async function handleAudioMixer(req, res) {
+  try {
+    let content;
+    try {
+      content = await fs.promises.readFile('/etc/mpd.conf', 'utf8');
+    } catch (_) {
+      return sendJson(res, 200, { enabled: false, success: false, error: 'Failed to read MPD config' });
+    }
+
+    let enabled = false;
+    const lines = content.split('\n');
+    for (let line of lines) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('#')) continue;
+      if (trimmed.startsWith('mixer_type')) {
+        if (trimmed.includes('"software"')) {
+          enabled = true;
+        }
+        break; // early termination on first mixer_type match (mirrors Go break)
+      }
+    }
+
+    sendJson(res, 200, { enabled, success: true });
+  } catch (e) {
+    sendJson(res, 200, { enabled: false, success: false, error: e.message });
+  }
+}
+
 // --- Router ---
 
 const server = http.createServer(async (req, res) => {
@@ -406,6 +617,15 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === 'GET' && u.pathname === '/api/network/status') {
       return await handleNetworkStatus(req, res);
+    }
+    if (req.method === 'GET' && u.pathname === '/api/audio/bitperfect') {
+      return await handleAudioBitperfect(req, res);
+    }
+    if (req.method === 'GET' && u.pathname === '/api/audio/dsd') {
+      return await handleAudioDsd(req, res);
+    }
+    if (req.method === 'GET' && u.pathname === '/api/audio/mixer') {
+      return await handleAudioMixer(req, res);
     }
     if (u.pathname === '/' || u.pathname === '/api') {
       return sendJson(res, 200, {
