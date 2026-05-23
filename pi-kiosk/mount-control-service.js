@@ -22,10 +22,14 @@
  *   DELETE /api/mount/mountpoint?path=<p>        → rmdir
  *   POST   /api/mount/symlink     body {source, target}
  *   DELETE /api/mount/symlink?path=<p>
+ *   GET    /api/system/info
+ *     → 200 {"id","host","name","type","serviceName","hardware","variant"}
+ *   GET    /api/system/device
+ *     → 200 {"uuid","name"}
  */
 
 const http = require('http');
-const { exec, execSync } = require('child_process');
+const { exec, execSync, execFile } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
@@ -73,6 +77,15 @@ function execAsync(cmd, timeoutMs = EXEC_TIMEOUT_MS) {
   return new Promise((resolve) => {
     exec(cmd, { timeout: timeoutMs }, (err, stdout, stderr) => {
       resolve({ err, stdout: stdout || '', stderr: stderr || '' });
+    });
+  });
+}
+
+// Quiet variant of execFile: resolves with trimmed stdout or '' on error/timeout.
+function execFileQuiet(cmd, args, timeoutMs = 1500) {
+  return new Promise((resolve) => {
+    execFile(cmd, args, { timeout: timeoutMs }, (err, stdout) => {
+      resolve(err ? '' : stdout.toString().trim());
     });
   });
 }
@@ -258,17 +271,11 @@ async function systemAction(action, query) {
 
 async function handleSystemInfo(req, res) {
   try {
-    const { execFile } = require('child_process');
-    const exec = (cmd, args) => new Promise((resolve) => {
-      execFile(cmd, args, { timeout: 1500 }, (err, stdout) => {
-        resolve(err ? '' : stdout.toString().trim());
-      });
-    });
-    const fs = require('fs').promises;
     const [hostname, model] = await Promise.all([
-      exec('hostname', []),
-      fs.readFile('/proc/device-tree/model', 'utf8').then(s => s.replace(/\0/g, '').trim()).catch(() => 'Raspberry Pi'),
+      execFileQuiet('hostname', []),
+      fs.promises.readFile('/proc/device-tree/model', 'utf8').then(s => s.replace(/\0/g, '').trim()).catch(() => 'Raspberry Pi'),
     ]);
+    if (!hostname) console.warn('[m1e] hostname lookup returned empty string');
     const payload = {
       id: hostname,
       host: hostname,
@@ -278,33 +285,22 @@ async function handleSystemInfo(req, res) {
       hardware: model,
       variant: 'stellar-pi',
     };
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(payload));
+    sendJson(res, 200, payload);
   } catch (e) {
-    res.writeHead(500, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: e.message, code: 'system_info_failed' }));
+    sendJson(res, 500, { error: e.message, code: 'system_info_failed' });
   }
 }
 
 async function handleSystemDevice(req, res) {
   try {
-    const fs = require('fs').promises;
-    const { execFile } = require('child_process');
-    const exec = (cmd, args) => new Promise((resolve) => {
-      execFile(cmd, args, { timeout: 1500 }, (err, stdout) => {
-        resolve(err ? '' : stdout.toString().trim());
-      });
-    });
     const [machineId, hostname] = await Promise.all([
-      fs.readFile('/etc/machine-id', 'utf8').then(s => s.trim()).catch(() => ''),
-      exec('hostname', []),
+      fs.promises.readFile('/etc/machine-id', 'utf8').then(s => s.trim()).catch(() => ''),
+      execFileQuiet('hostname', []),
     ]);
     const uuid = machineId || hostname || '';
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ uuid, name: hostname || 'Stellar' }));
+    sendJson(res, 200, { uuid, name: hostname || 'Stellar' });
   } catch (e) {
-    res.writeHead(500, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: e.message, code: 'system_device_failed' }));
+    sendJson(res, 500, { error: e.message, code: 'system_device_failed' });
   }
 }
 
