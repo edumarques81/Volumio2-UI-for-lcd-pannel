@@ -34,6 +34,8 @@
  *     → 200 {"mode","success","error"?}
  *   GET    /api/audio/mixer
  *     → 200 {"enabled","success","error"?}
+ *   POST   /api/audio/dsd          body {mode: "native"|"dop"}
+ *     → 200 {"mode","success"} | 400 invalid mode | 500 write/restart failure
  */
 
 const http = require('http');
@@ -561,6 +563,66 @@ async function handleAudioMixer(req, res) {
   }
 }
 
+// POST /api/audio/dsd — Set DSD playback mode. Body: {mode: "native"|"dop"}
+// Ports SetDsdMode() from audio_config.go:519-573.
+// Service runs as root — no sudo. Idempotency: skip write+restart if content unchanged (D6).
+async function handleAudioDsdWrite(req, res) {
+  let body;
+  try { body = await parseBody(req); } catch (_) { body = {}; }
+  const mode = body.mode;
+  if (mode !== 'native' && mode !== 'dop') {
+    return sendJson(res, 400, { mode: mode || '', success: false, error: "Invalid mode. Must be 'native' or 'dop'", code: 'invalid_input' });
+  }
+
+  let content;
+  try {
+    content = await fs.promises.readFile('/etc/mpd.conf', 'utf8');
+  } catch (e) {
+    return sendJson(res, 500, { mode, success: false, error: 'Failed to read MPD config: ' + e.message, code: 'dsd_read_failed' });
+  }
+
+  const dopValue = mode === 'dop' ? 'yes' : 'no';
+  let newContent = content;
+
+  // Mirror the four replace attempts in SetDsdMode() (audio_config.go:543-557):
+  if (content.includes('dop             "yes"')) {
+    newContent = content.replace('dop             "yes"', 'dop             "' + dopValue + '"');
+  } else if (content.includes('dop             "no"')) {
+    newContent = content.replace('dop             "no"', 'dop             "' + dopValue + '"');
+  } else if (content.includes('dop "yes"')) {
+    newContent = content.replace('dop "yes"', 'dop "' + dopValue + '"');
+  } else if (content.includes('dop "no"')) {
+    newContent = content.replace('dop "no"', 'dop "' + dopValue + '"');
+  } else {
+    return sendJson(res, 500, { mode, success: false, error: 'Could not find dop setting in MPD config', code: 'dsd_setting_not_found' });
+  }
+
+  // Idempotency check (D6): skip write + restart if content unchanged.
+  if (newContent === content) {
+    console.log('[m1e1] DSD mode already set to', mode, '— no write needed');
+    return sendJson(res, 200, { mode, success: true });
+  }
+
+  try {
+    await fs.promises.writeFile('/etc/mpd.conf', newContent, 'utf8');
+  } catch (e) {
+    return sendJson(res, 500, { mode, success: false, error: 'Failed to write MPD config: ' + e.message, code: 'dsd_write_failed' });
+  }
+
+  const restartOut = await execFileQuiet('systemctl', ['restart', 'mpd'], 30000);
+  if (restartOut === '' || restartOut === undefined) {
+    // execFileQuiet returns '' on error, but systemctl restart mpd produces no stdout on success either.
+    // Check via is-active to distinguish.
+    const active = await execFileQuiet('systemctl', ['is-active', 'mpd'], 3000);
+    if (active !== 'active') {
+      return sendJson(res, 500, { mode, success: false, error: 'Config updated but MPD failed to restart', code: 'dsd_restart_failed' });
+    }
+  }
+
+  console.log('[m1e1] DSD mode set to', mode);
+  sendJson(res, 200, { mode, success: true });
+}
+
 // --- Router ---
 
 const server = http.createServer(async (req, res) => {
@@ -626,6 +688,9 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === 'GET' && u.pathname === '/api/audio/mixer') {
       return await handleAudioMixer(req, res);
+    }
+    if (req.method === 'POST' && u.pathname === '/api/audio/dsd') {
+      return await handleAudioDsdWrite(req, res);
     }
     if (u.pathname === '/' || u.pathname === '/api') {
       return sendJson(res, 200, {
