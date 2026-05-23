@@ -586,7 +586,21 @@ async function handleAudioDsdWrite(req, res) {
   }
 
   const dopValue = mode === 'dop' ? 'yes' : 'no';
+  const hasDopSetting = content.includes('dop             "yes"') ||
+    content.includes('dop             "no"') ||
+    content.includes('dop "yes"') ||
+    content.includes('dop "no"');
   let newContent = content;
+
+  // If no dop setting exists in the config, native is the MPD default.
+  // Requesting native when no dop line is present is already satisfied — short-circuit.
+  if (!hasDopSetting) {
+    if (mode === 'native') {
+      console.log('[m1e1] DSD mode already set to native (no dop line in config) — no write needed');
+      return sendJson(res, 200, { mode, success: true });
+    }
+    return sendJson(res, 500, { mode, success: false, error: 'Could not find dop setting in MPD config to enable DoP', code: 'dsd_setting_not_found' });
+  }
 
   // Mirror the four replace attempts in SetDsdMode() (audio_config.go:543-557):
   if (content.includes('dop             "yes"')) {
@@ -595,10 +609,8 @@ async function handleAudioDsdWrite(req, res) {
     newContent = content.replace('dop             "no"', 'dop             "' + dopValue + '"');
   } else if (content.includes('dop "yes"')) {
     newContent = content.replace('dop "yes"', 'dop "' + dopValue + '"');
-  } else if (content.includes('dop "no"')) {
-    newContent = content.replace('dop "no"', 'dop "' + dopValue + '"');
   } else {
-    return sendJson(res, 500, { mode, success: false, error: 'Could not find dop setting in MPD config', code: 'dsd_setting_not_found' });
+    newContent = content.replace('dop "no"', 'dop "' + dopValue + '"');
   }
 
   // Idempotency check (D6): skip write + restart if content unchanged.
