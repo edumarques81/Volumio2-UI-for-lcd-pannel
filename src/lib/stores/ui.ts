@@ -1,5 +1,4 @@
 import { writable, derived } from 'svelte/store';
-import type { BrowseItem } from '$lib/stores/browse';
 import type { QueueItem } from '$lib/stores/queue';
 import type { Album, Track } from '$lib/stores/library';
 
@@ -9,14 +8,17 @@ import type { Album, Track } from '$lib/stores/library';
 export type LibraryContextItem = Album | Track;
 
 /**
- * Context menu item type - supports browse items, queue items, and library items
+ * Context menu item type — queue items and library items.
+ * (BrowseItem was dropped when the legacy Browse view was removed in the
+ * snug-summit redesign; the context menu no longer surfaces over browse rows.)
  */
-export type ContextMenuItem = BrowseItem | QueueItem | LibraryContextItem;
+export type ContextMenuItem = QueueItem | LibraryContextItem;
 
 /**
- * Context menu item source type
+ * Context menu item source type. 'browse' is intentionally absent — see
+ * ContextMenuItem above.
  */
-export type ContextItemType = 'browse' | 'queue' | 'album' | 'track';
+export type ContextItemType = 'queue' | 'album' | 'track';
 
 /**
  * Context menu state

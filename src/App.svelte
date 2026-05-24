@@ -3,10 +3,8 @@
   import { onMount } from 'svelte';
   import { socketService } from '$lib/services/socket';
   import { initPlayerStore } from '$lib/stores/player';
-  import { initBrowseStore } from '$lib/stores/browse';
   import { initQueueStore } from '$lib/stores/queue';
   import { initSettingsStore } from '$lib/stores/settings';
-  import { initFavoritesStore } from '$lib/stores/favorites';
   import { initIssueStore, issueActions } from '$lib/stores/issues';
   import { audioDevicesActions } from '$lib/stores/audioDevices';
   import { initNetworkStore, cleanupNetworkStore } from '$lib/stores/network';
@@ -52,10 +50,8 @@
 
     // Initialize all stores after socket is connecting
     initPlayerStore();
-    initBrowseStore();
     initQueueStore();
     initSettingsStore();
-    initFavoritesStore();
     initIssueStore();
     initNetworkStore();
     initLcdStore();
