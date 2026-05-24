@@ -64,13 +64,25 @@ function cspMetaTagPlugin(): Plugin {
 }
 
 export default defineConfig(({ mode }) => {
-  // Read RASPBERRY_PI_API_ADDRESS from .env so the dev server proxies
-  // /artistart and /albumart to the Pi backend instead of serving the
-  // SPA fallback HTML (which the browser then fails to decode as an
-  // image). Same env var used by scripts/* for deploy.
+  // Proxy `/artistart` and `/albumart` to the stellar backend. Without
+  // this, relative URLs like ArtistTile's `/artistart?name=...` resolve
+  // to Vite's SPA fallback (200 HTML) and the browser errors out on the
+  // <img>.
+  //
+  // Resolution order:
+  //   1. STELLAR_BACKEND_HOST  — explicit override (set in .env when the
+  //                              backend runs on a different machine than
+  //                              this dev server).
+  //   2. localhost             — default; matches the post-M1.C topology
+  //                              where stellar-backend runs on the same
+  //                              Mac that serves this dev server.
+  // Pre-M1.C the proxy fell back to RASPBERRY_PI_API_ADDRESS — that var is
+  // now stale (Pi backend is permanently disabled) so we ignore it here
+  // and the user must opt in via STELLAR_BACKEND_HOST if they actually
+  // want to hit a remote backend.
   const env = loadEnv(mode, process.cwd(), '');
-  const piHost = env.RASPBERRY_PI_API_ADDRESS || '192.168.86.25';
-  const piBackend = `http://${piHost}:3000`;
+  const backendHost = env.STELLAR_BACKEND_HOST || 'localhost';
+  const backendURL = `http://${backendHost}:3000`;
 
   return {
     plugins: [svelte(), cspMetaTagPlugin()],
@@ -86,14 +98,9 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 5173,
       host: '0.0.0.0',
-      // Proxy backend asset endpoints to the Pi. Without this, relative
-      // URLs like ArtistTile's /artistart?name=... resolve to Vite's SPA
-      // fallback (200 HTML), and the browser errors out on the <img>.
-      // /albumart is already routed via absolute URLs by fixVolumioAssetUrl,
-      // but proxy it too so relative usage works as a fallback.
       proxy: {
-        '/artistart': { target: piBackend, changeOrigin: true },
-        '/albumart':  { target: piBackend, changeOrigin: true },
+        '/artistart': { target: backendURL, changeOrigin: true },
+        '/albumart':  { target: backendURL, changeOrigin: true },
       },
       headers: {
         // Dev-mode CSP with unsafe-eval for Vite HMR
