@@ -29,6 +29,7 @@ const mocks = await vi.hoisted(async () => {
     playerActions,
     queue: writable([]),
     lastPlayedAlbum: writable(null),
+    transitioning: writable(false),
   };
 });
 
@@ -74,6 +75,7 @@ vi.mock('$lib/stores/player', () => ({
   playerState: mocks.playerState,
   playerActions: mocks.playerActions,
   lastPlayedAlbum: mocks.lastPlayedAlbum,
+  transitioning: mocks.transitioning,
   formatTime: (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`,
 }));
 vi.mock('$lib/stores/queue', () => ({ queue: mocks.queue }));

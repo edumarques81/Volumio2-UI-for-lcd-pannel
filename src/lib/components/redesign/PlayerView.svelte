@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { currentTrack, isPlaying, seek, duration, playerState, playerActions, lastPlayedAlbum } from '$lib/stores/player';
+  import { currentTrack, isPlaying, seek, duration, playerState, playerActions, lastPlayedAlbum, transitioning } from '$lib/stores/player';
   import { queue } from '$lib/stores/queue';
 
   import AlbumArtPanel from './AlbumArtPanel.svelte';
@@ -78,19 +78,12 @@
     {/if}
   </div>
 
-  <!--
-    TODO(B9): wire transport `loading` to a transitioning signal once
-    player.ts exposes one. As of 2026-05-07 player.ts only tracks
-    status/play/pause/stop — there is no transitioning state to surface
-    around prev/next/seek emits, so the spinner stays unwired. When a
-    `transitioning` writable lands in $lib/stores/player, pass it as
-    `loading={$transitioning}` to TransportColumn here.
-  -->
   <TransportColumn
     isPlaying={$isPlaying}
     atQueueEnd={atQueueEnd}
     repeat={repeat}
     hasTrack={hasTrack}
+    loading={$transitioning}
     onTogglePlay={togglePlay}
     onPrev={() => playerActions.prev()}
     onNext={() => playerActions.next()}

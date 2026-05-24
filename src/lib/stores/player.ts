@@ -59,6 +59,38 @@ export const trackInfo = writable<TrackInfo | null>(null);
 export const trackInfoLoading = writable<boolean>(false);
 export const lastPlayedAlbum = writable<LastPlayedAlbum | null>(null);
 
+/**
+ * `transitioning` pulses true around prev/next/seekTo emits and clears on the
+ * next pushState (or after a safety-net timeout). Components that show a
+ * loading/disabled affordance during a track-change request bind to this —
+ * see TransportColumn's `loading` prop wired in PlayerView.svelte.
+ *
+ * Why not derive from socket round-trip latency: prev/next don't always
+ * produce a distinguishable pushState (e.g. on the last/first track) and
+ * the latency tap is best-effort. An explicit one-shot pulse with a 1500ms
+ * safety timeout is simpler and never gets stuck.
+ */
+export const transitioning = writable<boolean>(false);
+let transitioningTimer: ReturnType<typeof setTimeout> | null = null;
+const TRANSITIONING_TIMEOUT_MS = 1500;
+
+function pulseTransitioning() {
+  transitioning.set(true);
+  if (transitioningTimer !== null) clearTimeout(transitioningTimer);
+  transitioningTimer = setTimeout(() => {
+    transitioning.set(false);
+    transitioningTimer = null;
+  }, TRANSITIONING_TIMEOUT_MS);
+}
+
+function clearTransitioning() {
+  if (transitioningTimer !== null) {
+    clearTimeout(transitioningTimer);
+    transitioningTimer = null;
+  }
+  transitioning.set(false);
+}
+
 // Seek interpolation timer
 let seekIntervalId: ReturnType<typeof setInterval> | null = null;
 let lastSeekUpdate = 0;
@@ -144,8 +176,14 @@ export const playerActions = {
 
   pause: () => socketService.emit('pause'),
   stop: () => socketService.emit('stop'),
-  prev: () => socketService.emit('prev'),
-  next: () => socketService.emit('next'),
+  prev: () => {
+    pulseTransitioning();
+    socketService.emit('prev');
+  },
+  next: () => {
+    pulseTransitioning();
+    socketService.emit('next');
+  },
 
   setVolume: (vol: number) => {
     volume.set(vol);
@@ -176,6 +214,7 @@ export const playerActions = {
   },
 
   seekTo: (position: number) => {
+    pulseTransitioning();
     seek.set(position);
     socketService.emit('seek', position);
   },
@@ -360,6 +399,12 @@ export function initPlayerStore() {
       playerState.set(state);
       optimisticPending = false;
     }
+
+    // Resolve any in-flight transition pulse — the backend has just
+    // confirmed the requested change (or that the change couldn't be made,
+    // e.g. last-track-on-next). Either way the spinner should clear now
+    // rather than waiting for the safety-net timeout.
+    clearTransitioning();
 
     // Sync audio engine state from service field
     syncEngineFromPushState(state.service, state.status);
