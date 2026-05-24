@@ -1,7 +1,6 @@
 import { writable, derived, get } from 'svelte/store';
 import { socketService, connectionState } from '$lib/services/socket';
 import { layoutMode, type LayoutMode } from './navigation';
-import { getVolumioHost } from '$lib/config';
 
 /**
  * Migrate localStorage key from old name to new name (one-time migration)
@@ -56,23 +55,6 @@ export interface AudioOutput {
 }
 
 /**
- * Background image
- */
-export interface Background {
-  name: string;
-  path: string;
-  thumbnail: string;
-}
-
-/**
- * Backgrounds data from Volumio
- */
-export interface BackgroundsData {
-  available: Background[];
-  current?: Background;
-}
-
-/**
  * Settings category for navigation
  */
 export interface SettingsCategory {
@@ -112,21 +94,6 @@ export const networkStatus = derived(
 
 // Audio outputs
 export const audioOutputs = writable<AudioOutput[]>([]);
-
-// Available backgrounds
-export const availableBackgrounds = writable<Background[]>([]);
-
-// Current selected background (stored locally)
-const BACKGROUND_STORAGE_KEY = 'stellar-volumio-background';
-
-function loadStoredBackground(): string {
-  if (typeof localStorage !== 'undefined') {
-    return localStorage.getItem(BACKGROUND_STORAGE_KEY) || '';
-  }
-  return '';
-}
-
-export const selectedBackground = writable<string>(loadStoredBackground());
 
 /**
  * LCD Standby Mode
@@ -319,37 +286,6 @@ export const settingsActions = {
   },
 
   /**
-   * Get available backgrounds
-   */
-  getBackgrounds() {
-    console.log('[Settings] Fetching backgrounds');
-    socketService.emit('getBackgrounds');
-  },
-
-  /**
-   * Set background image
-   */
-  setBackground(backgroundPath: string) {
-    console.log('[Settings] Setting background:', backgroundPath);
-    selectedBackground.set(backgroundPath);
-    // Store in localStorage for persistence
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(BACKGROUND_STORAGE_KEY, backgroundPath);
-    }
-  },
-
-  /**
-   * Clear background (use album art)
-   */
-  clearBackground() {
-    console.log('[Settings] Clearing background (using album art)');
-    selectedBackground.set('');
-    if (typeof localStorage !== 'undefined') {
-      localStorage.removeItem(BACKGROUND_STORAGE_KEY);
-    }
-  },
-
-  /**
    * Set LCD standby mode
    * @param mode 'css' for dimmed standby (recommended), 'hardware' for wlr-randr off
    */
@@ -386,22 +322,6 @@ export function initSettingsStore() {
     audioOutputs.set(data || []);
   });
 
-  // Listen for backgrounds
-  socketService.on('pushBackgrounds', (data: any) => {
-    if (data && data.available) {
-      const host = getVolumioHost();
-      const bgBasePath = '/app/plugins/miscellanea/appearance/backgrounds';
-      const backgrounds: Background[] = data.available.map((bg: any) => ({
-        name: bg.name || bg.path.replace('.jpg', '').replace('.png', ''),
-        path: bg.path.startsWith('http') ? bg.path : `${host}${bgBasePath}/${bg.path}`,
-        thumbnail: bg.thumbnail
-          ? (bg.thumbnail.startsWith('http') ? bg.thumbnail : `${host}${bgBasePath}/${bg.thumbnail}`)
-          : (bg.path.startsWith('http') ? bg.path : `${host}${bgBasePath}/${bg.path}`)
-      }));
-      availableBackgrounds.set(backgrounds);
-    }
-  });
-
   // No initial fetch needed — backend pushes systemInfo, networkStatus,
-  // and backgrounds on connect (server.go on-connect handler).
+  // and audioOutputs on connect (server.go on-connect handler).
 }
