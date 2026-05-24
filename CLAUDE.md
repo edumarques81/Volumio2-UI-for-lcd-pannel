@@ -514,10 +514,11 @@ const DISCONNECT_GRACE_PERIOD_MS = 5000; // 5 seconds
 - Skips broadcast if no fields changed (common during steady playback)
 
 **Connection Limiting:**
-- `ConnectionLimiter` (`connlimit.go`) allows 1 external + unlimited local connections
-- Local = `127.0.0.1` or `::1` (always allowed)
-- Second external connection evicts oldest with a toast notification
-- Prevents broadcast multiplication from unlimited clients
+- `ConnectionLimiter` (`connlimit.go`) caps concurrent external (non-localhost) connections.
+- Default cap: **100**, overridable via the `STELLAR_MAX_EXTERNAL_CLIENTS` env var on the backend. The legacy single-user appliance value was 1; the M1.C topology serves kiosk + iOS + Volumio Connect concurrently, so the cap is now a runaway-defense rather than a user-facing limit.
+- Local connections (`127.0.0.1` / `::1`) are always allowed without limit.
+- When the cap is exceeded, the oldest external connection is evicted with a toast notification.
+- Prevents broadcast multiplication from runaway / leaked clients.
 
 **Handler Redundancy Removal:**
 - Volumio Connect handlers (addPlay, playNext, moveQueue, removeFromQueue) no longer call `BroadcastQueue()` - MPD watcher handles it via debouncer
