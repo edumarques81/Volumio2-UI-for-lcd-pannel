@@ -49,6 +49,11 @@ const path = require('path');
 
 const PORT = process.env.MOUNT_CONTROL_PORT || 8082;
 const TOKEN_FILE = process.env.MOUNT_CONTROL_TOKEN_FILE || '/etc/stellar-mount-control/token';
+// Path to the Pi-resident stellar-backend sources.json. Used by the M1.E.2
+// read endpoint `GET /api/sources/list` so off-appliance backends (Mac,
+// Win, Linux) can render the NAS-share listing in their Settings UI without
+// duplicating credentials locally.
+const SOURCES_FILE = process.env.STELLAR_SOURCES_FILE || '/data/stellar/sources.json';
 const EXEC_TIMEOUT_MS = 10000;
 const DISCOVER_TIMEOUT_MS = 6000;
 
@@ -767,6 +772,74 @@ async function handleAudioBitperfectApply(req, res) {
   sendJson(res, 200, { success: true, applied, errors: [] });
 }
 
+// --- M1.E.2 read handler: NAS shares list ---
+//
+// Returns the configured NAS shares from this Pi's stellar-backend
+// sources.json so that off-appliance backends (Mac/Windows/Linux) can
+// render the Settings page without keeping a local copy of the file.
+//
+// Credentials are stripped before returning — the password lives on the
+// Pi only; mount operations already proxy through this service (M1.D) so
+// the Mac never needs the secret.
+function handleSourcesList(req, res) {
+  let raw;
+  try {
+    raw = fs.readFileSync(SOURCES_FILE, 'utf8');
+  } catch (e) {
+    if (e.code === 'ENOENT') {
+      console.log('[m1e2] sources.json not found; returning empty list');
+      return sendJson(res, 200, { shares: [] });
+    }
+    console.error('[m1e2] sources.json read error:', e.message);
+    return sendJson(res, 500, { error: 'failed to read sources file', detail: e.message });
+  }
+
+  let config;
+  try {
+    config = JSON.parse(raw);
+  } catch (e) {
+    console.error('[m1e2] sources.json parse error:', e.message);
+    return sendJson(res, 500, { error: 'failed to parse sources file', detail: e.message });
+  }
+
+  const rawShares = (config && config.nasShares && typeof config.nasShares === 'object')
+    ? Object.values(config.nasShares)
+    : [];
+
+  // sanitizeName mirrors internal/domain/sources/service.go sanitizeName —
+  // keep in sync.
+  const sanitizeName = (n) =>
+    String(n || '').replace(/\//g, '_').replace(/\\/g, '_').replace(/ /g, '_').replace(/\.\./g, '_');
+
+  // Strip secrets, compute mountPoint + mounted on the Pi (source of truth)
+  // so the Mac doesn't have to fabricate Pi-side paths. Match the wire
+  // shape the Go backend produces for `pushListNasShares` (see
+  // internal/domain/sources.NasShare) so the frontend can consume either
+  // source interchangeably.
+  const shares = rawShares.map((s) => {
+    const mountPoint = '/mnt/NAS/' + sanitizeName(s.name);
+    let mounted = false;
+    try {
+      execSync(`mountpoint -q ${shellQuote(mountPoint)}`);
+      mounted = true;
+    } catch (_) { /* not mounted */ }
+    return {
+      id:         s.id || '',
+      name:       s.name || '',
+      ip:         s.ip || '',
+      path:       s.path || '',
+      fstype:     s.fsType || s.fstype || '',
+      username:   s.username || '',
+      options:    s.options || '',
+      mountPoint,
+      mounted,
+    };
+  });
+
+  console.log(`[m1e2] sources list: ${shares.length} share(s)`);
+  sendJson(res, 200, { shares });
+}
+
 // --- Router ---
 
 const server = http.createServer(async (req, res) => {
@@ -841,6 +914,9 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === 'POST' && u.pathname === '/api/audio/bitperfect/apply') {
       return await handleAudioBitperfectApply(req, res);
+    }
+    if (req.method === 'GET' && u.pathname === '/api/sources/list') {
+      return handleSourcesList(req, res);
     }
     if (u.pathname === '/' || u.pathname === '/api') {
       return sendJson(res, 200, {
