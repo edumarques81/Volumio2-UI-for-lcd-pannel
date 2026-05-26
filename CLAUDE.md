@@ -374,6 +374,54 @@ intentionally-minimal idle state. When `lastPlayedAlbum` is set and MPD is
 stopped, PlayerView renders the album metadata + cover + format strip
 rather than the dim gold music-2 placeholder.
 
+**AirPlay Source Events:**
+
+When the Pi's shairport-sync receives an AirPlay stream from another
+device (typically an iPhone), the Mac backend exposes the session state
+over Socket.IO so the LCD kiosk can swap from MPD playback to an
+"AIRPLAY · &lt;sender&gt;" view. See `src/lib/stores/airplay.ts`.
+
+| Emit | Receive | Description |
+|------|---------|-------------|
+| - | `pushAirplayState` | Full snapshot of the current AirPlay session (replaces, not merges) |
+| - | `pushAirplayEnded` | Canonical end-of-session signal; matches by `sessionID` |
+| `airplay:command` | - | Proxy transport command to the iPhone via DACP: `{ cmd: 'play' \| 'pause' \| 'toggle' \| 'next' \| 'prev' }` |
+
+**AirplayState Payload:**
+```typescript
+interface AirplayState {
+  isActive: boolean;
+  title: string;
+  artist: string;
+  album: string;
+  sender: string;          // e.g. "Eduardo's iPhone"
+  coverDataURL: string;    // 'data:image/jpeg;base64,...' — first data: URL in the contract
+  seekSeconds: number;
+  durationSeconds: number;
+  canControl: boolean;     // false until the backend captures an Active-Remote token
+  sessionID: string;       // stable for the AirPlay session lifetime
+  sampleRate: number;      // Hz (e.g. 44100)
+  bitDepth: number;        // bits per sample (e.g. 16)
+}
+```
+
+**End-of-session contract (load-bearing):** `pushAirplayEnded` MUST quote
+the `sessionID` it intends to end. Clients only clear their state when
+the quoted ID matches the currently-active one — protects against a
+delayed "session 1 ended" event arriving AFTER "session 2 started" and
+silently wiping the new session. Do NOT key end-of-session off
+`isActive: false` in `pushAirplayState`; the backend may keep sending
+`pushAirplayState` with stale `isActive: true` on transient drops.
+
+**Volume policy:** AirPlay always renders at full scale
+(`general.ignore_volume_control = "yes"` in `shairport-sync.conf`). The
+iPhone slider is intentionally inert, and the LCD's volume slider is
+hidden / non-interactive while a session is active.
+
+**CSP note:** `coverDataURL` is the first `data:` URL in the event
+contract. `vite.config.ts` already allows `img-src 'self' data: blob:
+http: https:`, so no policy change is required.
+
 **Artwork Enrichment Events (v1.4.0+):**
 | Emit | Receive | Description |
 |------|---------|-------------|
