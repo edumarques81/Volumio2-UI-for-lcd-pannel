@@ -36,6 +36,11 @@ import { socketService } from '$lib/services/socket';
  */
 export interface AirplayState {
   isActive: boolean;
+  /** Current play/pause state from the iPhone sender. Distinct from
+   *  `isActive`: the session can remain alive while the user hits pause
+   *  on the iPhone. Defaults to `true` on the first emit of a session
+   *  (pbeg implies playing) and flips on `paus`/`prsm` metadata frames. */
+  isPlaying: boolean;
   title: string;
   artist: string;
   album: string;
@@ -65,6 +70,7 @@ export interface AirplayEnded {
 
 const EMPTY_STATE: AirplayState = {
   isActive: false,
+  isPlaying: false,
   title: '',
   artist: '',
   album: '',
@@ -98,6 +104,10 @@ function startSeekInterpolation(): void {
   seekIntervalId = setInterval(() => {
     airplayState.update((s) => {
       if (!s.isActive) return s;
+      // Freeze the counter while the iPhone is paused mid-session.
+      // Authoritative `pushAirplayState` events will resync seek when
+      // playback resumes.
+      if (!s.isPlaying) return s;
       if (s.durationSeconds > 0 && s.seekSeconds >= s.durationSeconds) return s;
       return { ...s, seekSeconds: s.seekSeconds + 1 };
     });
@@ -147,6 +157,10 @@ export function initAirplayStore(): void {
     // than crashing on a half-baked payload.
     const next: AirplayState = {
       isActive: incoming.isActive ?? false,
+      // Default true when missing: a session's first state event implies
+      // playing (pbeg fires before any paus). Older backends predating
+      // this field also intended "playing" for any active session.
+      isPlaying: incoming.isPlaying ?? true,
       title: incoming.title ?? '',
       artist: incoming.artist ?? '',
       album: incoming.album ?? '',

@@ -391,6 +391,7 @@ over Socket.IO so the LCD kiosk can swap from MPD playback to an
 ```typescript
 interface AirplayState {
   isActive: boolean;
+  isPlaying: boolean;      // iPhone-side play/pause; distinct from isActive. Defaults true on first emit; flips on paus/prsm.
   title: string;
   artist: string;
   album: string;

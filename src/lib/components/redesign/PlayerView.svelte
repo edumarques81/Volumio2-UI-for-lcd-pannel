@@ -163,7 +163,7 @@
   </div>
 
   <TransportColumn
-    isPlaying={$airplayActive ? true : $isPlaying}
+    isPlaying={$airplayActive ? $airplayState.isPlaying : $isPlaying}
     atQueueEnd={$airplayActive ? false : atQueueEnd}
     repeat={repeat}
     hasTrack={$airplayActive ? airplayCanControl : hasTrack}

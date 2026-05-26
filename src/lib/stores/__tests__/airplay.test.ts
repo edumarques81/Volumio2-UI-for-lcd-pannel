@@ -48,6 +48,7 @@ beforeEach(() => {
 
 const SAMPLE_STATE = {
   isActive: true,
+  isPlaying: true,
   title: 'Vampire',
   artist: 'Olivia Rodrigo',
   album: 'GUTS',
@@ -181,5 +182,48 @@ describe('airplayStore — initAirplayStore is idempotent', () => {
     // The beforeEach already called init once; this second call should
     // not throw and should not re-wire anything.
     expect(() => initAirplayStore()).not.toThrow();
+  });
+});
+
+describe('airplayStore — isPlaying field', () => {
+  it('honours an explicit isPlaying:false from the payload', () => {
+    handlers.pushAirplayState!({ ...SAMPLE_STATE, isPlaying: false });
+    expect(get(airplayState).isPlaying).toBe(false);
+  });
+
+  it('defaults isPlaying to true when the field is absent', () => {
+    // Strip isPlaying via destructure rather than `as any` cast.
+    const { isPlaying: _ignore, ...withoutIsPlaying } = SAMPLE_STATE;
+    handlers.pushAirplayState!(withoutIsPlaying);
+    expect(get(airplayState).isPlaying).toBe(true);
+  });
+
+  it('freezes the seek interpolator while isPlaying is false', () => {
+    vi.useFakeTimers();
+    try {
+      handlers.pushAirplayState!({ ...SAMPLE_STATE, isPlaying: false, seekSeconds: 10 });
+      vi.advanceTimersByTime(3000);
+      // Three ticks of the 1Hz interpolator should NOT advance seek when
+      // the iPhone reports paused.
+      expect(get(airplayState).seekSeconds).toBe(10);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('resumes the seek interpolator when isPlaying flips back to true', () => {
+    vi.useFakeTimers();
+    try {
+      handlers.pushAirplayState!({ ...SAMPLE_STATE, isPlaying: false, seekSeconds: 10 });
+      vi.advanceTimersByTime(2000);
+      expect(get(airplayState).seekSeconds).toBe(10);
+
+      handlers.pushAirplayState!({ ...SAMPLE_STATE, isPlaying: true, seekSeconds: 10 });
+      vi.advanceTimersByTime(2000);
+      // Two ticks at 1Hz → seek advanced by 2.
+      expect(get(airplayState).seekSeconds).toBe(12);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
