@@ -1,13 +1,22 @@
 <script lang="ts">
   import { currentTrack, isPlaying, seek, duration, playerState, playerActions, lastPlayedAlbum, transitioning } from '$lib/stores/player';
   import { queue } from '$lib/stores/queue';
+  import { airplayState, airplayActive, airplayActions } from '$lib/stores/airplay';
 
   import AlbumArtPanel from './AlbumArtPanel.svelte';
   import MetadataBlock from './MetadataBlock.svelte';
   import ProgressBar from './ProgressBar.svelte';
   import FormatStrip from './FormatStrip.svelte';
   import TransportColumn from './TransportColumn.svelte';
+  import AirplaySourceBadge from './AirplaySourceBadge.svelte';
   import { parseBitDepth, parseSampleRate, normalizeCodec } from './playerStateParsers';
+
+  // AirPlay mode wins over MPD playback when a session is active.
+  // The user has explicitly redirected audio to this Pi from another
+  // device; surfacing the MPD queue underneath would be misleading.
+  // We do NOT mutate $playerState — the MPD watcher's pre-hook pauses it
+  // on the backend side, and resumes it cleanly when the AirPlay session
+  // ends. The UI just hides MPD while AirPlay is live.
 
   // currentTrack derives { title, artist, album, albumart } from playerState
   $: track = $currentTrack ?? { title: '', artist: '', album: '', albumart: '' };
@@ -18,7 +27,7 @@
   // on first boot. Tapping play hydrates the queue with the saved
   // track URI; we never autoplay.
   $: isResumed = !hasLiveTrack && !!$lastPlayedAlbum;
-  $: hasTrack = hasLiveTrack || isResumed;
+  $: hasTrack = $airplayActive || hasLiveTrack || isResumed;
   $: atQueueEnd = $queue.length > 0 && ($playerState?.position ?? 0) === $queue.length - 1;
   // PlayerState.repeat is a boolean (Volumio shape). Map onto NavColumn enum.
   $: repeat = (
@@ -27,20 +36,60 @@
     'off'
   ) as 'off' | 'all' | 'one';
 
-  // Effective fields: prefer live track when playing, else fall back to
-  // the last-played row. Quality fields use the same fallback so the
-  // FormatStrip lights up on resume too.
-  $: displayTitle = hasLiveTrack ? track.title : ($lastPlayedAlbum?.album ?? '');
-  $: displayArtist = hasLiveTrack ? track.artist : ($lastPlayedAlbum?.artist ?? '');
-  $: displayAlbum = hasLiveTrack ? track.album : ($lastPlayedAlbum?.album ?? '');
-  $: displayAlbumArt = hasLiveTrack ? track.albumart : ($lastPlayedAlbum?.albumArt ?? '');
+  // Effective fields:
+  //   1. AirPlay session active → use AirPlay state (overrides everything).
+  //   2. Live MPD track → use the queue's current track.
+  //   3. Resume idle state → fall back to the last-played album row.
+  $: displayTitle =
+    $airplayActive ? $airplayState.title :
+    hasLiveTrack ? track.title : ($lastPlayedAlbum?.album ?? '');
+  $: displayArtist =
+    $airplayActive ? $airplayState.artist :
+    hasLiveTrack ? track.artist : ($lastPlayedAlbum?.artist ?? '');
+  $: displayAlbum =
+    $airplayActive ? $airplayState.album :
+    hasLiveTrack ? track.album : ($lastPlayedAlbum?.album ?? '');
+  $: displayAlbumArt =
+    $airplayActive ? $airplayState.coverDataURL :
+    hasLiveTrack ? track.albumart : ($lastPlayedAlbum?.albumArt ?? '');
 
   // FormatStrip needs numeric sampleRate (Hz) + bitDepth + codec.
-  $: bitDepth = parseBitDepth(hasLiveTrack ? $playerState?.bitdepth : $lastPlayedAlbum?.bitDepth);
-  $: sampleRateHz = parseSampleRate(hasLiveTrack ? $playerState?.samplerate : $lastPlayedAlbum?.sampleRate);
-  $: codec = normalizeCodec(hasLiveTrack ? $playerState?.trackType : $lastPlayedAlbum?.trackType);
+  // AirPlay supplies these as numbers; MPD/last-played supply strings
+  // which parseBitDepth/parseSampleRate already accept. The codec field
+  // is unknown for AirPlay (the iPhone sends decoded PCM over the link)
+  // — we leave it null so FormatStrip shows just the rate+depth cells.
+  $: bitDepth =
+    $airplayActive ? ($airplayState.bitDepth || null) :
+    parseBitDepth(hasLiveTrack ? $playerState?.bitdepth : $lastPlayedAlbum?.bitDepth);
+  $: sampleRateHz =
+    $airplayActive ? ($airplayState.sampleRate || null) :
+    parseSampleRate(hasLiveTrack ? $playerState?.samplerate : $lastPlayedAlbum?.sampleRate);
+  $: codec =
+    $airplayActive ? null :
+    normalizeCodec(hasLiveTrack ? $playerState?.trackType : $lastPlayedAlbum?.trackType);
+
+  // Progress: AirPlay overrides MPD's seek/duration with its own (already
+  // in seconds, not ms — different from PlayerState.seek which is ms).
+  $: displaySeek = $airplayActive ? $airplayState.seekSeconds : (isResumed ? 0 : $seek);
+  $: displayDuration = $airplayActive ? $airplayState.durationSeconds : (isResumed ? 0 : $duration);
+
+  // Transport behaviour differs between MPD and AirPlay:
+  //   - MPD: button state derived from $isPlaying / queue position.
+  //   - AirPlay: backend's session.canControl gates the buttons until
+  //     shairport-sync hands us an Active-Remote token. Status flips
+  //     are owned by the iPhone — toggle is the safe universal verb.
+  //
+  // We don't currently get an "is playing" boolean over the AirPlay
+  // contract; the iPhone owns playback state. Render the pause icon
+  // optimistically while a session is active (the most common state
+  // is "playing"); tapping toggles via DACP either way.
+  $: airplayCanControl = $airplayActive && $airplayState.canControl;
 
   function togglePlay() {
+    if ($airplayActive) {
+      airplayActions.toggle();
+      return;
+    }
     if ($isPlaying) {
       playerActions.pause();
       return;
@@ -53,9 +102,39 @@
     }
     playerActions.play();
   }
+
+  function onPrev() {
+    if ($airplayActive) {
+      airplayActions.prev();
+      return;
+    }
+    playerActions.prev();
+  }
+
+  function onNext() {
+    if ($airplayActive) {
+      airplayActions.next();
+      return;
+    }
+    playerActions.next();
+  }
+
+  function onSeek(s: number) {
+    // AirPlay does not expose a DACP seek primitive in this contract;
+    // ProgressBar drags in AirPlay mode are a no-op for now. We pass a
+    // handler anyway so the bar stays interactive when MPD is active.
+    if ($airplayActive) return;
+    playerActions.seekTo(s);
+  }
 </script>
 
-<section class="player-view" aria-label="Now playing" data-testid="player-view" data-resumed={isResumed ? 'true' : 'false'}>
+<section
+  class="player-view"
+  aria-label="Now playing"
+  data-testid="player-view"
+  data-resumed={isResumed ? 'true' : 'false'}
+  data-airplay={$airplayActive ? 'true' : 'false'}
+>
   <div class="art-zone">
     <AlbumArtPanel src={displayAlbumArt || ''} alt={displayTitle || ''} />
   </div>
@@ -65,28 +144,33 @@
       <MetadataBlock title={displayTitle} artist={displayArtist} album={displayAlbum} />
 
       <ProgressBar
-        seek={isResumed ? 0 : $seek}
-        duration={isResumed ? 0 : $duration}
-        onSeek={(s) => playerActions.seekTo(s)}
+        seek={displaySeek}
+        duration={displayDuration}
+        onSeek={onSeek}
       />
 
-      <FormatStrip
-        bitDepth={bitDepth}
-        sampleRate={sampleRateHz}
-        codec={codec}
-      />
+      <div class="format-row">
+        <FormatStrip
+          bitDepth={bitDepth}
+          sampleRate={sampleRateHz}
+          codec={codec}
+        />
+        {#if $airplayActive}
+          <AirplaySourceBadge sender={$airplayState.sender} />
+        {/if}
+      </div>
     {/if}
   </div>
 
   <TransportColumn
-    isPlaying={$isPlaying}
-    atQueueEnd={atQueueEnd}
+    isPlaying={$airplayActive ? true : $isPlaying}
+    atQueueEnd={$airplayActive ? false : atQueueEnd}
     repeat={repeat}
-    hasTrack={hasTrack}
-    loading={$transitioning}
+    hasTrack={$airplayActive ? airplayCanControl : hasTrack}
+    loading={$airplayActive ? false : $transitioning}
     onTogglePlay={togglePlay}
-    onPrev={() => playerActions.prev()}
-    onNext={() => playerActions.next()}
+    onPrev={onPrev}
+    onNext={onNext}
   />
 </section>
 
@@ -121,5 +205,13 @@
     gap: 24px;
     padding: 0 24px;
     overflow: hidden;
+  }
+  /* Format strip + AirPlay badge sit side by side on the same row so the
+     LCD layout doesn't reflow when an AirPlay session starts. */
+  .format-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
   }
 </style>

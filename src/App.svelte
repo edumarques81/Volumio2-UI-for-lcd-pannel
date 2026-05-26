@@ -13,6 +13,7 @@
   import { initLibraryStore } from '$lib/stores/library';
   import { initBiosStore, cleanupBiosStore } from '$lib/stores/bios';
   import { initSpectrumStore } from '$lib/stores/spectrum';
+  import { initAirplayStore } from '$lib/stores/airplay';
   import { initAudioEngineStore, cleanupAudioEngineStore, audioEngineActions } from '$lib/stores/audioEngine';
   import { initDeviceStore, cleanupDeviceStore, deviceType } from '$lib/stores/device';
   import { currentView, layoutMode, navigationActions, setViewActionHandlers, clearViewActionHandlers, modalActions } from '$lib/stores/navigation';
@@ -60,6 +61,7 @@
     initLibraryStore();
     initBiosStore();
     initSpectrumStore();
+    initAirplayStore();
 
     // Wire NavColumn's Refresh and Power actions (spec decisions 64-66, 67-71).
     // triggerLibraryRefresh owns the reentrancy guard + listener-leak defense.
