@@ -98,6 +98,15 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 5173,
       host: '0.0.0.0',
+      // Allow LAN clients to load the dev server via the Mac's mDNS hostname
+      // (e.g. `Eduardos-Laptop.local`). Without this, Vite 5+ returns 403 for
+      // any Host: header that isn't localhost / 127.0.0.1 / the bound IP.
+      // The Pi kiosk loads the LCD via this hostname so DHCP-shifted Mac IPs
+      // don't break the URL — see stellar-kiosk.sh and the project CLAUDE.md.
+      // `true` accepts ALL Host: headers: this is a dev-only server bound to
+      // the LAN, never exposed to the public internet, so the host-header
+      // security check is not load-bearing here.
+      allowedHosts: true,
       proxy: {
         '/artistart': { target: backendURL, changeOrigin: true },
         '/albumart':  { target: backendURL, changeOrigin: true },
