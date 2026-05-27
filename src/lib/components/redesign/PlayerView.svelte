@@ -143,11 +143,20 @@
     {#if hasTrack}
       <MetadataBlock title={displayTitle} artist={displayArtist} album={displayAlbum} />
 
-      <ProgressBar
-        seek={displaySeek}
-        duration={displayDuration}
-        onSeek={onSeek}
-      />
+      <!-- AirPlay hides the progress bar entirely (seek + elapsed + duration).
+           shairport-sync's prgr cadence is too sparse to sustain per-second
+           accuracy, and the chain of backend fixes (Phase H seek-reset, Phase K
+           wall-clock advance) still left visible drift + clamp regressions.
+           User chose 2026-05-28 to cut the feature on both iOS + LCD rather
+           than patch further. See feedback_drop_airplay_time_tracking in the
+           project memory. -->
+      {#if !$airplayActive}
+        <ProgressBar
+          seek={displaySeek}
+          duration={displayDuration}
+          onSeek={onSeek}
+        />
+      {/if}
 
       <div class="format-row">
         <FormatStrip
