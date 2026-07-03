@@ -18,6 +18,7 @@
   import { initDeviceStore, cleanupDeviceStore, deviceType } from '$lib/stores/device';
   import { currentView, layoutMode, navigationActions, setViewActionHandlers, clearViewActionHandlers, modalActions } from '$lib/stores/navigation';
   import { triggerLibraryRefresh, cancelLibraryRefresh } from '$lib/stores/libraryRefresh';
+  import { startKioskHeartbeat } from '$lib/kioskHeartbeat';
   import { socketService as socket } from '$lib/services/socket';
   import { performanceActions, performanceMetrics, fpsEnabled } from '$lib/stores/performance';
   import { get } from 'svelte/store';
@@ -33,6 +34,7 @@
   let mobileReconnectCleanup: (() => void) | null = null;
   let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
   let clientsReloadStop: (() => void) | null = null;
+  let kioskHeartbeatStop: (() => void) | null = null;
 
   onMount(() => {
     console.log('App mounted, initializing...');
@@ -45,6 +47,11 @@
       document.body.classList.remove('device-lcd-panel', 'device-desktop');
       document.body.classList.add(`device-${t}`);
     });
+
+    // Renderer-liveness heartbeat for the Pi kiosk watchdog (bumps
+    // window.__stellarHeartbeat each animation frame; a frozen renderer
+    // stops updating it and the watchdog reloads the kiosk over CDP).
+    kioskHeartbeatStop = startKioskHeartbeat();
 
     // Connect to Volumio backend
     socketService.connect();
@@ -311,6 +318,9 @@
 
       clientsReloadStop?.();
       clientsReloadStop = null;
+
+      kioskHeartbeatStop?.();
+      kioskHeartbeatStop = null;
 
       socketService.disconnect();
     };
