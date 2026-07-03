@@ -49,9 +49,12 @@ export function initConfig(): Promise<void> {
       const data = (await res.json()) as Partial<RuntimeConfig>;
       if (typeof data.backendUrl === 'string' && data.backendUrl.startsWith('http')) {
         resolvedHost = data.backendUrl.replace(/\/+$/, '');
-      } else {
-        console.warn('[config] /config.json missing valid backendUrl; using fallback');
+      } else if (data.backendUrl !== undefined) {
+        // Present but not a usable URL — worth a warning.
+        console.warn('[config] /config.json has an invalid backendUrl; using fallback');
       }
+      // backendUrl absent is the normal same-origin case (the backend serves
+      // this bundle itself), so fall through silently to fallbackHost().
     } catch (err) {
       console.warn('[config] /config.json fetch failed; using fallback', err);
     }
@@ -66,11 +69,18 @@ export function _resetConfigForTest(): void {
 }
 
 function fallbackHost(): string {
-  const { hostname, port, protocol } = window.location;
+  const { hostname, host, port, protocol } = window.location;
+  // Dev: the Vite dev server on :5173 targets the Pi backend on :3000.
   if (port === '5173') return `http://${DEV_VOLUMIO_IP}:3000`;
-  if (hostname === 'localhost' || hostname === '127.0.0.1') return 'http://localhost:3000';
-  if (hostname.endsWith('.local')) return `http://${DEV_VOLUMIO_IP}:3000`;
-  return `${protocol}//${hostname}:3000`;
+  // Production (Pi-hosted): the Go backend serves this bundle same-origin on
+  // :3000, so Socket.IO + albumart should talk to wherever we were served
+  // from — localhost (kiosk), stellar.local, or any IP. `host` includes the
+  // port, so this is a true same-origin URL and is DHCP/hostname-proof.
+  if (port === String(STELLAR_PORT)) return `${protocol}//${host}`;
+  // Other access patterns (bare hostname, proxied): assume the backend is on
+  // :3000 of the same host we're viewing.
+  if (hostname === 'localhost' || hostname === '127.0.0.1') return `http://localhost:${STELLAR_PORT}`;
+  return `${protocol}//${hostname}:${STELLAR_PORT}`;
 }
 
 export function getVolumioHost(): string {
