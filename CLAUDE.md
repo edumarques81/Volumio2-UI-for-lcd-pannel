@@ -2,6 +2,19 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> **⚠️ Topology update — Pi migration (2026-07-03).** The frontend is no longer
+> served from the Mac's Vite dev server in production. The Go backend on the Pi
+> now serves the built `dist/` **same-origin** on `:3000` (`stellar -static
+> /home/eduardo/stellar-volumio`), and the LCD kiosk loads `http://localhost:3000`.
+> Backend URL resolution is same-origin by default: `src/lib/config.ts`
+> `fallbackHost()` returns the served origin when on `:3000`, and
+> `public/config.json` no longer pins a host (`backendUrl` unset → same-origin).
+> `npm run dev` (:5173) is still the dev surface and targets the Pi backend.
+> **Deploy = `npm run build` on the Mac → `scp dist/` to `~/stellar-volumio` on
+> the Pi** (backend serves it). The sections below describing "frontend served
+> from the Mac" / kiosk pointed at `http://<MAC_IP>:5173` are historical. See
+> workspace-root `MIGRATION-PLAN.md`.
+
 ## Project Overview
 
 Stellar Volumio is a modern Svelte 5 web application for controlling Volumio-compatible audio players. It features a CarPlay-style interface optimized for LCD displays (1920x440) and communicates with the backend via Socket.IO WebSocket API.
