@@ -227,3 +227,44 @@ describe('airplayStore — isPlaying field', () => {
     }
   });
 });
+
+describe('airplayStore — AirPlay↔MPD switchback resync (Phase 4)', () => {
+  it('clears when a terminal pushAirplayState{isActive:false} arrives after a DROPPED pushAirplayEnded', () => {
+    // Session is live and rendered.
+    handlers.pushAirplayState!(SAMPLE_STATE);
+    expect(get(airplayActive)).toBe(true);
+
+    // The canonical pushAirplayEnded is DROPPED on a flaky socket (never
+    // delivered). The backend's belt-and-suspenders terminal snapshot — and
+    // the connect-time resync — both arrive as pushAirplayState{isActive:false}.
+    handlers.pushAirplayState!({ ...SAMPLE_STATE, isActive: false });
+
+    expect(get(airplayActive)).toBe(false);
+    expect(get(airplayState).isActive).toBe(false);
+  });
+
+  it('connect-time inactive snapshot resyncs a client stuck on a stale session', () => {
+    // Client is stuck showing session-1 (missed its end).
+    handlers.pushAirplayState!(SAMPLE_STATE);
+    expect(get(airplayState).sessionID).toBe('session-1');
+
+    // On reconnect the backend now pushes the authoritative current snapshot
+    // EVEN WHEN INACTIVE (Phase 4b), rather than staying silent.
+    handlers.pushAirplayState!({ ...SAMPLE_STATE, isActive: false, sessionID: '' });
+
+    expect(get(airplayActive)).toBe(false);
+  });
+
+  it('stops the seek interpolator on the inactive resync', () => {
+    vi.useFakeTimers();
+    try {
+      handlers.pushAirplayState!({ ...SAMPLE_STATE, seekSeconds: 10 });
+      handlers.pushAirplayState!({ ...SAMPLE_STATE, isActive: false, seekSeconds: 10 });
+      vi.advanceTimersByTime(3000);
+      // Interpolator must not advance a cleared/inactive session.
+      expect(get(airplayState).seekSeconds).toBe(10);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
