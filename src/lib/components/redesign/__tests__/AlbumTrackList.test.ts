@@ -88,4 +88,66 @@ describe('AlbumTrackList', () => {
     // jsdom returns 'none' or '' when no max-height is set.
     expect(['', 'none']).toContain(cs.maxHeight);
   });
+
+  // --- Phase 3 (BROWSE-07): multi-disc grouping ---------------------------
+
+  it('discCount omitted renders exactly as before — flat list, pad2(i+1) numbering, no disc headers', () => {
+    const { container } = render(AlbumTrackList, { tracks });
+    expect(container.querySelectorAll('[data-testid="disc-header"]').length).toBe(0);
+    const items = container.querySelectorAll('li');
+    expect(items.length).toBe(3);
+    expect(items[0].textContent).toMatch(/01\s+So What.*9:25/);
+  });
+
+  it('discCount <= 1 with tracks carrying a uniform disc field renders exactly as before', () => {
+    const uniform = tracks.map((t) => ({ ...t, disc: 1, trackNumber: undefined }));
+    const { container } = render(AlbumTrackList, { tracks: uniform, discCount: 1 });
+    expect(container.querySelectorAll('[data-testid="disc-header"]').length).toBe(0);
+    const items = container.querySelectorAll('li');
+    expect(items.length).toBe(3);
+    expect(items[0].textContent).toMatch(/01\s+So What/);
+  });
+
+  it('discCount > 1 with tracks spanning disc 1 and 2 renders Disc N headers using each track\'s own trackNumber', () => {
+    const multiDisc = [
+      { uri: 'd1t1', title: 'Overture', duration: 120, disc: 1, trackNumber: 1 },
+      { uri: 'd1t2', title: 'Allegro', duration: 300, disc: 1, trackNumber: 2 },
+      { uri: 'd2t1', title: 'Adagio', duration: 400, disc: 2, trackNumber: 1 },
+      { uri: 'd2t2', title: 'Finale', duration: 250, disc: 2, trackNumber: 2 },
+    ];
+    const { container } = render(AlbumTrackList, { tracks: multiDisc, discCount: 2 });
+
+    const headers = container.querySelectorAll('[data-testid="disc-header"]');
+    expect(headers.length).toBe(2);
+    expect(headers[0].textContent).toBe('Disc 1');
+    expect(headers[1].textContent).toBe('Disc 2');
+
+    const rows = container.querySelectorAll('li:not([data-testid="disc-header"])');
+    expect(rows.length).toBe(4);
+    // Each disc's tracks are numbered from their OWN trackNumber, not the
+    // flat array index (disc 2's first track is trackNumber 1, not 3).
+    expect(rows[0].textContent).toMatch(/01\s+Overture/);
+    expect(rows[1].textContent).toMatch(/02\s+Allegro/);
+    expect(rows[2].textContent).toMatch(/01\s+Adagio/);
+    expect(rows[3].textContent).toMatch(/02\s+Finale/);
+
+    // Disc header precedes its own group in DOM order.
+    const allLis = Array.from(container.querySelectorAll('li'));
+    const disc2HeaderIdx = allLis.indexOf(headers[1] as HTMLLIElement);
+    const adagioIdx = allLis.findIndex((li) => li.textContent?.includes('Adagio'));
+    expect(disc2HeaderIdx).toBeLessThan(adagioIdx);
+  });
+
+  it('discCount > 1 falls back to the flat array index when a track has no trackNumber', () => {
+    const multiDisc = [
+      { uri: 'd1t1', title: 'Overture', duration: 120, disc: 1 },
+      { uri: 'd2t1', title: 'Adagio', duration: 400, disc: 2 },
+    ];
+    const { container } = render(AlbumTrackList, { tracks: multiDisc, discCount: 2 });
+    const rows = container.querySelectorAll('li:not([data-testid="disc-header"])');
+    // Each group's own index (i+1) — Overture is index 0 of disc 1's group,
+    // Adagio is index 0 of disc 2's group. Both render "01".
+    expect(rows[0].textContent).toMatch(/01\s+Overture/);
+    expect(rows[1].textContent).toMatch(/01\s+Adagio/);
+  });
 });

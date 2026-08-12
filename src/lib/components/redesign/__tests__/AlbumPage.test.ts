@@ -231,4 +231,57 @@ describe('AlbumPage', () => {
     const rule = container.querySelector('.section-rule');
     expect(rule).not.toBeNull();
   });
+
+  // --- Phase 3 (BROWSE-01/03): duplicate-disambiguation badge --------------
+
+  it('renders the duplicate badge when album.badge is set', () => {
+    libraryAlbumTotalDuration.set(0);
+    const { getByTestId } = render(AlbumPage, {
+      album: { ...album, badge: '352.8kHz/24bit FLAC' }, tracks, onPlayAlbum: () => {},
+    });
+    const badge = getByTestId('album-duplicate-badge');
+    expect(badge).toBeInTheDocument();
+    expect(badge.textContent).toBe('352.8kHz/24bit FLAC');
+  });
+
+  it('renders no badge element when album.badge is absent (the common case)', () => {
+    libraryAlbumTotalDuration.set(0);
+    const { container } = render(AlbumPage, {
+      album: { ...album, badge: undefined }, tracks, onPlayAlbum: () => {},
+    });
+    expect(container.querySelector('[data-testid="album-duplicate-badge"]')).toBeNull();
+  });
+
+  it('renders no badge element when album.badge is an empty string', () => {
+    libraryAlbumTotalDuration.set(0);
+    const { container } = render(AlbumPage, {
+      album: { ...album, badge: '' }, tracks, onPlayAlbum: () => {},
+    });
+    expect(container.querySelector('[data-testid="album-duplicate-badge"]')).toBeNull();
+  });
+
+  // --- Phase 3 (BROWSE-07): multi-disc discCount pass-through --------------
+
+  it('passes album.discCount to AlbumTrackList so multi-disc albums render Disc N headers', () => {
+    libraryAlbumTotalDuration.set(0);
+    const multiDiscTracks = [
+      { uri: 'd1t1', title: 'Overture', duration: 120, disc: 1, trackNumber: 1 },
+      { uri: 'd2t1', title: 'Adagio', duration: 400, disc: 2, trackNumber: 1 },
+    ];
+    const { container } = render(AlbumPage, {
+      album: { ...album, discCount: 2 }, tracks: multiDiscTracks, onPlayAlbum: () => {},
+    });
+    const headers = container.querySelectorAll('[data-testid="disc-header"]');
+    expect(headers.length).toBe(2);
+    expect(headers[0].textContent).toBe('Disc 1');
+    expect(headers[1].textContent).toBe('Disc 2');
+  });
+
+  it('defaults discCount to 0 when album.discCount is absent (single-disc — no headers)', () => {
+    libraryAlbumTotalDuration.set(0);
+    const { container } = render(AlbumPage, {
+      album: { ...album, discCount: undefined }, tracks, onPlayAlbum: () => {},
+    });
+    expect(container.querySelectorAll('[data-testid="disc-header"]').length).toBe(0);
+  });
 });

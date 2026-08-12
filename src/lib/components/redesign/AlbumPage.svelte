@@ -55,6 +55,10 @@
       <div class="meta-strip" data-testid="album-meta-strip">{metaText}</div>
     {/if}
 
+    {#if album.badge}
+      <span class="duplicate-badge" data-testid="album-duplicate-badge">{album.badge}</span>
+    {/if}
+
     {#if onPlayAlbum}
       <div class="play-row">
         <PlayAlbumButton onPlay={onPlayAlbum} size="prominent" />
@@ -69,7 +73,7 @@
   </div>
 
   <div class="tracklist-zone">
-    <AlbumTrackList {tracks} />
+    <AlbumTrackList {tracks} discCount={album.discCount ?? 0} />
   </div>
 </section>
 
@@ -151,6 +155,25 @@
     font-size: 17px;
     font-weight: 400;
     line-height: 1.2;
+  }
+  .duplicate-badge {
+    /* Disambiguation badge (BROWSE-01/03) — supplementary info on a dense
+       screen, not a headline: outlined pill (not the filled gold capsule
+       used by HiResBadge/AirplaySourceBadge) so it reads as secondary. */
+    display: inline-flex;
+    align-items: center;
+    align-self: flex-start;
+    padding: 3px 10px;
+    border: 1px solid var(--color-accent);
+    border-radius: 999px;
+    color: var(--color-accent);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .play-row {
     margin: 18px 0 18px 0;
