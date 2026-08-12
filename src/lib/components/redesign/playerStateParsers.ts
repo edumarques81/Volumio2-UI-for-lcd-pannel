@@ -9,13 +9,35 @@
  */
 
 /**
- * Parse a bit-depth string like `"24"`, `"24 bit"`, or `"16-bit"` into the
- * leading integer. Returns `null` for nullish/empty/unparsable input.
+ * Parse a bit-depth string like `"24"`, `"24 bit"`, or `"16-bit"` into an
+ * integer. Returns `null` for nullish/empty/unparsable input, and for input
+ * that carries no bit-depth information at all.
+ *
+ * Two input shapes reach this parser, and they must not be conflated:
+ *   - `playerState.bitdepth` — a dedicated field ("24 bit", "16").
+ *   - `album.quality` — the backend's COMPOSITE label ("44.1kHz/16bit FLAC"),
+ *     passed in whole by AlbumPage.
+ *
+ * Matching the first run of digits reads the sample rate out of the second
+ * shape (44), so the strip printed "44-bit" and `pickBadgeKind` saw
+ * 44 >= 24 and badged CD-quality audio as HI-RES. Requiring an explicit
+ * `bit`/`bits` token — or an otherwise bare number — keeps the two apart.
+ * A DSD label ("DSD64") deliberately yields `null`: 1-bit DSD has no PCM
+ * bit depth to report, and 64 is a rate multiplier.
  */
 export function parseBitDepth(raw: string | undefined | null): number | null {
   if (!raw) return null;
-  const m = String(raw).match(/(\d+)/);
-  return m ? Number(m[1]) : null;
+  const s = String(raw).trim();
+  if (!s) return null;
+
+  // Explicit "<n>bit" / "<n> bit" / "<n>-bits" token anywhere in the string.
+  const explicit = s.match(/(\d+)\s*-?\s*bits?\b/i);
+  if (explicit) return Number(explicit[1]);
+
+  // Otherwise accept only a standalone number, never one embedded in a
+  // composite label.
+  const bare = s.match(/^(\d+)$/);
+  return bare ? Number(bare[1]) : null;
 }
 
 /**
@@ -27,6 +49,18 @@ export function parseBitDepth(raw: string | undefined | null): number | null {
 export function parseSampleRate(raw: string | undefined | null): number | null {
   if (!raw) return null;
   const s = String(raw).toLowerCase();
+
+  // A DSD quality label is a MULTIPLIER against the 44.1 kHz base, not a
+  // rate: "DSD64" means 64 x 44100 = 2.8224 MHz. Falling through to the
+  // generic numeric branch below read it as a bare 64 -> 64 kHz, which
+  // dsdRate() then rendered back as "DSD1" on the badge.
+  const dsdMultiplier = s.match(/dsd\s*(\d+)/);
+  if (dsdMultiplier) return Math.round(Number(dsdMultiplier[1]) * 44_100);
+  // Bare "DSD" (MPD reports no Format for some DSD files) carries no rate.
+  // Both strips guard on `sampleRate != null`, so the badge is suppressed
+  // rather than rendered as "DSD0".
+  if (/dsd/.test(s)) return null;
+
   // Match "96 kHz", "96000", "2.8 mhz", "44.1 khz"
   const num = s.match(/([\d.]+)/);
   if (!num) return null;

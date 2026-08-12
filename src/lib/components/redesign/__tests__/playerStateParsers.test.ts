@@ -29,6 +29,58 @@ describe('parseBitDepth', () => {
     expect(parseBitDepth('abc')).toBeNull();
     expect(parseBitDepth('--')).toBeNull();
   });
+
+  // Regression: AlbumPage passes the backend's composite `album.quality`
+  // label straight into this parser. A first-digit-run match reads the
+  // SAMPLE RATE into the bit-depth slot ("44.1kHz/16bit FLAC" -> 44), which
+  // both printed "44-bit" on the LCD and tripped the >= 24 HI-RES branch in
+  // pickBadgeKind, badging Red Book audio as hi-res.
+  // Strings below are exactly what `formatQualityLabel`
+  // (internal/domain/library/cached_service.go) produces.
+  it('reads the bit depth, not the sample rate, out of a composite quality label', () => {
+    expect(parseBitDepth('44.1kHz/16bit FLAC')).toBe(16);
+    expect(parseBitDepth('192kHz/24bit FLAC')).toBe(24);
+    expect(parseBitDepth('96kHz/24bit FLAC')).toBe(24);
+    expect(parseBitDepth('352.8kHz/24bit FLAC')).toBe(24);
+    expect(parseBitDepth('44.1kHz/16bit WAV')).toBe(16);
+  });
+
+  it('returns null for DSD labels, which carry no PCM bit depth', () => {
+    // "DSD64" previously parsed as 64 and rendered "64-bit".
+    expect(parseBitDepth('DSD64')).toBeNull();
+    expect(parseBitDepth('DSD128')).toBeNull();
+    expect(parseBitDepth('DSD256')).toBeNull();
+    expect(parseBitDepth('DSD')).toBeNull();
+  });
+
+  it('returns null for a rate-only or codec-only label', () => {
+    // No bit-depth information present — must not invent one from the rate.
+    expect(parseBitDepth('44.1kHz')).toBeNull();
+    expect(parseBitDepth('192kHz FLAC')).toBeNull();
+    expect(parseBitDepth('flac')).toBeNull();
+    // Real label from the live library: rate + codec, no bit depth. Used to
+    // render "352-bit".
+    expect(parseBitDepth('352.8kHz WAV')).toBeNull();
+  });
+
+  // The complete set of distinct `quality` strings present in the live
+  // library (66 albums, enumerated on the Pi 2026-08-12). Every shape the
+  // renderer can actually receive is pinned here.
+  it.each([
+    ['DSD', null],
+    ['44.1kHz/16bit FLAC', 16],
+    ['96kHz/24bit FLAC', 24],
+    ['44.1kHz/24bit FLAC', 24],
+    ['352.8kHz/24bit FLAC', 24],
+    ['192kHz/24bit FLAC', 24],
+    ['48kHz/24bit FLAC', 24],
+    ['352.8kHz WAV', null],
+    ['176.4kHz/24bit FLAC', 24],
+    ['44.1kHz/32bit WAV', 32],
+    ['44.1kHz/16bit WAV', 16],
+  ])('parses the live-library label %s as %s', (label, expected) => {
+    expect(parseBitDepth(label as string)).toBe(expected);
+  });
 });
 
 describe('parseSampleRate', () => {
@@ -65,6 +117,29 @@ describe('parseSampleRate', () => {
   it('returns null when input has no digits', () => {
     expect(parseSampleRate('garbage')).toBeNull();
     expect(parseSampleRate('kHz')).toBeNull();
+  });
+
+  // Regression: a DSD quality label is a MULTIPLIER, not a rate. Reading
+  // "DSD64" as a bare 64 produced 64 kHz, which then round-tripped through
+  // dsdRate() as "DSD1" on the badge.
+  it('resolves a DSD multiplier label to its true rate', () => {
+    expect(parseSampleRate('DSD64')).toBe(2_822_400);
+    expect(parseSampleRate('DSD128')).toBe(5_644_800);
+    expect(parseSampleRate('DSD256')).toBe(11_289_600);
+    expect(dsdRate(parseSampleRate('DSD64')!)).toBe('DSD64');
+    expect(dsdRate(parseSampleRate('DSD128')!)).toBe('DSD128');
+  });
+
+  it('returns null for a bare "DSD" label carrying no rate', () => {
+    // Both strips guard on `sampleRate != null` before rendering the DSD
+    // badge, so null correctly suppresses it rather than showing "DSD0".
+    expect(parseSampleRate('DSD')).toBeNull();
+  });
+
+  it('reads the rate out of a composite quality label', () => {
+    expect(parseSampleRate('44.1kHz/16bit FLAC')).toBe(44_100);
+    expect(parseSampleRate('192kHz/24bit FLAC')).toBe(192_000);
+    expect(parseSampleRate('352.8kHz/24bit FLAC')).toBe(352_800);
   });
 });
 
