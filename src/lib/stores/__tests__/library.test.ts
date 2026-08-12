@@ -16,11 +16,13 @@ import {
   libraryPageKind,
   selectedArtist,
   artistAlbums,
+  artistLooseTracks,
   currentLibraryIndex,
   type Album,
   type Artist,
   type RadioStation,
-  type Track
+  type Track,
+  type ArtistAlbumsResponse
 } from '../library';
 import { socketService } from '$lib/services/socket';
 
@@ -581,5 +583,125 @@ describe('libraryPageKind', () => {
 
     expect(get(libraryPageKind)).toBe('artists');
     expect(get(currentLibraryIndex)).toBe(9);     // unchanged
+  });
+});
+
+// --- Phase 3 (ARTIST-04/BROWSE-04): artistLooseTracks + playLooseTracks -----
+
+describe('artistLooseTracks + pushLibraryArtistAlbums + playLooseTracks', () => {
+  beforeEach(() => {
+    artistLooseTracks.set([]);
+  });
+
+  function getArtistAlbumsHandler() {
+    // Idempotent no-op if already initialized earlier in this file — the
+    // registration call we need happened the first time initLibraryStore()
+    // ran and its call history is never cleared after that point.
+    initLibraryStore();
+    const onMock = vi.mocked(socketService.on);
+    const handler = onMock.mock.calls.find(
+      (call) => call[0] === 'pushLibraryArtistAlbums'
+    )?.[1] as ((data: ArtistAlbumsResponse) => void) | undefined;
+    expect(handler).toBeDefined();
+    return handler!;
+  }
+
+  it('pushLibraryArtistAlbums with looseTracks populates artistLooseTracks', () => {
+    const handler = getArtistAlbumsHandler();
+    const tracks: Track[] = [
+      {
+        id: 't1', title: 'Loose One', artist: 'Solo Artist', album: '',
+        uri: 'mpd://loose1', trackNumber: 1, duration: 120,
+        albumArt: '/art/l1.jpg', source: 'local',
+      },
+    ];
+
+    handler({
+      artist: 'Solo Artist',
+      albums: [],
+      pagination: { page: 1, limit: 50, total: 0, hasMore: false },
+      looseTracks: tracks,
+    });
+
+    // fixAlbumArt rewrites albumArt through fixVolumioAssetUrl (same
+    // treatment as every other list this store hydrates) — assert on
+    // everything else and the fact that a (rewritten) URL is still present.
+    const stored = get(artistLooseTracks);
+    expect(stored).toHaveLength(1);
+    expect(stored[0]).toMatchObject({ ...tracks[0], albumArt: expect.any(String) });
+    expect(stored[0].albumArt).toContain('/art/l1.jpg');
+  });
+
+  it('pushLibraryArtistAlbums without looseTracks resets artistLooseTracks to []', () => {
+    artistLooseTracks.set([
+      {
+        id: 'stale', title: 'x', artist: 'y', album: '', uri: 'u',
+        trackNumber: 1, duration: 1, albumArt: '', source: 'local',
+      },
+    ]);
+    const handler = getArtistAlbumsHandler();
+
+    handler({
+      artist: 'Some Artist',
+      albums: [
+        {
+          id: 'a', title: 'A', artist: 'Some Artist', uri: 'u', albumArt: '',
+          trackCount: 1, source: 'local',
+        },
+      ],
+      pagination: { page: 1, limit: 50, total: 1, hasMore: false },
+    });
+
+    expect(get(artistLooseTracks)).toEqual([]);
+  });
+
+  it('clearArtistFilter resets artistLooseTracks to []', () => {
+    artistLooseTracks.set([
+      {
+        id: 't', title: 'T', artist: 'A', album: '', uri: 'u',
+        trackNumber: 1, duration: 1, albumArt: '', source: 'local',
+      },
+    ]);
+
+    libraryActions.clearArtistFilter();
+
+    expect(get(artistLooseTracks)).toEqual([]);
+  });
+
+  it('playLooseTracks emits clearQueue, addToQueue (uri array), then play(0)', () => {
+    const tracks: Track[] = [
+      {
+        id: 't1', title: 'One', artist: 'A', album: '', uri: 'mpd://one',
+        trackNumber: 1, duration: 60, albumArt: '', source: 'local',
+      },
+      {
+        id: 't2', title: 'Two', artist: 'A', album: '', uri: 'mpd://two',
+        trackNumber: 2, duration: 60, albumArt: '', source: 'local',
+      },
+    ];
+    const beforeCount = vi.mocked(socketService.emit).mock.calls.length;
+
+    libraryActions.playLooseTracks(tracks);
+
+    const newCalls = vi.mocked(socketService.emit).mock.calls.slice(beforeCount);
+    expect(newCalls[0][0]).toBe('clearQueue');
+    expect(newCalls[1][0]).toBe('addToQueue');
+    expect(newCalls[1][1]).toEqual({ uri: ['mpd://one', 'mpd://two'] });
+    expect(newCalls[2][0]).toBe('play');
+    expect(newCalls[2][1]).toEqual({ value: 0 });
+  });
+
+  it('playLooseTracks navigates to the Player view', async () => {
+    const { viewActions } = await import('$lib/stores/navigation');
+    const tracks: Track[] = [
+      {
+        id: 't1', title: 'One', artist: 'A', album: '', uri: 'mpd://one',
+        trackNumber: 1, duration: 60, albumArt: '', source: 'local',
+      },
+    ];
+
+    libraryActions.playLooseTracks(tracks);
+
+    expect(viewActions.goToPlayer).toHaveBeenCalled();
   });
 });

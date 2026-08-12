@@ -51,6 +51,12 @@ export interface Album {
   quality?: string;     // e.g. "192kHz/24bit FLAC"
   trackType?: string;   // e.g. "flac", "dsf"
   genre?: string;       // e.g. "Ambient / Post-Rock" — backfilled from MPD's genre tag
+  badge?: string;       // Phase 3 (BROWSE-01/02/03): disambiguation badge for a
+                         // title+artist duplicate group — quality/disc/source,
+                         // whichever actually differs. Absent for unique albums.
+  discCount?: number;   // Phase 3 (BROWSE-07): >1 when this Album represents a
+                         // collapsed multi-disc box set; uri points at the
+                         // combined-track root.
 }
 
 export interface Artist {
@@ -69,6 +75,9 @@ export interface Track {
   duration: number;
   albumArt: string;
   source: SourceType;
+  disc?: number;   // Phase 3 (BROWSE-07): MPD Disc tag, 1-based. Pre-sorted by
+                    // (disc, trackNumber, title); group consecutive same-disc
+                    // runs under a "Disc N" header for discCount>1 albums.
 }
 
 export interface RadioStation {
@@ -100,6 +109,9 @@ export interface ArtistAlbumsResponse {
   artist: string;
   albums: Album[];
   pagination: Pagination;
+  looseTracks?: Track[];  // ARTIST-04/BROWSE-04: populated ONLY when `albums`
+                           // is empty — a playable song list for an artist
+                           // whose tracks belong to no proper album.
 }
 
 export interface AlbumTracksResponse {
@@ -156,6 +168,10 @@ export const selectedArtist = writable<string | null>(null);
 export const artistAlbums = writable<Album[]>([]);
 export const artistAlbumsLoading = writable<boolean>(false);
 export const artistAlbumsError = writable<string | null>(null);
+// ARTIST-04/BROWSE-04: populated only when an artist drill-in resolves to
+// zero albums — a playable loose-track fallback. See pushLibraryArtistAlbums
+// handler and libraryActions.clearArtistFilter.
+export const artistLooseTracks = writable<Track[]>([]);
 
 // ----- Library page kind (M2.C) ---------------------------------------------
 // Drives the renderer switch inside LibraryView. Add 'qobuz' here when M3.A
@@ -266,6 +282,8 @@ export function initLibraryStore() {
     if (data?.albums) {
       artistAlbums.set(data.albums.map(fixAlbumArt));
     }
+    // ARTIST-04/BROWSE-04: looseTracks arrives only when albums is empty.
+    artistLooseTracks.set(data?.looseTracks?.map(fixAlbumArt) ?? []);
     artistAlbumsLoading.set(false);
   });
 
@@ -629,7 +647,23 @@ export const libraryActions = {
   clearArtistFilter() {
     selectedArtist.set(null);
     artistAlbums.set([]);
+    artistLooseTracks.set([]);
     currentLibraryIndex.set(0);
+  },
+
+  /**
+   * Play a zero-album artist's loose-track fallback list (ARTIST-04/
+   * BROWSE-04). Unlike replaceQueueAndPlay, looseTracks already arrived with
+   * the artist-albums payload — no fetch-then-subscribe dance is needed, so
+   * this is a synchronous mirror of that action's socket-emit shape.
+   */
+  playLooseTracks(tracks: Track[]) {
+    console.log('[Library] Playing loose tracks:', tracks.length);
+    const uris = tracks.map((t) => t.uri).filter(Boolean);
+    socketService.emit('clearQueue');
+    socketService.emit('addToQueue', { uri: uris });
+    socketService.emit('play', { value: 0 });
+    viewActions.goToPlayer();
   },
 
   /**
