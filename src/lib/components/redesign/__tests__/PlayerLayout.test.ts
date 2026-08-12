@@ -44,6 +44,9 @@ const libraryMocks = await vi.hoisted(async () => {
     libraryArtists: writable<any[]>([]),
     artistAlbums: writable<any[]>([]),
     selectedArtist: writable<string | null>(null),
+    // Phase 3 (ARTIST-04/BROWSE-04): LibraryView now also imports
+    // artistLooseTracks for the zero-album artist-drill-in fallback.
+    artistLooseTracks: writable<any[]>([]),
     libraryPageKind: writable<'albums' | 'artists'>('albums'),
     libraryAlbumTracks: writable<any[]>([]),
     libraryAlbumTotalDuration: writable(0),
@@ -53,6 +56,7 @@ const libraryMocks = await vi.hoisted(async () => {
       fetchAlbumTracks: vi.fn(),
       replaceQueueAndPlay: vi.fn(),
       playAlbum: vi.fn(),
+      playLooseTracks: vi.fn(),
       cyclePageKind: vi.fn(),
     },
     currentAlbumBio: writable({ summary: '', sourceUrl: '', kind: '' }),
@@ -84,6 +88,7 @@ vi.mock('$lib/stores/library', () => ({
   libraryArtists: libraryMocks.libraryArtists,
   artistAlbums: libraryMocks.artistAlbums,
   selectedArtist: libraryMocks.selectedArtist,
+  artistLooseTracks: libraryMocks.artistLooseTracks,
   libraryPageKind: libraryMocks.libraryPageKind,
   libraryAlbumTracks: libraryMocks.libraryAlbumTracks,
   libraryAlbumTotalDuration: libraryMocks.libraryAlbumTotalDuration,

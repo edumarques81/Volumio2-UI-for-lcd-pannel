@@ -24,6 +24,7 @@ const {
   libraryArtists,
   artistAlbums,
   selectedArtist,
+  artistLooseTracks,
   libraryPageKind,
   libraryAlbumTracks,
   libraryAlbumTotalDuration,
@@ -45,6 +46,7 @@ const {
   const libraryArtistsStore = writable<any[]>([]);
   const artistAlbumsStore = writable<any[]>([]);
   const selectedArtistStore = writable<string | null>(null);
+  const artistLooseTracksStore = writable<any[]>([]);
   const libraryPageKindStore = writable<'albums' | 'artists'>('albums');
   const libraryAlbumTracksStore = writable<any[]>([]);
   const libraryAlbumTotalDurationStore = writable(0);
@@ -56,6 +58,7 @@ const {
     libraryArtists: libraryArtistsStore,
     artistAlbums: artistAlbumsStore,
     selectedArtist: selectedArtistStore,
+    artistLooseTracks: artistLooseTracksStore,
     libraryPageKind: libraryPageKindStore,
     libraryAlbumTracks: libraryAlbumTracksStore,
     libraryAlbumTotalDuration: libraryAlbumTotalDurationStore,
@@ -67,6 +70,7 @@ const {
         libraryAlbumTracksStore.set([{ uri: 't1', title: 'Track', duration: 60 }]);
       }),
       playAlbum: vi.fn(),
+      playLooseTracks: vi.fn(),
       // cyclePageKind is asserted on directly by the M2.C tests; the mock body
       // mirrors the wrap-modulo semantics of the real action so subsequent
       // reactive `$libraryPageKind` reads stay consistent even though most
@@ -91,6 +95,7 @@ vi.mock('$lib/stores/library', () => ({
   libraryArtists,
   artistAlbums,
   selectedArtist,
+  artistLooseTracks,
   libraryPageKind,
   libraryAlbumTracks,
   libraryAlbumTotalDuration,
@@ -114,9 +119,11 @@ describe('LibraryView', () => {
     libraryArtists.set([]);
     artistAlbums.set([]);
     selectedArtist.set(null);
+    artistLooseTracks.set([]);
     libraryPageKind.set('albums');
     libraryActions.fetchAlbumTracks.mockClear();
     libraryActions.playAlbum.mockClear();
+    libraryActions.playLooseTracks.mockClear();
     libraryActions.cyclePageKind.mockClear();
     viewActions.goToPlayer.mockClear();
     bioActions.requestBio.mockClear();
@@ -292,9 +299,11 @@ describe('LibraryView page-kind renderer + vertical swipe + filtered list', () =
     libraryArtists.set([]);
     artistAlbums.set([]);
     selectedArtist.set(null);
+    artistLooseTracks.set([]);
     libraryPageKind.set('albums');
     currentLibraryIndex.set(0);
     libraryActions.cyclePageKind.mockClear();
+    libraryActions.playLooseTracks.mockClear();
   });
 
   it('renders AlbumPage when libraryPageKind === "albums"', () => {
@@ -374,6 +383,83 @@ describe('LibraryView page-kind renderer + vertical swipe + filtered list', () =
     selectedArtist.set(null);
     const { container } = render(LibraryView);
     expect(container.textContent).toContain('TitleAlpha');
+  });
+});
+
+// --- Phase 3 (ARTIST-04/BROWSE-04): loose-track fallback --------------------
+
+describe('LibraryView loose-track fallback', () => {
+  beforeEach(() => {
+    currentLibraryIndex.set(0);
+    libraryAlbumTracks.set([]);
+    libraryAlbums.set(albums);
+    libraryArtists.set([]);
+    artistAlbums.set([]);
+    selectedArtist.set(null);
+    artistLooseTracks.set([]);
+    libraryPageKind.set('albums');
+    libraryActions.playLooseTracks.mockClear();
+    bioActions.requestBio.mockClear();
+  });
+
+  it('artist drill-in with zero albums + non-empty looseTracks renders the loose-track fallback, not the generic empty message', () => {
+    libraryAlbums.set(albums);
+    selectedArtist.set('Solo Artist');
+    artistAlbums.set([]);
+    artistLooseTracks.set([
+      { uri: 't1', title: 'B-Side One', duration: 120 },
+      { uri: 't2', title: 'B-Side Two', duration: 90 },
+    ]);
+
+    const { container, getByTestId } = render(LibraryView);
+
+    expect(getByTestId('library-loose-tracks')).toBeTruthy();
+    expect(container.querySelector('[data-testid="library-empty"]')).toBeNull();
+    expect(container.textContent).toContain('Solo Artist');
+    expect(container.textContent).toContain('B-Side One');
+    expect(container.textContent).toContain('B-Side Two');
+  });
+
+  it('Play All button calls libraryActions.playLooseTracks with the current artistLooseTracks list', async () => {
+    selectedArtist.set('Solo Artist');
+    artistAlbums.set([]);
+    const looseTracks = [
+      { uri: 't1', title: 'B-Side One', duration: 120 },
+      { uri: 't2', title: 'B-Side Two', duration: 90 },
+    ];
+    artistLooseTracks.set(looseTracks);
+
+    const { getByTestId } = render(LibraryView);
+    await fireEvent.click(getByTestId('loose-tracks-play-all'));
+
+    expect(libraryActions.playLooseTracks).toHaveBeenCalledWith(looseTracks);
+  });
+
+  it('whole-library empty state ($selectedArtist === null) still shows the generic empty message even with stale artistLooseTracks data', () => {
+    libraryAlbums.set([]);
+    selectedArtist.set(null);
+    artistAlbums.set([]);
+    // Stale loose-track data from a prior artist filter that was never
+    // cleared — must NOT leak into the whole-library empty state.
+    artistLooseTracks.set([{ uri: 't1', title: 'Stale Track', duration: 60 }]);
+
+    const { container } = render(LibraryView);
+
+    expect(container.querySelector('[data-testid="library-empty"]')).toBeTruthy();
+    expect(container.querySelector('[data-testid="library-loose-tracks"]')).toBeNull();
+
+    libraryAlbums.set(albums);
+  });
+
+  it('artist drill-in with non-empty artistAlbums renders the normal carousel, not the loose-track fallback', () => {
+    selectedArtist.set('Populated Artist');
+    artistAlbums.set(albums);
+    artistLooseTracks.set([{ uri: 't1', title: 'Should Not Show', duration: 60 }]);
+
+    const { container } = render(LibraryView);
+
+    expect(container.querySelector('[data-testid="album-slide-wrapper"]')).toBeTruthy();
+    expect(container.querySelector('[data-testid="library-loose-tracks"]')).toBeNull();
   });
 });
 
