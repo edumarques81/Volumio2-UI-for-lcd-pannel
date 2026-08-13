@@ -91,9 +91,35 @@ function clearTransitioning() {
   transitioning.set(false);
 }
 
-// Seek interpolation timer
+// Seek interpolation.
+//
+// The backend does not broadcast a pushState for every second of playback —
+// it only re-broadcasts when something meaningful changes (and, since
+// 2026-08-14, when the true position diverges from what we are predicting).
+// Between those broadcasts the client dead-reckons.
+//
+// That reckoning is anchored on a monotonic timestamp rather than
+// accumulated one tick at a time. A `+1 per tick` counter silently absorbs
+// every source of timer error — setInterval drift, background-tab
+// throttling, a busy kiosk — and can never recover, because nothing ever
+// tells it what the real position is.
 let seekIntervalId: ReturnType<typeof setInterval> | null = null;
-let lastSeekUpdate = 0;
+let seekAnchorMs = 0; // authoritative position at the moment of anchoring
+let seekAnchorAt = 0; // performance.now() when that position was current
+
+/** Re-anchor the local seek clock on an authoritative position (seconds). */
+function anchorSeek(seconds: number) {
+  seekAnchorMs = Math.max(0, seconds * 1000);
+  seekAnchorAt = performance.now();
+}
+
+/** Position predicted from the anchor, in whole seconds, clamped to duration. */
+function projectedSeek(): number {
+  const elapsedMs = seekAnchorMs + (performance.now() - seekAnchorAt);
+  const seconds = Math.max(0, Math.floor(elapsedMs / 1000));
+  const total = get(duration);
+  return total > 0 ? Math.min(seconds, total) : seconds;
+}
 
 // One-shot bypass for the pushState change-gate. Set to `true` by
 // `optimisticAlbumStart`; the next pushState applies unconditionally
@@ -215,7 +241,11 @@ export const playerActions = {
 
   seekTo: (position: number) => {
     pulseTransitioning();
-    seek.set(position);
+    // Anchor optimistically so interpolation continues from where the user
+    // dropped the thumb; the backend's confirming pushState re-anchors on
+    // the position MPD actually applied.
+    anchorSeek(position);
+    seek.set(Math.max(0, Math.floor(position)));
     socketService.emit('seek', position);
   },
 
@@ -260,6 +290,7 @@ export const playerActions = {
    */
   optimisticAlbumStart: (album: Album) => {
     optimisticPending = true;
+    anchorSeek(0);
     const current = get(playerState);
     const next: PlayerState = {
       // Preserve transport flags from the current state so the
@@ -336,20 +367,22 @@ export function formatSampleRate(raw: string | null | undefined): string {
   return kHz % 1 === 0 ? `${kHz}kHz` : `${kHz.toFixed(1)}kHz`;
 }
 
-// Start client-side seek interpolation (updates every second while playing)
+// Start client-side seek interpolation.
+//
+// Sampled at 4 Hz rather than 1 Hz: the displayed value only changes when the
+// projected whole second changes, so the store still updates once a second,
+// but the flip lands within 250ms of the true second boundary instead of
+// drifting up to a full second away from it.
 function startSeekInterpolation() {
   if (seekIntervalId) return; // Already running
 
   seekIntervalId = setInterval(() => {
     const state = get(playerState);
-    const currentSeek = get(seek);
-    const currentDuration = get(duration);
+    if (state?.status !== 'play') return;
 
-    // Only interpolate if playing and not at end
-    if (state?.status === 'play' && currentSeek < currentDuration) {
-      seek.update(s => Math.min(s + 1, currentDuration));
-    }
-  }, 1000);
+    const next = projectedSeek();
+    if (next !== get(seek)) seek.set(next);
+  }, 250);
 }
 
 // Stop seek interpolation
@@ -419,15 +452,20 @@ export function initPlayerStore() {
       if (newRepeat !== get(repeat)) repeat.set(newRepeat);
     }
 
-    // Convert seek from milliseconds to seconds
+    // Duration first — projectedSeek() clamps against it.
+    if (state.duration !== undefined && state.duration !== get(duration)) duration.set(state.duration);
+
+    // Convert seek from milliseconds to seconds. This is the authoritative
+    // position: re-anchor unconditionally, so a discontinuity the backend
+    // just told us about (restarted track, scrub from another client) lands
+    // immediately instead of being overwritten by the next interpolation tick.
     if (state.seek !== undefined) {
-      const seekSeconds = Math.floor(state.seek / 1000);
+      anchorSeek(state.seek / 1000);
+      const seekSeconds = Math.max(0, Math.floor(state.seek / 1000));
       if (seekSeconds !== get(seek)) {
         seek.set(seekSeconds);
       }
-      lastSeekUpdate = Date.now();
     }
-    if (state.duration !== undefined && state.duration !== get(duration)) duration.set(state.duration);
 
     // Manage seek interpolation based on playback state
     if (state.status === 'play') {
