@@ -9,6 +9,7 @@
     type SortOrder,
   } from '$lib/stores/library';
   import { settingsActions } from '$lib/stores/settings';
+  import IngestPanel from '$lib/components/redesign/settings/IngestPanel.svelte';
   import type { Component } from 'svelte';
 
   // Lazy-load NasShareList — at 619 lines (browse/discover forms) it's the
@@ -72,6 +73,9 @@
       />
     </div>
   </div>
+
+  <!-- Drop-box ingest — renders itself away when the backend has no script -->
+  <IngestPanel />
 
   <!-- Maintenance block -->
   <div class="block">
