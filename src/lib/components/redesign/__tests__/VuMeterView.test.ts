@@ -1,43 +1,102 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, cleanup } from '@testing-library/svelte';
-import { tick } from 'svelte';
+import type { Readable } from 'svelte/store';
 
-// Mock the spectrum store before importing the view.
-const mocks = await vi.hoisted(async () => {
-  const { writable } = await import('svelte/store');
+// Hoisted so the stores exist before vi.mock's factory runs (Vitest hoists the
+// factory to the top of the file). The component reads $vuRmsL/$vuRmsR; the
+// pure scale functions are NOT mocked — the point of these tests is that the
+// needle lands where the real mapping says it should.
+//
+// The store is hand-rolled rather than svelte/store's `writable`: the hoisted
+// block executes before this file's imports are initialized, so referencing an
+// imported binding in here throws "Cannot access before initialization".
+const { rmsL, rmsR } = vi.hoisted(() => {
+  function mini(initial: number) {
+    let value = initial;
+    const subs = new Set<(v: number) => void>();
+    return {
+      subscribe(fn: (v: number) => void) {
+        subs.add(fn);
+        fn(value);
+        return () => {
+          subs.delete(fn);
+        };
+      },
+      set(v: number) {
+        value = v;
+        subs.forEach((fn) => fn(value));
+      },
+    };
+  }
+  return { rmsL: mini(0), rmsR: mini(0) };
+});
+
+vi.mock('$lib/stores/spectrum', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('$lib/stores/spectrum')>();
   return {
-    vuLevelL: writable(0),
-    vuLevelR: writable(0),
+    ...actual,
+    vuRmsL: rmsL as Readable<number>,
+    vuRmsR: rmsR as Readable<number>,
   };
 });
 
-vi.mock('$lib/stores/spectrum', () => ({
-  vuLevelL: mocks.vuLevelL,
-  vuLevelR: mocks.vuLevelR,
-}));
-
 import VuMeterView from '../VuMeterView.svelte';
+import {
+  rmsToMeterDb,
+  meterDbToAngle,
+  SCALE_POINTS_DB,
+  ANGLE_MIN_DEG,
+  SWEEP_DEG,
+} from '$lib/stores/spectrum';
 
-// RAF shim — capture callbacks and let tests flush them on demand.
+// ── RAF shim ─────────────────────────────────────────────────────────────
 let rafCallbacks: FrameRequestCallback[] = [];
 let rafTime = 0;
+
 function flushRAF(advanceMs = 16) {
   rafTime += advanceMs;
-  const due = rafCallbacks;
+  const pending = rafCallbacks;
   rafCallbacks = [];
-  due.forEach((cb) => cb(rafTime));
+  pending.forEach((cb) => cb(rafTime));
+}
+
+function mockReducedMotion(matches: boolean) {
+  vi.stubGlobal(
+    'matchMedia',
+    vi.fn().mockReturnValue({
+      matches,
+      media: '(prefers-reduced-motion: reduce)',
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }),
+  );
+}
+
+/** Pulls the degrees out of `rotate(<deg> <cx> <cy>)`. */
+function needleAngle(container: HTMLElement, channel: 'l' | 'r'): number {
+  const g = container.querySelector(`[data-testid="vu-meter-${channel}-needle"]`);
+  expect(g).not.toBeNull();
+  const transform = g!.getAttribute('transform') ?? '';
+  const m = /rotate\(\s*(-?[\d.]+)/.exec(transform);
+  expect(m, `unparsable transform: ${transform}`).not.toBeNull();
+  return parseFloat(m![1]);
 }
 
 beforeEach(() => {
   rafCallbacks = [];
   rafTime = 0;
+  rmsL.set(0);
+  rmsR.set(0);
   vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
     rafCallbacks.push(cb);
     return rafCallbacks.length;
   });
-  vi.stubGlobal('cancelAnimationFrame', () => {});
-  mocks.vuLevelL.set(0);
-  mocks.vuLevelR.set(0);
+  vi.stubGlobal('cancelAnimationFrame', vi.fn());
+  mockReducedMotion(false);
 });
 
 afterEach(() => {
@@ -45,88 +104,127 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function mockReducedMotion(matches: boolean) {
-  vi.stubGlobal('matchMedia', (query: string) => ({
-    matches: query === '(prefers-reduced-motion: reduce)' ? matches : false,
-    media: query,
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-    addListener: vi.fn(),
-    removeListener: vi.fn(),
-    dispatchEvent: vi.fn(),
-    onchange: null,
-  }));
-}
-
-describe('VuMeterView', () => {
-  it('renders root, L, and R test-ids', () => {
-    mockReducedMotion(true);
+describe('VuMeterView structure', () => {
+  it('renders the view and both channel meters', () => {
     const { getByTestId } = render(VuMeterView);
     expect(getByTestId('vu-meter-view')).toBeTruthy();
     expect(getByTestId('vu-meter-l')).toBeTruthy();
     expect(getByTestId('vu-meter-r')).toBeTruthy();
   });
 
-  it('renders exactly 40 segments per bar', () => {
-    mockReducedMotion(true);
+  it('engraves exactly the labelled scale points on each face', () => {
+    const { getByTestId } = render(VuMeterView);
+    for (const channel of ['l', 'r'] as const) {
+      const face = getByTestId(`vu-meter-${channel}`);
+      const numerals = Array.from(face.querySelectorAll('.numerals text')).map(
+        (t) => t.textContent,
+      );
+      expect(numerals).toEqual(SCALE_POINTS_DB.map(String));
+      expect(face.querySelectorAll('.ticks line')).toHaveLength(SCALE_POINTS_DB.length);
+    }
+  });
+
+  it('exposes each channel as a meter reading in dB', () => {
+    const { getByTestId } = render(VuMeterView);
+    const l = getByTestId('vu-meter-l');
+    expect(l.getAttribute('role')).toBe('meter');
+    expect(Number(l.getAttribute('aria-valuemin'))).toBe(SCALE_POINTS_DB[0]);
+    expect(Number(l.getAttribute('aria-valuemax'))).toBeGreaterThan(0);
+    expect(getByTestId('vu-meter-r').getAttribute('aria-label')).toMatch(/RIGHT/);
+  });
+});
+
+describe('VuMeterView needle position (reduced motion — no ballistics)', () => {
+  beforeEach(() => mockReducedMotion(true));
+
+  it('rests at the left end stop on silence', () => {
     const { container } = render(VuMeterView);
-    const lSegments = container.querySelectorAll('[data-testid^="vu-meter-l-segment-"]');
-    const rSegments = container.querySelectorAll('[data-testid^="vu-meter-r-segment-"]');
-    expect(lSegments).toHaveLength(40);
-    expect(rSegments).toHaveLength(40);
+    expect(needleAngle(container, 'l')).toBeCloseTo(ANGLE_MIN_DEG, 2);
+    expect(needleAngle(container, 'r')).toBeCloseTo(ANGLE_MIN_DEG, 2);
   });
 
-  describe('reduced motion (synchronous off-frame)', () => {
-    beforeEach(() => mockReducedMotion(true));
-
-    it('lights all L segments when vuLevelL = 1.0', async () => {
-      const { container } = render(VuMeterView);
-      mocks.vuLevelL.set(1.0);
-      await tick();
-      const lit = container.querySelectorAll('[data-testid^="vu-meter-l-segment-"].lit');
-      expect(lit).toHaveLength(40);
-    });
-
-    it('lights zero L segments when vuLevelL = 0', async () => {
-      const { container } = render(VuMeterView);
-      mocks.vuLevelL.set(0);
-      await tick();
-      const lit = container.querySelectorAll('[data-testid^="vu-meter-l-segment-"].lit');
-      expect(lit).toHaveLength(0);
-    });
-
-    it('lights ~half of R segments when vuLevelR = 0.5', async () => {
-      const { container } = render(VuMeterView);
-      mocks.vuLevelR.set(0.5);
-      await tick();
-      const lit = container.querySelectorAll('[data-testid^="vu-meter-r-segment-"].lit');
-      // 40 segments, i/40 < 0.5 → i in 0..19 → 20 lit
-      expect(lit).toHaveLength(20);
-    });
+  it('lands on the angle the calibrated scale mapping dictates', async () => {
+    const { container } = render(VuMeterView);
+    const rms = 0.12589254; // −18 dBFS → −6 on the calibrated face
+    rmsL.set(rms);
+    await Promise.resolve();
+    expect(needleAngle(container, 'l')).toBeCloseTo(meterDbToAngle(-6), 2);
   });
 
-  describe('animated mode (RAF smoothing)', () => {
-    beforeEach(() => mockReducedMotion(false));
+  it('drives the two channels independently', async () => {
+    const { container } = render(VuMeterView);
+    rmsL.set(0.25118864); // −12 dBFS → 0 dB on the face
+    rmsR.set(0);
+    await Promise.resolve();
+    expect(needleAngle(container, 'l')).toBeCloseTo(ANGLE_MIN_DEG + SWEEP_DEG, 2);
+    expect(needleAngle(container, 'r')).toBeCloseTo(ANGLE_MIN_DEG, 2);
+  });
 
-    it('lit-segment count increases monotonically as RAF advances toward target', async () => {
-      const { container } = render(VuMeterView);
-      mocks.vuLevelL.set(1.0);
-      await tick();
+  it('overshoots past the 0 dB tick at full scale instead of pinning on it', async () => {
+    const { container } = render(VuMeterView);
+    rmsL.set(1.0);
+    await Promise.resolve();
+    expect(needleAngle(container, 'l')).toBeGreaterThan(ANGLE_MIN_DEG + SWEEP_DEG);
+  });
+});
 
-      const counts: number[] = [];
-      for (let i = 0; i < 8; i++) {
-        flushRAF(16);
-        await tick();
-        counts.push(
-          container.querySelectorAll('[data-testid^="vu-meter-l-segment-"].lit').length,
-        );
-      }
-      // Smoothing approaches 1.0 — each successive sample is ≥ the previous,
-      // and the final value is strictly greater than the first.
-      for (let i = 1; i < counts.length; i++) {
-        expect(counts[i]).toBeGreaterThanOrEqual(counts[i - 1]);
-      }
-      expect(counts[counts.length - 1]).toBeGreaterThan(counts[0]);
-    });
+describe('VuMeterView ballistics', () => {
+  it('rises smoothly towards the target rather than snapping to it', async () => {
+    const { container } = render(VuMeterView);
+    const target = meterDbToAngle(rmsToMeterDb(0.5));
+
+    rmsL.set(0.5);
+    await Promise.resolve();
+
+    // First frame must NOT already be at the target — that would mean the
+    // 300 ms integration is not being applied.
+    flushRAF(16);
+    await Promise.resolve();
+    const first = needleAngle(container, 'l');
+    expect(first).toBeLessThan(target);
+    expect(first).toBeGreaterThan(ANGLE_MIN_DEG);
+
+    let prev = first;
+    for (let i = 0; i < 8; i++) {
+      flushRAF(16);
+      await Promise.resolve();
+      const now = needleAngle(container, 'l');
+      expect(now).toBeGreaterThanOrEqual(prev);
+      prev = now;
+    }
+    expect(prev).toBeGreaterThan(first);
+    expect(prev).toBeLessThanOrEqual(target + 1e-6);
+  });
+
+  it('settles on the target after several time constants', async () => {
+    const { container } = render(VuMeterView);
+    const target = meterDbToAngle(rmsToMeterDb(0.5));
+
+    rmsL.set(0.5);
+    await Promise.resolve();
+    // ~1.6 s ≈ 5τ → >99% of full deflection.
+    for (let i = 0; i < 100; i++) {
+      flushRAF(16);
+    }
+    await Promise.resolve();
+    expect(needleAngle(container, 'l')).toBeCloseTo(target, 1);
+  });
+
+  it('falls back towards rest when the signal stops', async () => {
+    const { container } = render(VuMeterView);
+    rmsL.set(0.5);
+    await Promise.resolve();
+    for (let i = 0; i < 100; i++) flushRAF(16);
+    await Promise.resolve();
+    const loud = needleAngle(container, 'l');
+
+    rmsL.set(0);
+    await Promise.resolve();
+    for (let i = 0; i < 10; i++) flushRAF(16);
+    await Promise.resolve();
+    const quieter = needleAngle(container, 'l');
+
+    expect(quieter).toBeLessThan(loud);
+    expect(quieter).toBeGreaterThan(ANGLE_MIN_DEG);
   });
 });
