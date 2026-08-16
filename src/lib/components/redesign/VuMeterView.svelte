@@ -101,9 +101,15 @@
   const RULE_X1 = VB_W - RULE_X0;
   const UNIT_Y = 262;
 
-  // How far the bezel-lip shadow reaches in from each edge.
-  const LIP_TOP = VB_H * 0.45;
-  const LIP_SIDE = VB_W * 0.1;
+  // How far the recess shading reaches in from the top and from each wall.
+  // The two side figures differ because the walls are not lit alike — see the
+  // lighting model below.
+  // The top wash runs the FULL height. Stopping it partway leaves a horizontal
+  // seam where the gradient ends, which reads as a painted band rather than as
+  // light falling off; the eye finds that edge long before it notices depth.
+  const LIP_TOP = VB_H;
+  const LIP_OUTER_W = VB_W * 0.34;
+  const LIP_INNER_W = VB_W * 0.1;
 
   /**
    * Where the needle ray at `deg` crosses the horizontal row `y`.
@@ -138,28 +144,80 @@
     'Z',
   ].join(' ');
 
-  // The band running alongside the pointer — the pointer's own shadow cast on
-  // the faceplate, a light transparent grey. It rides INSIDE the rotation, so
-  // it stays welded to the blade the way a contact shadow does.
-  const SHADOW_C = CX - 5.0;
-  const SHADOW_HW = 5.0;
+  /**
+   * The pointer's shadow, cast on the faceplate below it.
+   *
+   * Drawn centred on the blade and then DISPLACED bodily in world space by the
+   * cast-shadow group, rather than painted as an off-centre band inside the
+   * rotation. That distinction is the entire depth cue: a shadow welded
+   * alongside the blade reads as a contact shadow — the needle lying flat on
+   * the card — whereas a rigid translate away from the light is what a
+   * pointer floating clear of the card actually casts. Since the needle and
+   * its hub sit at one height, that displacement is constant, which is why a
+   * single translate on a parent group is enough.
+   *
+   * Half-width is roughly three times the blade's, as a penumbra widens with
+   * height, and the fill is correspondingly softer and lighter than a contact
+   * shadow would be.
+   */
+  const SHADOW_HW = 7.5;
   const shadowPath = [
-    `M ${SHADOW_C - SHADOW_HW} ${CY + TAIL}`,
-    `L ${SHADOW_C - SHADOW_HW} ${CY - R_NEEDLE}`,
-    `L ${SHADOW_C + SHADOW_HW} ${CY - R_NEEDLE}`,
-    `L ${SHADOW_C + SHADOW_HW} ${CY + TAIL}`,
+    `M ${CX - SHADOW_HW} ${CY + TAIL}`,
+    `L ${CX - SHADOW_HW} ${CY - R_NEEDLE}`,
+    `L ${CX + SHADOW_HW} ${CY - R_NEEDLE}`,
+    `L ${CX + SHADOW_HW} ${CY + TAIL}`,
     'Z',
   ].join(' ');
 
-  // Specular highlight on the hub ball, up-left of centre, matching the light.
-  const HI_X = CX - HUB_R * 0.34;
   const HI_Y = CY - HUB_R * 0.46;
+
+  /**
+   * One lamp, centred BETWEEN the two plates and set above them.
+   *
+   * Everything directional is mirrored per channel off this: highlights face
+   * inward towards the light, recess shading and cast shadows fall outward.
+   * That mirroring, more than any individual gradient, is what tells the eye
+   * where the lamp is — lighting both plates from the same corner (which is
+   * what this did before) reads as two photographs of one meter rather than
+   * one object lit once, and no amount of tuning a single plate fixes it.
+   *
+   * `lit` is the x-direction from a plate towards the light in viewBox terms:
+   * the LEFT plate is lit from its right (+1), the RIGHT plate from its left
+   * (−1). Every asymmetry below is derived from that one number, so the pair
+   * cannot drift out of agreement.
+   */
+  const ELEV_X = 11; // horizontal throw of the front-plane cast shadow…
+  const ELEV_Y = 4; //  …and its much smaller drop, the lamp being high.
+
+  function lighting(lit: 1 | -1) {
+    return {
+      // objectBoundingBox u of the lit edge and of the far one. Gradients that
+      // brighten towards the light run uLit → uDark; ones that darken away
+      // from it run the other way.
+      uLit: lit > 0 ? 1 : 0,
+      uDark: lit > 0 ? 0 : 1,
+      shX: -lit * ELEV_X,
+      outerX: lit > 0 ? 0 : VB_W - LIP_OUTER_W,
+      innerX: lit > 0 ? VB_W - LIP_INNER_W : 0,
+      // Sphere shading: highlight towards the light, terminator away from it.
+      ballCx: 0.5 + lit * 0.1,
+      termX1: lit > 0 ? 0.88 : 0.12,
+      termX2: lit > 0 ? 0.06 : 0.94,
+      hiX: CX + lit * HUB_R * 0.34,
+      hiTilt: lit > 0 ? 26 : -26,
+    };
+  }
+
+  type Lighting = ReturnType<typeof lighting>;
+
+  const LIGHT_L = lighting(1);
+  const LIGHT_R = lighting(-1);
 
   const AXIS_MIN = SCALE_POINTS_DB[0];
   const AXIS_MAX = SCALE_POINTS_DB[SCALE_POINTS_DB.length - 1] + OVERSHOOT_DB;
 </script>
 
-{#snippet meter(channel: string, label: string, angle: number, db: number)}
+{#snippet meter(channel: string, label: string, angle: number, db: number, L: Lighting)}
   <div
     class="vu-meter"
     data-testid="vu-meter-{channel}"
@@ -173,12 +231,12 @@
     <div class="vu-plate" style="aspect-ratio: {VB_W} / {VB_H}">
       <svg viewBox="0 0 {VB_W} {VB_H}" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
         <defs>
-          <!-- Near-white cool faceplate, only a shade off white and brightest
-               through the middle. -->
-          <linearGradient id="vu-face-{channel}" x1="0" y1="0" x2="0.18" y2="1">
-            <stop offset="0%" stop-color="#F6F8F9" />
-            <stop offset="46%" stop-color="#EDF0F2" />
-            <stop offset="100%" stop-color="#E2E7EA" />
+          <!-- Near-white cool faceplate, brightest at the top corner nearest
+               the lamp and falling away across the card towards the far one. -->
+          <linearGradient id="vu-face-{channel}" x1={L.uLit} y1="0" x2={L.uDark} y2="0.85">
+            <stop offset="0%" stop-color="#F8FAFC" />
+            <stop offset="42%" stop-color="#EFF2F5" />
+            <stop offset="100%" stop-color="#DDE3E8" />
           </linearGradient>
 
           <!-- Fine diagonal weave in the card stock, just at the edge of visible. -->
@@ -200,8 +258,9 @@
             />
           </pattern>
 
-          <!-- Soft diagonal sheen off the cover glass. -->
-          <linearGradient id="vu-sheen-{channel}" x1="0" y1="0" x2="1" y2="0.6">
+          <!-- Soft diagonal sheen off the cover glass, entering from the lamp
+               side. -->
+          <linearGradient id="vu-sheen-{channel}" x1={L.uLit} y1="0" x2={L.uDark} y2="0.6">
             <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.26" />
             <stop offset="38%" stop-color="#FFFFFF" stop-opacity="0.05" />
             <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
@@ -209,21 +268,28 @@
 
           <!-- The hub is a BALL bisected by the bottom edge, not a flat disc,
                but a PALE one: a near-white dome ringed by a bright rim rather
-               than a strongly modelled sphere. Light from the upper left. -->
-          <radialGradient id="vu-ball-{channel}" cx="0.40" cy="0.26" r="0.82">
+               than a strongly modelled sphere. Being the most obviously
+               three-dimensional thing on the plate, it is also where a
+               mis-aimed light is most obvious — so its shading centre, its
+               terminator and its specular all swing with `lit`. -->
+          <radialGradient id="vu-ball-{channel}" cx={L.ballCx} cy="0.26" r="0.82">
             <stop offset="0%" stop-color="#FFFFFF" />
             <stop offset="38%" stop-color="#FAFCFD" />
             <stop offset="72%" stop-color="#EAEFF2" />
             <stop offset="100%" stop-color="#D5DDE3" />
           </radialGradient>
-          <radialGradient id="vu-ball-ao-{channel}" cx="0.5" cy="0.5" r="0.5">
-            <stop offset="0%" stop-color="#0E1620" stop-opacity="0" />
-            <stop offset="82%" stop-color="#0E1620" stop-opacity="0" />
-            <stop offset="88%" stop-color="#0E1620" stop-opacity="0.11" />
+          <!-- Soft cast shadow of the elevated hub. This replaces the contact
+               ambient-occlusion ring that used to hug the ball: a hub floating
+               clear of the card has nothing to occlude against, so a ring there
+               would flatten it back down onto the print. -->
+          <radialGradient id="vu-hub-shadow-{channel}" cx="0.5" cy="0.5" r="0.5">
+            <stop offset="0%" stop-color="#0E1620" stop-opacity="0.22" />
+            <stop offset="50%" stop-color="#0E1620" stop-opacity="0.20" />
+            <stop offset="72%" stop-color="#0E1620" stop-opacity="0.10" />
             <stop offset="100%" stop-color="#0E1620" stop-opacity="0" />
           </radialGradient>
           <!-- Terminator: the far side of the sphere falls away from the light. -->
-          <linearGradient id="vu-ball-term-{channel}" x1="0.12" y1="0.06" x2="0.94" y2="0.92">
+          <linearGradient id="vu-ball-term-{channel}" x1={L.termX1} y1="0.06" x2={L.termX2} y2="0.92">
             <stop offset="0%" stop-color="#6C7883" stop-opacity="0" />
             <stop offset="60%" stop-color="#6C7883" stop-opacity="0" />
             <stop offset="100%" stop-color="#6C7883" stop-opacity="0.22" />
@@ -241,14 +307,14 @@
           <linearGradient
             id="vu-needle-shadow-{channel}"
             gradientUnits="userSpaceOnUse"
-            x1={SHADOW_C - SHADOW_HW}
+            x1={CX - SHADOW_HW}
             y1="0"
-            x2={SHADOW_C + SHADOW_HW}
+            x2={CX + SHADOW_HW}
             y2="0"
           >
             <stop offset="0%" stop-color="#6E7A85" stop-opacity="0" />
-            <stop offset="45%" stop-color="#6E7A85" stop-opacity="0.30" />
-            <stop offset="80%" stop-color="#6E7A85" stop-opacity="0.22" />
+            <stop offset="28%" stop-color="#6E7A85" stop-opacity="0.24" />
+            <stop offset="72%" stop-color="#6E7A85" stop-opacity="0.24" />
             <stop offset="100%" stop-color="#6E7A85" stop-opacity="0" />
           </linearGradient>
 
@@ -269,21 +335,40 @@
           </linearGradient>
 
           <!-- Recess shading. The plate sits behind the screen surface, so the
-               opening drops a shadow onto it — deepest along the top, a touch
-               down each side. Drawn inside the SVG because a CSS inset shadow
-               paints UNDER child content and would be hidden by the face. -->
+               opening drops a shadow onto it. With the lamp centred between the
+               plates and high, that shadow is deepest along the TOP of both and
+               down the OUTER wall of each — the inner wall faces the light and
+               only picks up a whisper. Drawn inside the SVG because a CSS inset
+               shadow paints UNDER child content and would be hidden by the face.
+
+               The outer band is deliberately wide and slow (26% of the plate),
+               because it is the gradual falloff, not the depth at the wall, that
+               reads as a light some distance away rather than a painted edge. -->
           <linearGradient id="vu-lip-top-{channel}" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#08111A" stop-opacity="0.18" />
-            <stop offset="6%" stop-color="#08111A" stop-opacity="0.05" />
+            <stop offset="0%" stop-color="#08111A" stop-opacity="0.30" />
+            <stop offset="12%" stop-color="#08111A" stop-opacity="0.15" />
+            <stop offset="42%" stop-color="#08111A" stop-opacity="0.05" />
             <stop offset="100%" stop-color="#08111A" stop-opacity="0" />
           </linearGradient>
-          <linearGradient id="vu-lip-left-{channel}" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stop-color="#08111A" stop-opacity="0.09" />
+          <linearGradient id="vu-lip-outer-{channel}" x1={L.uDark} y1="0" x2={L.uLit} y2="0">
+            <stop offset="0%" stop-color="#08111A" stop-opacity="0.24" />
+            <stop offset="35%" stop-color="#08111A" stop-opacity="0.10" />
+            <stop offset="70%" stop-color="#08111A" stop-opacity="0.03" />
             <stop offset="100%" stop-color="#08111A" stop-opacity="0" />
           </linearGradient>
-          <linearGradient id="vu-lip-right-{channel}" x1="1" y1="0" x2="0" y2="0">
-            <stop offset="0%" stop-color="#08111A" stop-opacity="0.09" />
+          <linearGradient id="vu-lip-inner-{channel}" x1={L.uLit} y1="0" x2={L.uDark} y2="0">
+            <stop offset="0%" stop-color="#08111A" stop-opacity="0.06" />
             <stop offset="100%" stop-color="#08111A" stop-opacity="0" />
+          </linearGradient>
+
+          <!-- The near-white hairline round the opening: the front-most surface
+               catching the lamp directly. Brightest at the corner facing the
+               light and fading round to the far one, which is what stops it
+               reading as a drawn outline. -->
+          <linearGradient id="vu-bevel-{channel}" x1={L.uLit} y1="0" x2={L.uDark} y2="1">
+            <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.95" />
+            <stop offset="55%" stop-color="#FFFFFF" stop-opacity="0.55" />
+            <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0.28" />
           </linearGradient>
         </defs>
 
@@ -325,38 +410,62 @@
 
         <text class="unit" x={CX} y={UNIT_Y}>dB</text>
 
+        <!-- Shadow of the whole front-plane assembly — needle AND hub together,
+             since they sit at one height. Displaced bodily away from the lamp
+             rather than drawn against the blade; that displacement, read against
+             the ~5-unit width of the pointer it belongs to, is what sets how far
+             proud of the printed card the assembly appears. The inner group
+             carries the same rotation as the needle, so the shadow swings with
+             it while the offset stays put. -->
+        <g class="cast-shadow" transform="translate({L.shX} {ELEV_Y})">
+          <!-- Comfortably wider than the ball: the shadow is only visible where
+               it clears the ball's own silhouette, so a radius that merely
+               matches it shows nothing at all once the group is displaced. -->
+          <circle cx={CX} cy={CY} r={HUB_R * 1.4} fill="url(#vu-hub-shadow-{channel})" />
+          <g transform="rotate({angle.toFixed(3)} {CX} {CY})">
+            <path d={shadowPath} fill="url(#vu-needle-shadow-{channel})" />
+          </g>
+        </g>
+
         <g
           class="needle-pivot"
           data-testid="vu-meter-{channel}-needle"
           transform="rotate({angle.toFixed(3)} {CX} {CY})"
         >
-          <path d={shadowPath} fill="url(#vu-needle-shadow-{channel})" />
           <path class="needle" d={needlePath} />
         </g>
 
         <!-- Ball drawn AFTER the needle so the pointer emerges from under it. -->
-        <circle cx={CX} cy={CY} r={HUB_R * 1.18} fill="url(#vu-ball-ao-{channel})" />
         <circle cx={CX} cy={CY} r={HUB_R} fill="url(#vu-ball-{channel})" />
         <circle cx={CX} cy={CY} r={HUB_R} fill="url(#vu-ball-term-{channel})" />
         <circle class="hub-ring-out" cx={CX} cy={CY} r={HUB_R} />
         <circle class="hub-ring-in" cx={CX} cy={CY} r={HUB_R - 1.6} />
         <ellipse
-          cx={HI_X}
+          cx={L.hiX}
           cy={HI_Y}
           rx={HUB_R * 0.34}
           ry={HUB_R * 0.21}
-          transform="rotate(-26 {HI_X} {HI_Y})"
+          transform="rotate({L.hiTilt} {L.hiX} {HI_Y})"
           fill="url(#vu-ball-hi-{channel})"
         />
 
         <rect width={VB_W} height={VB_H} fill="url(#vu-sheen-{channel})" />
         <rect width={VB_W} height={LIP_TOP} fill="url(#vu-lip-top-{channel})" />
-        <rect width={LIP_SIDE} height={VB_H} fill="url(#vu-lip-left-{channel})" />
+        <rect x={L.outerX} width={LIP_OUTER_W} height={VB_H} fill="url(#vu-lip-outer-{channel})" />
+        <rect x={L.innerX} width={LIP_INNER_W} height={VB_H} fill="url(#vu-lip-inner-{channel})" />
+
+        <!-- Last of all, over the sheen and the recess shading: the bright edge
+             is the surface nearest the viewer, so nothing may wash over it.
+             rx matches .vu-plate's 6px border-radius through the viewBox scale,
+             or `overflow: hidden` would clip square corners off it. -->
         <rect
-          x={VB_W - LIP_SIDE}
-          width={LIP_SIDE}
-          height={VB_H}
-          fill="url(#vu-lip-right-{channel})"
+          class="bevel"
+          x="0.9"
+          y="0.9"
+          width={VB_W - 1.8}
+          height={VB_H - 1.8}
+          rx="5"
+          stroke="url(#vu-bevel-{channel})"
         />
       </svg>
     </div>
@@ -364,8 +473,8 @@
 {/snippet}
 
 <div class="vu-meter-view" data-testid="vu-meter-view">
-  {@render meter('l', 'LEFT', angleL, dbL)}
-  {@render meter('r', 'RIGHT', angleR, dbR)}
+  {@render meter('l', 'LEFT', angleL, dbL, LIGHT_L)}
+  {@render meter('r', 'RIGHT', angleR, dbR, LIGHT_R)}
 </div>
 
 <style>
@@ -429,7 +538,7 @@
     overflow: hidden;
     box-shadow:
       0 0 0 1px rgba(0, 0, 0, 0.9),
-      0 1px 0 rgba(255, 255, 255, 0.1),
+      0 1px 0 rgba(255, 255, 255, 0.14),
       0 16px 36px rgba(0, 0, 0, 0.6);
   }
 
@@ -501,6 +610,11 @@
 
   .needle {
     fill: #e03b32;
+  }
+
+  .bevel {
+    fill: none;
+    stroke-width: 1.8;
   }
 
   .hub-ring-in {

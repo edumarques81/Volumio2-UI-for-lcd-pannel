@@ -124,6 +124,37 @@ describe('VuMeterView structure', () => {
     }
   });
 
+  it('lights the pair from a single source between them', () => {
+    // The two plates must read as ONE object lit once, not as two copies of the
+    // same photograph. Shadows fall away from the light, so a lamp centred
+    // between the plates throws the left plate's shadow left and the right
+    // plate's right; equal-sign offsets would mean two separately-lit
+    // instruments, which is the flatness this design round exists to fix.
+    const { getByTestId } = render(VuMeterView);
+    const shadowX = (channel: 'l' | 'r') => {
+      const g = getByTestId(`vu-meter-${channel}`).querySelector('.cast-shadow');
+      expect(g, `no cast-shadow group on ${channel}`).not.toBeNull();
+      const transform = g!.getAttribute('transform') ?? '';
+      const m = /translate\(\s*(-?[\d.]+)/.exec(transform);
+      expect(m, `unparsable transform: ${transform}`).not.toBeNull();
+      return parseFloat(m![1]);
+    };
+
+    expect(shadowX('l')).toBeLessThan(0);
+    expect(shadowX('r')).toBeGreaterThan(0);
+    expect(shadowX('l')).toBeCloseTo(-shadowX('r'), 6);
+  });
+
+  it('displaces the cast shadow far enough to read as a raised pointer', () => {
+    // A shadow hugging the blade is a CONTACT shadow — the needle lying on the
+    // card. The offset has to be several blade-widths for the assembly to sit
+    // in front of the print, which is the whole point of the separate group.
+    const { getByTestId } = render(VuMeterView);
+    const g = getByTestId('vu-meter-l').querySelector('.cast-shadow');
+    const m = /translate\(\s*(-?[\d.]+)/.exec(g!.getAttribute('transform') ?? '');
+    expect(Math.abs(parseFloat(m![1]))).toBeGreaterThan(9);
+  });
+
   it('exposes each channel as a meter reading in dB', () => {
     const { getByTestId } = render(VuMeterView);
     const l = getByTestId('vu-meter-l');
