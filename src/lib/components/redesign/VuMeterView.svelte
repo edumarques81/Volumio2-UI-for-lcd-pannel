@@ -27,7 +27,46 @@
 
   const TAU_MS = 300; // RMS integration time-constant (classic-VU spec)
 
-  // Linear amplitude, 0..1 — the physical analogue of coil current.
+  /**
+   * Render cadence, fps. The integrator is exact at any rate (`alpha` is
+   * derived from the measured `dt`), so this trades only visual smoothness.
+   *
+   * Measured on the Pi kiosk 2026-08-17: an unthrottled needle costs ~110% CPU
+   * summed across Chromium's 13 processes, against 6.4% for the Player view —
+   * and hiding the needle alone drops it to 14%. SVG has no per-element
+   * compositing, so every `rotate()` write re-rasterises the whole plate; the
+   * cost is therefore linear in writes per second, and halving them halves it.
+   * 30 fps is still three frames per 100 ms, well inside a 300 ms movement.
+   */
+  const RENDER_FPS = 30;
+  const MIN_FRAME_MS = 1000 / RENDER_FPS - 1; // −1 so a 60 Hz vsync beats 2:1
+
+  /**
+   * Smallest needle movement worth writing to the DOM, degrees.
+   *
+   * At R_NEEDLE = 252 viewBox units on a plate that scales to ~1.09 px/unit,
+   * one degree of sweep is ~4.8 px at the tip, so 0.03° is ~0.14 px — under a
+   * seventh of a pixel, and invisible. Without this the exponential tail never
+   * lands on its target and the needle keeps repainting the plate forever at
+   * amplitudes far below what the panel can resolve.
+   */
+  const ANGLE_EPSILON_DEG = 0.03;
+
+  /**
+   * Linear-amplitude deadband at which the coil is declared settled and snapped
+   * exactly onto the target, ending the write stream entirely. 1e-4 is ~2.6 s
+   * of settling from a full-scale step — long past the point the needle has
+   * visibly stopped.
+   */
+  const REST_EPSILON = 1e-4;
+
+  // The coil: plain variables, deliberately NOT $state. The physics integrates
+  // every frame; the DOM only hears about it when the result would move the
+  // needle by something the screen can show.
+  let coilL = 0;
+  let coilR = 0;
+
+  // Linear amplitude, 0..1 — what the needles are actually drawn from.
   let displayedL = $state(0);
   let displayedR = $state(0);
   let raf = 0;
@@ -40,13 +79,34 @@
   const angleL = $derived(meterDbToAngle(dbL));
   const angleR = $derived(meterDbToAngle(dbR));
 
+  /** Angle the coil is currently at, independent of what the DOM shows. */
+  function coilAngle(v: number): number {
+    return meterDbToAngle(rmsToMeterDb(v));
+  }
+
   function tick(t: number) {
     raf = requestAnimationFrame(tick);
+    if (lastT && t - lastT < MIN_FRAME_MS) return;
     const dt = lastT ? t - lastT : 16;
     lastT = t;
     const alpha = 1 - Math.exp(-dt / TAU_MS);
-    displayedL += ($vuRmsL - displayedL) * alpha;
-    displayedR += ($vuRmsR - displayedR) * alpha;
+
+    coilL += ($vuRmsL - coilL) * alpha;
+    coilR += ($vuRmsR - coilR) * alpha;
+
+    // Snapping on arrival is what actually stops the repaints: an exponential
+    // approach is asymptotic, so without it `displayed` chases `target` for the
+    // rest of the track. The snap is also why the settled needle sits on the
+    // exact target rather than an epsilon short of it.
+    if (Math.abs($vuRmsL - coilL) < REST_EPSILON) coilL = $vuRmsL;
+    if (Math.abs($vuRmsR - coilR) < REST_EPSILON) coilR = $vuRmsR;
+
+    if (coilL === $vuRmsL || Math.abs(coilAngle(coilL) - angleL) >= ANGLE_EPSILON_DEG) {
+      displayedL = coilL;
+    }
+    if (coilR === $vuRmsR || Math.abs(coilAngle(coilR) - angleR) >= ANGLE_EPSILON_DEG) {
+      displayedR = coilR;
+    }
   }
 
   onMount(() => {
@@ -64,8 +124,8 @@
   // off the store at the 20 fps push cadence.
   $effect(() => {
     if (reducedMotion) {
-      displayedL = $vuRmsL;
-      displayedR = $vuRmsR;
+      coilL = displayedL = $vuRmsL;
+      coilR = displayedR = $vuRmsR;
     }
   });
 
@@ -554,6 +614,21 @@
     height: 100%;
     display: block;
     font-family: 'Helvetica Neue', Piboto, Roboto, 'Nimbus Sans', Helvetica, Arial, sans-serif;
+  }
+
+  /*
+   * The only two groups whose transform changes per frame. Promoting them to
+   * their own compositor layers means a needle move re-rasterises the needle,
+   * not the whole faceplate underneath it — measured on the Pi kiosk as a third
+   * off the view's CPU (110% → 74%) with no visual change whatsoever.
+   *
+   * `will-change` is used sparingly and deliberately here: it costs GPU memory
+   * per layer, which is only worth paying for something that genuinely animates
+   * on every frame for as long as the view is open. That is exactly these two.
+   */
+  .needle-pivot,
+  .cast-shadow {
+    will-change: transform;
   }
 
   /* Ink on the faceplate is black, only faintly cooled — the reference prints

@@ -244,6 +244,59 @@ describe('VuMeterView ballistics', () => {
     expect(needleAngle(container, 'l')).toBeCloseTo(target, 1);
   });
 
+  it('lands exactly on the target and then stops writing', async () => {
+    // The exponential approach is asymptotic, so without an explicit snap the
+    // needle chases its target for the rest of the track — repainting the whole
+    // plate every frame at amplitudes far below one pixel. This is the single
+    // biggest cost in the view (measured on the Pi kiosk: hiding the needle
+    // took it from ~110% CPU to 14%), so "settled means silent" is a
+    // performance contract, not a cosmetic one.
+    const { container } = render(VuMeterView);
+    const target = meterDbToAngle(rmsToMeterDb(0.5));
+
+    rmsL.set(0.5);
+    await Promise.resolve();
+    for (let i = 0; i < 600; i++) flushRAF(16);
+    await Promise.resolve();
+
+    // On target, not an epsilon short of it. Precision 2 is the floor the
+    // transform itself can express — it is written with toFixed(3).
+    expect(needleAngle(container, 'l')).toBeCloseTo(target, 2);
+
+    const settled = container
+      .querySelector('[data-testid="vu-meter-l-needle"]')!
+      .getAttribute('transform');
+    for (let i = 0; i < 60; i++) flushRAF(16);
+    await Promise.resolve();
+    expect(
+      container.querySelector('[data-testid="vu-meter-l-needle"]')!.getAttribute('transform'),
+    ).toBe(settled);
+  });
+
+  it('renders at a capped rate rather than once per animation frame', async () => {
+    // Every needle write re-rasterises the plate (SVG has no per-element
+    // compositing), so the view's cost is linear in writes per second. The
+    // integrator stays exact — alpha is derived from the measured dt — so this
+    // trades only smoothness, and 30 fps is still three frames inside the
+    // 300 ms movement.
+    const { container } = render(VuMeterView);
+    rmsL.set(0.5);
+    await Promise.resolve();
+
+    const seen = new Set<string>();
+    for (let i = 0; i < 60; i++) {
+      flushRAF(16); // 60 vsyncs ≈ 960 ms
+      await Promise.resolve(); // Svelte flushes effects on the microtask queue
+      seen.add(
+        container.querySelector('[data-testid="vu-meter-l-needle"]')!.getAttribute('transform')!,
+      );
+    }
+    // Under 960 ms of 60 Hz vsync a capped-at-30 needle cannot produce more
+    // than ~30 distinct positions; an uncapped one would produce ~60.
+    expect(seen.size).toBeGreaterThan(4); // still animating, not frozen
+    expect(seen.size).toBeLessThanOrEqual(32);
+  });
+
   it('falls back towards rest when the signal stops', async () => {
     const { container } = render(VuMeterView);
     rmsL.set(0.5);
