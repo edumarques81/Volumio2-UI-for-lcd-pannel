@@ -77,17 +77,34 @@ const STEP_DEG = SWEEP_DEG / (SCALE_POINTS_DB.length - 1);
 export const OVERSHOOT_DB = 2;
 
 /**
- * Level offset applied before reading the faceplate, in dB.
+ * Level offset applied before reading the faceplate, in dB. 0 VU sits at
+ * −8 dBFS.
  *
- * Without it the meter reads honest dBFS and looks dead: well-mastered
- * material sits around −18 dBFS RMS, which is off the left of an eight-point
- * scale that only reaches −40. Broadcast VU has always been a *calibrated*
- * instrument — 0 VU is a chosen reference level, not digital full scale.
- * +12 puts −18 dBFS at −6 on the face and −12 dBFS at 0, so ordinary music
- * lives in the −10…0 region and only genuinely loud passages peg the needle.
- * Retune here if the meter reads consistently hot or cold.
+ * Broadcast VU has always been a *calibrated* instrument — 0 VU is a chosen
+ * reference level, not digital full scale — so some offset is required or the
+ * meter reads honest dBFS and looks dead. The size of it is set by the library,
+ * measured with EBU R128 gated integrated loudness over 49 albums (2026-08-17):
+ *
+ *     quietest  −40.7 LUFS   Stravinsky, HRx transfer
+ *     p10       −30.0
+ *     median    −19.8
+ *     p90       −11.0
+ *     loudest    −6.7        Queens Of The Stone Age
+ *
+ * The needle clamps at `OVERSHOOT_DB − offset` dBFS, so the offset alone
+ * decides how much of that 34 dB span the instrument can actually show. The
+ * previous +12 clamped at −10 dBFS, which welded the top seven albums to the
+ * end stop on their *average* level — the needle never came back down, which
+ * is what "it goes past the limit and stays there" was.
+ *
+ * +8 clamps at −6 dBFS, just above the loudest album in the library: modern
+ * masters ride 0 VU and only their peaks cross it (correct VU behaviour),
+ * the median album rests near the −12 engraving with room to swing both ways,
+ * and the quiet audiophile transfers still visibly move rather than lying on
+ * the left stop. Re-measure before retuning — this number is only as good as
+ * the material it was fitted to.
  */
-export const CALIBRATION_OFFSET_DB = 12;
+export const CALIBRATION_OFFSET_DB = 8;
 
 /**
  * Converts a linear 0..1 RMS amplitude to a position on the printed scale,
@@ -148,6 +165,48 @@ export function rmsToAngle(rms: number | undefined): number {
   return meterDbToAngle(rmsToMeterDb(rms));
 }
 
+/**
+ * How long the meters coast on the last frame before falling back to rest, ms.
+ *
+ * MPD stops writing the spectrum FIFO the instant playback pauses, so the
+ * backend simply stops emitting `pushSpectrum` — there is no "silence" frame
+ * and no pause event on this path. Without a timeout the store holds its last
+ * value forever and the needles freeze wherever the music left them, which on
+ * a loud passage means pinned hard right. Zeroing here (rather than in the
+ * component) means the existing 300 ms ballistics do the falling, so the
+ * needles swing down instead of snapping, and it covers every way the stream
+ * can stop: pause, stop, backend restart, socket drop.
+ *
+ * Frames arrive at 20 fps, so 250 ms is five missed frames — beyond any
+ * plausible jitter, yet fast enough that pausing looks immediate.
+ */
+export const SIGNAL_TIMEOUT_MS = 250;
+
+let silenceTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** Restarts the coast timer. Called on every frame. */
+function armSilenceTimer() {
+  if (silenceTimer !== null) clearTimeout(silenceTimer);
+  silenceTimer = setTimeout(() => {
+    silenceTimer = null;
+    // Keep `ts` at the last real frame so consumers can see how stale this is;
+    // only the levels are zeroed.
+    spectrumFrame.update((f) =>
+      f === null
+        ? f
+        : {
+            ...f,
+            binsL: f.binsL.map(() => 0),
+            binsR: f.binsR.map(() => 0),
+            peakL: 0,
+            peakR: 0,
+            rmsL: 0,
+            rmsR: 0,
+          },
+    );
+  }, SIGNAL_TIMEOUT_MS);
+}
+
 let initialized = false;
 
 /**
@@ -162,5 +221,6 @@ export function initSpectrumStore() {
   initialized = true;
   socketService.on<SpectrumFrame>('pushSpectrum', (frame) => {
     spectrumFrame.set(frame);
+    armSilenceTimer();
   });
 }

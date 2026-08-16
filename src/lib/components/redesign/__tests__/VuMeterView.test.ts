@@ -145,15 +145,15 @@ describe('VuMeterView needle position (reduced motion — no ballistics)', () =>
 
   it('lands on the angle the calibrated scale mapping dictates', async () => {
     const { container } = render(VuMeterView);
-    const rms = 0.12589254; // −18 dBFS → −6 on the calibrated face
+    const rms = 0.12589254; // −18 dBFS → −10 on the calibrated face
     rmsL.set(rms);
     await Promise.resolve();
-    expect(needleAngle(container, 'l')).toBeCloseTo(meterDbToAngle(-6), 2);
+    expect(needleAngle(container, 'l')).toBeCloseTo(meterDbToAngle(-10), 2);
   });
 
   it('drives the two channels independently', async () => {
     const { container } = render(VuMeterView);
-    rmsL.set(0.25118864); // −12 dBFS → 0 dB on the face
+    rmsL.set(0.39810717); // −8 dBFS → 0 dB on the face
     rmsR.set(0);
     await Promise.resolve();
     expect(needleAngle(container, 'l')).toBeCloseTo(ANGLE_MIN_DEG + SWEEP_DEG, 2);
@@ -202,8 +202,11 @@ describe('VuMeterView ballistics', () => {
 
     rmsL.set(0.5);
     await Promise.resolve();
-    // ~1.6 s ≈ 5τ → >99% of full deflection.
-    for (let i = 0; i < 100; i++) {
+    // ~4.8 s ≈ 16τ. 5τ is only 99.3% of full deflection, and the dB scale
+    // steepens towards 0 (the overshoot region runs at STEP/3 deg per dB,
+    // twice the rate of the −12…−6 interval), so what is a rounding error in
+    // linear amplitude is still a visible fraction of a degree up here.
+    for (let i = 0; i < 300; i++) {
       flushRAF(16);
     }
     await Promise.resolve();
