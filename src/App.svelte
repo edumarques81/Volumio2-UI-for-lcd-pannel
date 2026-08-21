@@ -9,6 +9,7 @@
   import { audioDevicesActions } from '$lib/stores/audioDevices';
   import { initNetworkStore, cleanupNetworkStore } from '$lib/stores/network';
   import { initLcdStore, cleanupLcdStore, lcdActions } from '$lib/stores/lcd';
+  import { initLcdViewStore, cleanupLcdViewStore } from '$lib/stores/lcdView';
   import { initAudioStore, cleanupAudioStore } from '$lib/stores/audio';
   import { initLibraryStore } from '$lib/stores/library';
   import { initBiosStore, cleanupBiosStore } from '$lib/stores/bios';
@@ -64,6 +65,7 @@
     initIssueStore();
     initNetworkStore();
     initLcdStore();
+    initLcdViewStore();
     initAudioStore();
     initAudioEngineStore();
     initLibraryStore();
@@ -307,6 +309,7 @@
       unsubDeviceClass();
       cleanupNetworkStore();
       cleanupLcdStore();
+      cleanupLcdViewStore();
       cleanupAudioStore();
       cleanupAudioEngineStore();
       cleanupDeviceStore();
