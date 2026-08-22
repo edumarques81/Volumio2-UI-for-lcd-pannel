@@ -1,0 +1,147 @@
+#!/bin/bash
+# /usr/local/bin/lcd_off
+# Turn LCD panel off using DPMS standby (keeps HDMI signal alive to avoid "no signal" OSD)
+#
+# This script uses DPMS "standby" mode instead of "off" because:
+# - "off" on some monitors triggers "no signal" detection
+# - "standby" keeps the HDMI link active but blanks the display
+# - If standby doesn't work, we fall back to a black screen overlay
+
+set -euo pipefail
+
+SCRIPT_NAME="lcd_off"
+LOG_TAG="lcd-control"
+
+log() {
+    logger -t "$LOG_TAG" "$SCRIPT_NAME: $*"
+    echo "[$SCRIPT_NAME] $*"
+}
+
+error() {
+    logger -t "$LOG_TAG" -p user.err "$SCRIPT_NAME: ERROR: $*"
+    echo "[$SCRIPT_NAME] ERROR: $*" >&2
+}
+
+# Find X11 display and auth
+find_x11_env() {
+    # Try to find DISPLAY
+    if [ -z "${DISPLAY:-}" ]; then
+        export DISPLAY=:0
+    fi
+
+    # Try to find XAUTHORITY
+    if [ -z "${XAUTHORITY:-}" ]; then
+        # Look for serverauth file
+        local auth_file=$(ls /tmp/serverauth.* 2>/dev/null | head -1)
+        if [ -n "$auth_file" ]; then
+            export XAUTHORITY="$auth_file"
+        else
+            # Try volumio user's Xauthority
+            export XAUTHORITY="/home/volumio/.Xauthority"
+        fi
+    fi
+
+    log "Using DISPLAY=$DISPLAY XAUTHORITY=$XAUTHORITY"
+}
+
+# Check if X11 is running
+check_x11() {
+    if ! xset q &>/dev/null; then
+        error "Cannot connect to X11 display"
+        return 1
+    fi
+    return 0
+}
+
+# Method 1: DPMS standby (preferred - keeps signal alive)
+dpms_standby() {
+    log "Attempting DPMS standby mode..."
+    if xset dpms force standby 2>/dev/null; then
+        log "DPMS standby activated"
+        return 0
+    fi
+    return 1
+}
+
+# Method 2: DPMS suspend (alternative)
+dpms_suspend() {
+    log "Attempting DPMS suspend mode..."
+    if xset dpms force suspend 2>/dev/null; then
+        log "DPMS suspend activated"
+        return 0
+    fi
+    return 1
+}
+
+# Method 3: DPMS off (last resort for DPMS)
+dpms_off() {
+    log "Attempting DPMS off mode..."
+    if xset dpms force off 2>/dev/null; then
+        log "DPMS off activated (warning: may cause 'no signal' on some monitors)"
+        return 0
+    fi
+    return 1
+}
+
+# Method 4: DRM DPMS via sysfs (fallback)
+drm_dpms_off() {
+    log "Attempting DRM DPMS via sysfs..."
+    local dpms_file="/sys/class/drm/card1-HDMI-A-1/dpms"
+    if [ -w "$dpms_file" ]; then
+        echo "Standby" > "$dpms_file" 2>/dev/null && {
+            log "DRM DPMS standby set via sysfs"
+            return 0
+        }
+    fi
+    return 1
+}
+
+# Enable DPMS if disabled
+ensure_dpms_enabled() {
+    # Enable DPMS with reasonable timeouts (but we control manually)
+    xset dpms 0 0 0  # Disable auto-timeout
+    xset +dpms       # Enable DPMS
+}
+
+main() {
+    log "Starting LCD off sequence..."
+
+    find_x11_env
+
+    if ! check_x11; then
+        error "X11 not available, trying DRM fallback..."
+        if drm_dpms_off; then
+            exit 0
+        fi
+        error "All methods failed"
+        exit 1
+    fi
+
+    ensure_dpms_enabled
+
+    # Try methods in order of preference
+    if dpms_standby; then
+        log "LCD off successful (DPMS standby)"
+        exit 0
+    fi
+
+    if dpms_suspend; then
+        log "LCD off successful (DPMS suspend)"
+        exit 0
+    fi
+
+    if dpms_off; then
+        log "LCD off successful (DPMS off)"
+        exit 0
+    fi
+
+    if drm_dpms_off; then
+        log "LCD off successful (DRM sysfs)"
+        exit 0
+    fi
+
+    error "All LCD off methods failed"
+    exit 1
+}
+
+main "$@"

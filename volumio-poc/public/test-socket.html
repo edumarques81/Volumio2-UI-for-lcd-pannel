@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Socket.io Test</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.1/socket.io.js"></script>
+</head>
+<body>
+  <h1>Socket.io Connection Test</h1>
+  <div id="status">Connecting...</div>
+  <div id="state"></div>
+
+  <script>
+    const statusEl = document.getElementById('status');
+    const stateEl = document.getElementById('state');
+
+    console.log('Creating socket connection to http://192.168.86.22');
+    const socket = io('http://192.168.86.22', {
+      transports: ['polling', 'websocket']
+    });
+
+    socket.on('connect', () => {
+      console.log('Connected!');
+      statusEl.textContent = '✅ Connected! Socket ID: ' + socket.id;
+      statusEl.style.color = 'green';
+
+      // Request state
+      console.log('Requesting state...');
+      socket.emit('getState');
+    });
+
+    socket.on('pushState', (data) => {
+      console.log('Got state:', data);
+      stateEl.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+    });
+
+    socket.on('connect_error', (err) => {
+      console.error('Connect error:', err);
+      statusEl.textContent = '❌ Connection Error: ' + err.message;
+      statusEl.style.color = 'red';
+    });
+
+    socket.on('error', (err) => {
+      console.error('Socket error:', err);
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.log('Disconnected:', reason);
+      statusEl.textContent = '⚠️ Disconnected: ' + reason;
+      statusEl.style.color = 'orange';
+    });
+  </script>
+</body>
+</html>

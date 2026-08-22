@@ -1,0 +1,125 @@
+#!/bin/bash
+# /usr/local/bin/lcd_on
+# Turn LCD panel on by restoring DPMS and refreshing display
+#
+# This script wakes the display from DPMS standby/suspend/off state
+
+set -euo pipefail
+
+SCRIPT_NAME="lcd_on"
+LOG_TAG="lcd-control"
+
+log() {
+    logger -t "$LOG_TAG" "$SCRIPT_NAME: $*"
+    echo "[$SCRIPT_NAME] $*"
+}
+
+error() {
+    logger -t "$LOG_TAG" -p user.err "$SCRIPT_NAME: ERROR: $*"
+    echo "[$SCRIPT_NAME] ERROR: $*" >&2
+}
+
+# Find X11 display and auth
+find_x11_env() {
+    # Try to find DISPLAY
+    if [ -z "${DISPLAY:-}" ]; then
+        export DISPLAY=:0
+    fi
+
+    # Try to find XAUTHORITY
+    if [ -z "${XAUTHORITY:-}" ]; then
+        # Look for serverauth file
+        local auth_file=$(ls /tmp/serverauth.* 2>/dev/null | head -1)
+        if [ -n "$auth_file" ]; then
+            export XAUTHORITY="$auth_file"
+        else
+            # Try volumio user's Xauthority
+            export XAUTHORITY="/home/volumio/.Xauthority"
+        fi
+    fi
+
+    log "Using DISPLAY=$DISPLAY XAUTHORITY=$XAUTHORITY"
+}
+
+# Check if X11 is running
+check_x11() {
+    if ! xset q &>/dev/null; then
+        error "Cannot connect to X11 display"
+        return 1
+    fi
+    return 0
+}
+
+# Method 1: DPMS on via xset
+dpms_on() {
+    log "Attempting DPMS on via xset..."
+    if xset dpms force on 2>/dev/null; then
+        log "DPMS on activated"
+        return 0
+    fi
+    return 1
+}
+
+# Method 2: xset s reset (screensaver reset) + dpms on
+dpms_reset() {
+    log "Resetting screensaver and DPMS..."
+    xset s reset 2>/dev/null || true
+    xset dpms force on 2>/dev/null || true
+    return 0
+}
+
+# Method 3: DRM DPMS via sysfs (fallback)
+drm_dpms_on() {
+    log "Attempting DRM DPMS on via sysfs..."
+    local dpms_file="/sys/class/drm/card1-HDMI-A-1/dpms"
+    if [ -w "$dpms_file" ]; then
+        echo "On" > "$dpms_file" 2>/dev/null && {
+            log "DRM DPMS on set via sysfs"
+            return 0
+        }
+    fi
+    return 1
+}
+
+# Simulate key press to wake display (additional measure)
+simulate_activity() {
+    log "Simulating activity to ensure wake..."
+    # Use xdotool if available
+    if command -v xdotool &>/dev/null; then
+        xdotool key shift 2>/dev/null || true
+    fi
+}
+
+main() {
+    log "Starting LCD on sequence..."
+
+    find_x11_env
+
+    if ! check_x11; then
+        error "X11 not available, trying DRM fallback..."
+        if drm_dpms_on; then
+            exit 0
+        fi
+        error "All methods failed"
+        exit 1
+    fi
+
+    # Try methods - usually dpms_on is sufficient
+    if dpms_on; then
+        # Also do a reset to ensure screensaver doesn't interfere
+        dpms_reset
+        simulate_activity
+        log "LCD on successful"
+        exit 0
+    fi
+
+    if drm_dpms_on; then
+        log "LCD on successful (DRM sysfs)"
+        exit 0
+    fi
+
+    error "All LCD on methods failed"
+    exit 1
+}
+
+main "$@"
