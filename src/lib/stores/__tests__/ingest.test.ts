@@ -1,12 +1,19 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { get } from 'svelte/store';
 
-vi.mock('$lib/services/socket', () => ({
-  socketService: {
-    emit: vi.fn(),
-    on: vi.fn(() => () => {}),
-  },
-}));
+vi.mock('$lib/services/socket', async () => {
+  const { writable } = await import('svelte/store');
+  return {
+    socketService: {
+      emit: vi.fn(),
+      on: vi.fn(() => () => {}),
+    },
+    // A real writable, not a stub: the store subscribes to it to notice a
+    // reconnect, and the whole point of those tests is that the subscription
+    // actually fires.
+    connectionState: writable('disconnected'),
+  };
+});
 
 import {
   ingestStatus,
@@ -25,7 +32,7 @@ import {
   type IngestStatus,
   type IngestError,
 } from '../ingest';
-import { socketService } from '$lib/services/socket';
+import { socketService, connectionState } from '$lib/services/socket';
 
 /** Grabs the handler the store registered for a given push event. */
 function handlerFor<T>(event: string): (payload: T) => void {
@@ -87,6 +94,7 @@ function previewWithPlan(token = 'plan-token'): IngestReport {
 describe('ingest store', () => {
   beforeEach(() => {
     cleanupIngestStore();
+    connectionState.set('disconnected');
     ingestStatus.set(null);
     ingestPreview.set(null);
     ingestResult.set(null);
@@ -122,6 +130,72 @@ describe('ingest store', () => {
       const first = (socketService.on as ReturnType<typeof vi.fn>).mock.calls.length;
       initIngestStore();
       expect((socketService.on as ReturnType<typeof vi.fn>).mock.calls.length).toBe(first);
+    });
+  });
+
+  // `ingestPhase` latches on a reply THIS client is waiting for, and a reply
+  // can only arrive on the connection that carried the request. A commit runs
+  // for minutes; lose the socket during one and `pushIngestResult` — a one-shot
+  // broadcast — never lands, leaving the panel on "Importing…" with nothing
+  // that can ever clear it. Observed on the iPad 2026-09-11, two and a half
+  // hours after a four-minute commit had already succeeded.
+  describe('reconnect recovery', () => {
+    it('clears a stranded commit and re-asks for status', () => {
+      initIngestStore();
+      ingestPreview.set(previewWithPlan('deadbeef'));
+      ingestActions.commit();
+      expect(get(ingestPhase)).toBe('committing');
+      vi.clearAllMocks();
+
+      connectionState.set('connected');
+
+      expect(get(ingestPhase)).toBe('idle');
+      expect(socketService.emit).toHaveBeenCalledWith('ingest:status');
+    });
+
+    it('clears a stranded preview', () => {
+      initIngestStore();
+      ingestActions.preview();
+      expect(get(ingestPhase)).toBe('previewing');
+
+      connectionState.set('connected');
+
+      expect(get(ingestPhase)).toBe('idle');
+    });
+
+    it('keeps the plan on screen — the backend replays a live one on connect', () => {
+      initIngestStore();
+      ingestPreview.set(previewWithPlan('deadbeef'));
+
+      connectionState.set('connected');
+
+      expect(get(ingestPreview)?.token).toBe('deadbeef');
+      expect(get(ingestCanCommit)).toBe(true);
+    });
+
+    it('only fires on the transition into connected', () => {
+      initIngestStore();
+      connectionState.set('connected');
+      vi.clearAllMocks();
+
+      // Re-emitting the same state (the socket layer does, on a healthy
+      // heartbeat) must not spam the backend with status requests.
+      connectionState.set('connected');
+      expect(socketService.emit).not.toHaveBeenCalled();
+
+      connectionState.set('disconnected');
+      connectionState.set('connected');
+      expect(socketService.emit).toHaveBeenCalledWith('ingest:status');
+    });
+
+    it('stops listening after cleanup', () => {
+      initIngestStore();
+      cleanupIngestStore();
+      ingestPhase.set('committing');
+
+      connectionState.set('connected');
+
+      expect(get(ingestPhase)).toBe('committing');
     });
   });
 

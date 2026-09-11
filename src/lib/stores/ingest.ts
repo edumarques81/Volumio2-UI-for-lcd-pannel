@@ -1,5 +1,5 @@
 import { writable, derived, get } from 'svelte/store';
-import { socketService } from '$lib/services/socket';
+import { socketService, connectionState } from '$lib/services/socket';
 
 /**
  * Drop-box ingest store.
@@ -159,6 +159,7 @@ export const ingestActions = {
 };
 
 let initialized = false;
+let unsubscribeConnection: (() => void) | null = null;
 
 /**
  * Registers the ingest listeners. Idempotent — App.svelte calls it once, but a
@@ -196,8 +197,33 @@ export function initIngestStore(): void {
 
   // Ask once on init so the button knows whether to show at all.
   ingestActions.requestStatus();
+
+  // A (re)connection is the only proof that a reply this client is waiting for
+  // can never arrive: a reply only comes back on the connection that carried
+  // the request. `ingestPhase` latches on exactly that, and a commit runs for
+  // minutes — lose the socket during one and `pushIngestResult` (a one-shot
+  // broadcast to whoever is connected) is gone for good, leaving the panel on
+  // "Importing…" with nothing left that can clear it. Observed on the iPad
+  // 2026-09-11, two and a half hours after the commit had already succeeded.
+  //
+  // The plan itself is deliberately left alone: the backend replays a still-
+  // pending one in its connect-time batch, and that batch races this handler,
+  // so clearing it here could delete a replay that had already landed. A plan
+  // whose token was spent is cleared by the retryable error its next commit
+  // returns.
+  let wasConnected = false;
+  unsubscribeConnection = connectionState.subscribe((state) => {
+    const connected = state === 'connected';
+    if (connected && !wasConnected) {
+      ingestPhase.set('idle');
+      ingestActions.requestStatus();
+    }
+    wasConnected = connected;
+  });
 }
 
 export function cleanupIngestStore(): void {
   initialized = false;
+  unsubscribeConnection?.();
+  unsubscribeConnection = null;
 }
