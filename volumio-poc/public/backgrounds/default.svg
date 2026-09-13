@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="440" viewBox="0 0 1920 440">
+  <defs>
+    <linearGradient id="skyGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#16213e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0f0f23;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="mountainGradient1" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#2d3436;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1e272e;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="mountainGradient2" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#4a4a5c;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2d3436;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Sky -->
+  <rect width="1920" height="440" fill="url(#skyGradient)"/>
+
+  <!-- Stars -->
+  <circle cx="150" cy="80" r="1" fill="white" opacity="0.6"/>
+  <circle cx="400" cy="50" r="1.5" fill="white" opacity="0.8"/>
+  <circle cx="700" cy="90" r="1" fill="white" opacity="0.5"/>
+  <circle cx="1000" cy="40" r="1" fill="white" opacity="0.7"/>
+  <circle cx="1300" cy="70" r="1.5" fill="white" opacity="0.6"/>
+  <circle cx="1600" cy="55" r="1" fill="white" opacity="0.8"/>
+  <circle cx="1800" cy="85" r="1" fill="white" opacity="0.5"/>
+
+  <!-- Far mountains -->
+  <path d="M0 350 L200 280 L400 320 L600 260 L800 300 L1000 240 L1200 290 L1400 250 L1600 310 L1800 270 L1920 320 L1920 440 L0 440 Z" fill="url(#mountainGradient2)" opacity="0.6"/>
+
+  <!-- Near mountains -->
+  <path d="M0 400 L150 340 L350 380 L550 320 L750 370 L950 300 L1150 360 L1350 310 L1550 380 L1750 330 L1920 390 L1920 440 L0 440 Z" fill="url(#mountainGradient1)"/>
+</svg>
