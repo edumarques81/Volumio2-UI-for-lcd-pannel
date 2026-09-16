@@ -11,7 +11,11 @@ import { socketService } from '$lib/services/socket';
 export interface SpectrumFrame {
   binsL: number[];   // 64 log-binned FFT magnitudes
   binsR: number[];
-  peakL: number;     // 0..1 linear
+  // Sample-peak of the same window rmsL/rmsR are measured over, 0..1
+  // linear — not a peak-hold, so it decays with the window. Unused today;
+  // it read a constant 1.0 on the wire until the backend stopped deriving
+  // it from normalised FFT bins, so treat any older capture as meaningless.
+  peakL: number;
   peakR: number;
   rmsL: number;      // 0..1 linear  ← VU meter
   rmsR: number;
