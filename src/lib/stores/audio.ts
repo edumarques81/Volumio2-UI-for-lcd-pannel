@@ -1,5 +1,6 @@
 import { writable, derived } from 'svelte/store';
 import { socketService } from '$lib/services/socket';
+import { toastActions } from '$lib/stores/toast';
 
 /**
  * Audio format information from the backend.
@@ -218,15 +219,31 @@ export function initAudioStore() {
   socketService.on<DsdModeResponse>('pushDsdMode', (response) => {
     console.log('🔊 pushDsdMode received:', response);
     dsdModeLoading.set(false);
+
+    // response.mode is the mode actually in effect — the backend reports the
+    // unchanged one when a write fails, so the radio never shows a switch that
+    // did not happen.
     if (response.mode) {
       dsdMode.set(response.mode);
     }
-    // After mode change, refresh bit-perfect status
+
     if (response.success) {
+      // After mode change, refresh bit-perfect status
       setTimeout(() => {
         socketService.emit('getBitPerfect');
       }, 500);
+      return;
     }
+
+    // A failed switch used to be silent: the old handler ignored success and
+    // error entirely, so the UI reported a change that never reached MPD.
+    toastActions.error(
+      'DSD mode unchanged',
+      response.error || 'The backend could not apply the requested DSD mode.'
+    );
+    // Re-read the backend's truth, in case this push carried the requested
+    // mode rather than the effective one.
+    socketService.emit('getDsdMode');
   });
 
   // Listen for mixer mode updates from backend

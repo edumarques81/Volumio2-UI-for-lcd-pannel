@@ -9,6 +9,16 @@ vi.mock('$lib/services/socket', () => ({
   }
 }));
 
+// Mock toast store — the DSD handler surfaces failures through it
+vi.mock('$lib/stores/toast', () => ({
+  toastActions: {
+    error: vi.fn(),
+    success: vi.fn(),
+    info: vi.fn(),
+    warning: vi.fn()
+  }
+}));
+
 // Import store after mock is defined
 import {
   audioStatus,
@@ -26,13 +36,17 @@ import {
   mixerEnabled,
   mixerLoading,
   applyBitPerfectLoading,
+  dsdMode,
+  dsdModeLoading,
   type AudioStatus,
   type AudioFormat,
   type BitPerfectConfig,
   type MixerModeResponse,
-  type ApplyBitPerfectResponse
+  type ApplyBitPerfectResponse,
+  type DsdModeResponse
 } from '../audio';
 import { socketService } from '$lib/services/socket';
+import { toastActions } from '$lib/stores/toast';
 
 describe('Audio store', () => {
   const defaultStatus: AudioStatus = {
@@ -578,6 +592,106 @@ describe('Audio store', () => {
       expect(get(mixerEnabled)).toBe(false);
       expect(get(mixerLoading)).toBe(false);
       expect(get(applyBitPerfectLoading)).toBe(false);
+    });
+  });
+
+  // The DSD toggle was broken end to end: the backend could not write a dop
+  // setting when the key was absent (which is how the Pi ships), and this
+  // handler moved the radio regardless of success, so the UI reported a switch
+  // that never reached MPD.
+  describe('pushDsdMode handler', () => {
+    const getHandler = (): ((response: DsdModeResponse) => void) => {
+      initAudioStore();
+      const onMock = vi.mocked(socketService.on);
+      const handler = onMock.mock.calls.find(call => call[0] === 'pushDsdMode')?.[1] as
+        | ((response: DsdModeResponse) => void)
+        | undefined;
+      expect(handler).toBeDefined();
+      return handler!;
+    };
+
+    it('should register pushDsdMode event handler on init', () => {
+      initAudioStore();
+      expect(socketService.on).toHaveBeenCalledWith('pushDsdMode', expect.any(Function));
+    });
+
+    it('should apply the mode and clear loading on success', () => {
+      const handler = getHandler();
+      dsdMode.set('native');
+      dsdModeLoading.set(true);
+
+      handler({ mode: 'dop', success: true });
+
+      expect(get(dsdMode)).toBe('dop');
+      expect(get(dsdModeLoading)).toBe(false);
+      expect(toastActions.error).not.toHaveBeenCalled();
+    });
+
+    it('should refresh bit-perfect status after a successful change', () => {
+      vi.useFakeTimers();
+      const handler = getHandler();
+      vi.mocked(socketService.emit).mockClear();
+
+      handler({ mode: 'dop', success: true });
+      vi.advanceTimersByTime(500);
+
+      expect(socketService.emit).toHaveBeenCalledWith('getBitPerfect');
+      vi.useRealTimers();
+    });
+
+    it('should not move the radio when the backend reports failure', () => {
+      const handler = getHandler();
+      dsdMode.set('native');
+      dsdModeLoading.set(true);
+
+      // The backend reports the mode still in effect, not the requested one.
+      handler({ mode: 'native', success: false, error: 'Failed to write MPD config' });
+
+      expect(get(dsdMode)).toBe('native');
+      expect(get(dsdModeLoading)).toBe(false);
+    });
+
+    it('should surface the backend error in a toast', () => {
+      const handler = getHandler();
+
+      handler({ mode: 'native', success: false, error: 'Failed to write MPD config' });
+
+      expect(toastActions.error).toHaveBeenCalledWith(
+        'DSD mode unchanged',
+        'Failed to write MPD config'
+      );
+    });
+
+    it('should toast a fallback message when the backend sends no error text', () => {
+      const handler = getHandler();
+
+      handler({ mode: 'native', success: false });
+
+      expect(toastActions.error).toHaveBeenCalledWith(
+        'DSD mode unchanged',
+        expect.any(String)
+      );
+    });
+
+    it('should re-sync from the backend after a failure', () => {
+      const handler = getHandler();
+      vi.mocked(socketService.emit).mockClear();
+
+      handler({ mode: 'native', success: false, error: 'boom' });
+
+      expect(socketService.emit).toHaveBeenCalledWith('getDsdMode');
+    });
+
+    it('should not refresh bit-perfect status after a failure', () => {
+      vi.useFakeTimers();
+      const handler = getHandler();
+      vi.mocked(socketService.emit).mockClear();
+
+      handler({ mode: 'native', success: false, error: 'boom' });
+      vi.advanceTimersByTime(500);
+
+      expect(socketService.emit).not.toHaveBeenCalledWith('getBitPerfect');
+      vi.useRealTimers();
     });
   });
 });
