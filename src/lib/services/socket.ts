@@ -134,6 +134,20 @@ class SocketService {
 
     console.log('Socket instance created, waiting for events...');
 
+    // Attach every tracked handler to the NEW socket instance, here and not in
+    // the `connect` callback. `on()` already attaches to a live socket, and
+    // socket.io's emitter happily holds the same reference twice, so doing this
+    // on `connect` double-registered everything added between io() and the
+    // handshake. Worse, socket.io re-fires `connect` on every reconnect while
+    // keeping its listeners, so the list grew without bound -- and the kiosk
+    // force-reconnects on an idle heartbeat, so it grew for as long as the page
+    // stayed open. Each duplicate re-ran a store reducer per push.
+    for (const [eventName, handlers] of this.eventHandlers.entries()) {
+      for (const handler of handlers) {
+        this.socket.on(eventName, handler);
+      }
+    }
+
     this.socket.on('connect', () => {
       console.log(`✓ Socket connected to ${this.host}`);
 
@@ -152,13 +166,6 @@ class SocketService {
       // Set global connected flag
       if (typeof window !== 'undefined') {
         window.__stellarSocketConnected = true;
-      }
-
-      // Register any handlers that were added before socket was connected
-      for (const [eventName, handlers] of this.eventHandlers.entries()) {
-        for (const handler of handlers) {
-          this.socket.on(eventName, handler);
-        }
       }
 
       // Backend already pushes state on connect (server.go:201-202),

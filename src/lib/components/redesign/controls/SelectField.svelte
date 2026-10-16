@@ -31,6 +31,17 @@
   // Effective aria-label: only applied when no visible label is rendered
   const effectiveAriaLabel = $derived(label ? undefined : ariaLabel);
 
+  // A non-null `value` that matches no option is not a hypothetical. The audio
+  // output selector offers `aplay -l` card names, while MPD's configured device
+  // may legitimately be a named ALSA PCM (`stellar_dac_tap`, our VU-meter tap).
+  // Setting the native select to an absent value yields selectedIndex -1 -- a blank
+  // control, no placeholder, no warning -- which reads as "nothing configured"
+  // and invites a pick that overwrites the working value. Rendering the value
+  // as a disabled option makes the state visible instead of silent.
+  const unmatchedValue = $derived(
+    value !== null && !options.some((opt) => opt.value === value) ? value : null,
+  );
+
   // Build group structure: collect unique group names in order of first appearance
   type GroupedSection =
     | { kind: 'group'; name: string; items: ReadonlyArray<SelectFieldOption> }
@@ -104,6 +115,9 @@
     >
       {#if value === null && placeholder}
         <option value="" disabled>{placeholder}</option>
+      {/if}
+      {#if unmatchedValue !== null}
+        <option value={unmatchedValue} disabled>{unmatchedValue} (current)</option>
       {/if}
       {#each sections() as section}
         {#if section.kind === 'group'}

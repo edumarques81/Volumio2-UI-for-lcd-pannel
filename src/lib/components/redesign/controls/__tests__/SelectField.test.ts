@@ -198,3 +198,71 @@ describe('SelectField', () => {
     expect(select.value).toBe('bluetooth');
   });
 });
+
+describe('SelectField with a value that matches no option', () => {
+  let onchange: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    onchange = vi.fn();
+  });
+
+  // This is the shape that hid a dead LCD VU meter for two weeks. MPD's output
+  // device was `stellar_dac_tap` -- a named ALSA PCM, correct and deliberate --
+  // but the options list is built from `aplay -l` card names, so the value
+  // matched nothing. Setting a <select> to an absent value yields
+  // selectedIndex -1, i.e. a blank control that reads as "nothing configured"
+  // and invites a pick that overwrites the tap.
+  it('shows the unmatched value instead of rendering blank', () => {
+    const { container } = render(SelectField, {
+      options: OPTIONS,
+      value: 'stellar_dac_tap' as never,
+      onchange,
+      id: 'settings-audio-output-device',
+    });
+
+    const select = container.querySelector('select')!;
+    expect(select.selectedIndex).toBeGreaterThanOrEqual(0);
+    expect(select.value).toBe('stellar_dac_tap');
+    expect(select.textContent).toContain('stellar_dac_tap');
+  });
+
+  it('marks the unmatched option disabled so it cannot be re-picked', () => {
+    const { container } = render(SelectField, {
+      options: OPTIONS,
+      value: 'stellar_dac_tap' as never,
+      onchange,
+      id: 'settings-audio-output-device',
+    });
+
+    const unmatched = Array.from(container.querySelectorAll('option')).find(
+      (o) => o.value === 'stellar_dac_tap',
+    );
+    expect(unmatched).toBeTruthy();
+    expect(unmatched!.disabled).toBe(true);
+  });
+
+  it('does not add an unmatched option when the value does match', () => {
+    const { container } = render(SelectField, {
+      options: OPTIONS,
+      value: 'hdmi' as never,
+      onchange,
+      id: 'settings-audio-output-device',
+    });
+
+    expect(container.querySelectorAll('option')).toHaveLength(OPTIONS.length);
+  });
+
+  it('still prefers the placeholder when the value is null', () => {
+    const { container } = render(SelectField, {
+      options: OPTIONS,
+      value: null,
+      onchange,
+      id: 'settings-audio-output-device',
+      placeholder: 'Select a device',
+    });
+
+    const options = Array.from(container.querySelectorAll('option'));
+    expect(options[0].textContent).toContain('Select a device');
+    expect(options).toHaveLength(OPTIONS.length + 1);
+  });
+});

@@ -68,7 +68,12 @@ export const SCALE_POINTS_DB = [-40, -30, -24, -18, -12, -6, -3, 0] as const;
  */
 export const SWEEP_DEG = 90;
 
-/** Angle at −40 dB. Symmetric about vertical, so 0 dB sits at +30°. */
+/**
+ * Angle at −40 dB: half the sweep, counter-clockwise of vertical. Symmetric
+ * about vertical, so the last engraved point (0 dB) sits at +SWEEP_DEG / 2.
+ * Deliberately phrased without a literal — this comment claimed ±30° for a
+ * while after SWEEP_DEG moved to 90.
+ */
 export const ANGLE_MIN_DEG = -SWEEP_DEG / 2;
 
 const STEP_DEG = SWEEP_DEG / (SCALE_POINTS_DB.length - 1);
@@ -130,8 +135,9 @@ export function rmsToMeterDb(
 
 /**
  * Maps a scale position in dB to a needle angle in degrees, clockwise-positive
- * from vertical (matching SVG's `rotate()`), so −40 dB is up-left at −30° and
- * 0 dB is up-right at +30°.
+ * from vertical (matching SVG's `rotate()`): −40 dB sits up-left at
+ * ANGLE_MIN_DEG and 0 dB up-right at ANGLE_MIN_DEG + SWEEP_DEG, i.e. the sweep
+ * is symmetric about vertical.
  *
  * Piecewise-linear between engraved points: each labelled interval gets the
  * same angular slice regardless of how many dB it spans, which is what makes

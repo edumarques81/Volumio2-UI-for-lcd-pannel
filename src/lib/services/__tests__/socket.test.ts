@@ -594,3 +594,89 @@ describe('SocketService - reconnection loop prevention', () => {
     expect(mockIo.mock.calls.length).toBeLessThanOrEqual(3);
   });
 });
+
+describe('SocketService - handler registration is not duplicated', () => {
+  let socketService: any;
+  let mockIo: any;
+  let mockSocket: any;
+
+  beforeEach(async () => {
+    vi.resetModules();
+    if (typeof window !== 'undefined') {
+      delete (window as any).__stellarSocketInstance;
+      delete (window as any).__stellarSocketConnected;
+    }
+    const ioModule = await import('socket.io-client');
+    mockIo = ioModule.default;
+    mockSocket = (ioModule as any).__mockSocket;
+    mockSocket.connected = false;
+    mockSocket.on.mockClear();
+    mockSocket.off.mockClear();
+    mockSocket.emit.mockClear();
+    mockSocket.disconnect.mockClear();
+    mockIo.mockClear();
+    const module = await import('../socket');
+    socketService = module.socketService;
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  /** Count how many listeners were attached for one event name. */
+  function registrationsFor(eventName: string): number {
+    return mockSocket.on.mock.calls.filter((c: any[]) => c[0] === eventName).length;
+  }
+
+  /** Invoke the socket's own `connect` lifecycle callback, as socket.io does. */
+  function fireConnect(): void {
+    const call = mockSocket.on.mock.calls.find((c: any[]) => c[0] === 'connect');
+    expect(call).toBeTruthy();
+    mockSocket.connected = true;
+    call![1]();
+  }
+
+  // `on()` already attaches to the live socket, and the `connect` callback used
+  // to re-attach every tracked handler on top. Socket.io's emitter permits the
+  // same reference twice, so each store's listener fired twice per push.
+  it('registers a handler exactly once when added before the connect event', () => {
+    socketService.connect();
+    socketService.on('pushState', vi.fn());
+
+    expect(registrationsFor('pushState')).toBe(1);
+
+    fireConnect();
+
+    expect(registrationsFor('pushState')).toBe(1);
+  });
+
+  // The worse half: socket.io fires `connect` again on every reconnect, and it
+  // keeps its listeners across one, so re-registering there grew the listener
+  // list without bound. The kiosk force-reconnects while idle, so this
+  // accumulated for as long as the page stayed open.
+  it('does not accumulate registrations across reconnects', () => {
+    socketService.connect();
+    socketService.on('pushState', vi.fn());
+
+    fireConnect();
+    fireConnect();
+    fireConnect();
+
+    expect(registrationsFor('pushState')).toBe(1);
+  });
+
+  // A handler added while there is no socket still has to reach the socket that
+  // connect() creates, otherwise the store silently never receives anything.
+  it('registers a handler added before connect() once the socket exists', () => {
+    socketService.on('pushQueue', vi.fn());
+    expect(registrationsFor('pushQueue')).toBe(0);
+
+    socketService.connect();
+
+    expect(registrationsFor('pushQueue')).toBe(1);
+
+    fireConnect();
+
+    expect(registrationsFor('pushQueue')).toBe(1);
+  });
+});
