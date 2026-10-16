@@ -140,6 +140,17 @@ decoder {
 
 # USB DAC Output - bit-perfect configuration
 # This will be auto-detected or can be customized
+#
+# The raw card is correct HERE and only here: this script provisions a bare Pi,
+# and at this point the stellar_tap extplug is not installed. Naming a PCM whose
+# module is absent does not degrade to "no VU meter" -- mpd cannot open the
+# device at all, so the symptom is no sound.
+#
+# The DEPLOYED config points at "stellar_dac_tap" (see deploy/README-alsa-tap.md
+# in stellar-volumio-audioplayer-backend). Install the plugin and
+# /etc/asound.conf, THEN switch this device, or the LCD VU meter stays dead:
+# nothing writes /tmp/mpd_spectrum.fifo and both needles park on the left end
+# stop, which is indistinguishable from silence.
 audio_output {
     type        "alsa"
     name        "USB DAC"
