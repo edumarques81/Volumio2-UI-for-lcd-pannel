@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import LibrarySettings from './settings/LibrarySettings.svelte';
+  import DisplaySettings from './settings/DisplaySettings.svelte';
   import SystemSettings from './settings/SystemSettings.svelte';
   import { initSourcesStore } from '$lib/stores/sources';
   import { initVersionStore } from '$lib/stores/version';
@@ -8,8 +9,8 @@
   import type { Component } from 'svelte';
 
   // Lazy-load AudioSettings (223 lines, second-largest settings child) so the
-  // initial SettingsView chunk stays small. LibrarySettings + SystemSettings
-  // are kept synchronous since they're top-of-fold and small. See plan §C6.2.
+  // initial SettingsView chunk stays small. The other three columns are kept
+  // synchronous since they're top-of-fold and small. See plan §C6.2.
   let AudioSettings = $state<Component | null>(null);
 
   $effect(() => {
@@ -44,6 +45,10 @@
     {/if}
   </div>
   <div class="separator" aria-hidden="true"></div>
+  <div class="column" data-testid="settings-column-display">
+    <DisplaySettings />
+  </div>
+  <div class="separator" aria-hidden="true"></div>
   <div class="column" data-testid="settings-column-system">
     <SystemSettings />
   </div>
@@ -52,7 +57,7 @@
 <style>
   .settings-view {
     display: grid;
-    grid-template-columns: 1fr 1px 1fr 1px 1fr;
+    grid-template-columns: 1fr 1px 1fr 1px 1fr 1px 1fr;
     width: 100%;
     height: 100%;
     background: transparent;
