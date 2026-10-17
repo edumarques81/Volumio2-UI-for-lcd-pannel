@@ -5,6 +5,7 @@
   import { systemInfo, networkStatus } from '$lib/stores/settings';
   import { settingsActions } from '$lib/stores/settings';
   import { isLcdOn, lcdActions, lcdLoading } from '$lib/stores/lcd';
+  import { lcdSchedule, lcdScheduleActions } from '$lib/stores/lcdSchedule';
   import SelectField from '$lib/components/redesign/controls/SelectField.svelte';
   import {
     standbyBrightness,
@@ -67,6 +68,26 @@
   ] as const;
 
   const idleValue = $derived(String($standbyIdleMinutes));
+
+  // The panel is touch-only and the kiosk has no keyboard, so a time is picked
+  // from a list rather than typed. Half-hour steps across the whole day: the
+  // schedule is the user's, not ours to narrow to an evening window.
+  const TIME_OPTIONS = Array.from({ length: 48 }, (_, i) => {
+    const value = `${String(Math.floor(i / 2)).padStart(2, '0')}:${i % 2 ? '30' : '00'}`;
+    return { value, label: value };
+  });
+
+  const NIGHT_IDLE_OPTIONS = [
+    { value: '30', label: 'Nothing played for 30 minutes' },
+    { value: '60', label: 'Nothing played for 1 hour' },
+    { value: '120', label: 'Nothing played for 2 hours' },
+    { value: '240', label: 'Nothing played for 4 hours' }
+  ] as const;
+
+  // A backend value that is not on the list (set from another client, or an
+  // older default) would select nothing at all; SelectField renders an unknown
+  // value as a disabled option, so it stays visible instead of looking unset.
+  const nightIdleValue = $derived(String($lcdSchedule.autoOffIdleMinutes));
 
   function handleIdleChange(next: string): void {
     standbyActions.setIdleMinutes(Number(next));
@@ -158,8 +179,66 @@
     />
     <p class="block-hint">
       Turning the LCD off cuts the display signal. Touch stops working until it is
-      turned back on from the phone app or this screen.
+      turned back on from the phone app, or by the morning schedule below.
     </p>
+
+    <div class="field">
+      <Toggle
+        pressed={$lcdSchedule.autoOffEnabled}
+        onchange={(next) => lcdScheduleActions.update({ autoOffEnabled: next })}
+        ariaLabel="Turn the LCD off overnight"
+        id="settings-system-lcd-autooff"
+        label="Turn off overnight"
+      />
+    </div>
+
+    {#if $lcdSchedule.autoOffEnabled}
+      <div class="field">
+        <SelectField
+          id="settings-system-lcd-autooff-at"
+          label="Not before"
+          options={TIME_OPTIONS}
+          value={$lcdSchedule.autoOffAt}
+          onchange={(next) => lcdScheduleActions.update({ autoOffAt: next })}
+        />
+      </div>
+
+      <div class="field">
+        <SelectField
+          id="settings-system-lcd-autooff-idle"
+          label="And only if"
+          options={NIGHT_IDLE_OPTIONS}
+          value={nightIdleValue}
+          onchange={(next) => lcdScheduleActions.update({ autoOffIdleMinutes: Number(next) })}
+        />
+      </div>
+    {/if}
+
+    <div class="field">
+      <Toggle
+        pressed={$lcdSchedule.autoRestoreEnabled}
+        onchange={(next) => lcdScheduleActions.update({ autoRestoreEnabled: next })}
+        ariaLabel="Turn the LCD back on in the morning"
+        id="settings-system-lcd-autorestore"
+        label="Turn back on in the morning"
+      />
+    </div>
+
+    {#if $lcdSchedule.autoRestoreEnabled}
+      <div class="field">
+        <SelectField
+          id="settings-system-lcd-autorestore-at"
+          label="At"
+          options={TIME_OPTIONS}
+          value={$lcdSchedule.autoRestoreAt}
+          onchange={(next) => lcdScheduleActions.update({ autoRestoreAt: next })}
+        />
+      </div>
+      <p class="block-hint">
+        The panel comes back to the clock, not the full UI. Touch it to get the
+        player back.
+      </p>
+    {/if}
   </div>
 
   <!-- Standby block -->

@@ -41,15 +41,32 @@ const {
   };
 });
 
-const { mockLcdState, mockLcdLoading, mockTurnOn, mockTurnOff } =
+const { mockLcdState, mockLcdMode, mockLcdLoading, mockTurnOn, mockTurnOff, mockSetMode } =
   await vi.hoisted(async () => {
-    const { writable, derived } = await import('svelte/store');
+    const { writable } = await import('svelte/store');
     const mockTurnOn = vi.fn();
     const mockTurnOff = vi.fn();
+    const mockSetMode = vi.fn();
     const mockLcdState = writable<'on' | 'off' | 'unknown'>('on');
+    const mockLcdMode = writable<'live' | 'standby' | 'off' | 'unknown'>('live');
     const mockLcdLoading = writable<boolean>(false);
-    return { mockLcdState, mockLcdLoading, mockTurnOn, mockTurnOff };
+    return { mockLcdState, mockLcdMode, mockLcdLoading, mockTurnOn, mockTurnOff, mockSetMode };
   });
+
+const { mockSchedule, mockScheduleUpdate, mockScheduleRefresh } = await vi.hoisted(async () => {
+  const { writable } = await import('svelte/store');
+  return {
+    mockSchedule: writable({
+      autoOffEnabled: true,
+      autoOffAt: '22:00',
+      autoOffIdleMinutes: 60,
+      autoRestoreEnabled: true,
+      autoRestoreAt: '05:00'
+    }),
+    mockScheduleUpdate: vi.fn(),
+    mockScheduleRefresh: vi.fn()
+  };
+});
 
 const { mockFrontendVersion, mockBackendVersion } = await vi.hoisted(async () => {
   const { readable, writable } = await import('svelte/store');
@@ -79,12 +96,23 @@ vi.mock('$lib/stores/lcd', () => {
     lcdState: mockLcdState,
     isLcdOn,
     lcdLoading: mockLcdLoading,
+    lcdMode: mockLcdMode,
     lcdActions: {
       turnOn: mockTurnOn,
       turnOff: mockTurnOff,
+      setMode: mockSetMode,
+      reportActivity: vi.fn(),
     },
   };
 });
+
+vi.mock('$lib/stores/lcdSchedule', () => ({
+  lcdSchedule: mockSchedule,
+  lcdScheduleActions: {
+    update: mockScheduleUpdate,
+    refresh: mockScheduleRefresh,
+  },
+}));
 
 vi.mock('$lib/stores/version', () => ({
   frontendVersion: mockFrontendVersion,
@@ -479,5 +507,101 @@ describe('SystemSettings standby controls', () => {
     ) as HTMLSelectElement;
     await fireEvent.change(select, { target: { value: '0' } });
     expect(get(standbyIdleMinutes)).toBe(0);
+  });
+});
+
+describe('SystemSettings — overnight schedules', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockSchedule.set({
+      autoOffEnabled: true,
+      autoOffAt: '22:00',
+      autoOffIdleMinutes: 60,
+      autoRestoreEnabled: true,
+      autoRestoreAt: '05:00'
+    });
+  });
+
+  it('shows the auto-off schedule the backend reported', () => {
+    const { container } = render(SystemSettings);
+    const at = container.querySelector('#settings-system-lcd-autooff-at') as HTMLSelectElement;
+    const idle = container.querySelector('#settings-system-lcd-autooff-idle') as HTMLSelectElement;
+    expect(at.value).toBe('22:00');
+    expect(idle.value).toBe('60');
+  });
+
+  it('sends only the field that changed', async () => {
+    const { container } = render(SystemSettings);
+    const at = container.querySelector('#settings-system-lcd-autooff-at') as HTMLSelectElement;
+    await fireEvent.change(at, { target: { value: '23:30' } });
+    expect(mockScheduleUpdate).toHaveBeenCalledWith({ autoOffAt: '23:30' });
+  });
+
+  it('sends the idle threshold as a number, which is what the backend parses', async () => {
+    const { container } = render(SystemSettings);
+    const idle = container.querySelector('#settings-system-lcd-autooff-idle') as HTMLSelectElement;
+    await fireEvent.change(idle, { target: { value: '120' } });
+    expect(mockScheduleUpdate).toHaveBeenCalledWith({ autoOffIdleMinutes: 120 });
+  });
+
+  it('hides the auto-off detail when the schedule is off', () => {
+    mockSchedule.set({
+      autoOffEnabled: false,
+      autoOffAt: '22:00',
+      autoOffIdleMinutes: 60,
+      autoRestoreEnabled: true,
+      autoRestoreAt: '05:00'
+    });
+    const { container } = render(SystemSettings);
+    expect(container.querySelector('#settings-system-lcd-autooff-at')).toBeNull();
+    expect(container.querySelector('#settings-system-lcd-autooff-idle')).toBeNull();
+  });
+
+  it('toggles the auto-off schedule', async () => {
+    const { container } = render(SystemSettings);
+    await fireEvent.click(container.querySelector('#settings-system-lcd-autooff')!);
+    expect(mockScheduleUpdate).toHaveBeenCalledWith({ autoOffEnabled: false });
+  });
+
+  it('shows and sets the morning restore time', async () => {
+    const { container } = render(SystemSettings);
+    const at = container.querySelector('#settings-system-lcd-autorestore-at') as HTMLSelectElement;
+    expect(at.value).toBe('05:00');
+    await fireEvent.change(at, { target: { value: '06:30' } });
+    expect(mockScheduleUpdate).toHaveBeenCalledWith({ autoRestoreAt: '06:30' });
+  });
+
+  it('hides the restore time when restore is off', () => {
+    mockSchedule.set({
+      autoOffEnabled: true,
+      autoOffAt: '22:00',
+      autoOffIdleMinutes: 60,
+      autoRestoreEnabled: false,
+      autoRestoreAt: '05:00'
+    });
+    const { container } = render(SystemSettings);
+    expect(container.querySelector('#settings-system-lcd-autorestore-at')).toBeNull();
+  });
+
+  // The restore brings the clock face back, not the player. Saying so is the
+  // only way a user can tell the schedule worked at all from across the room.
+  it('says the morning restore lands on the clock, not the UI', () => {
+    const { getByText } = render(SystemSettings);
+    expect(getByText(/comes back to the clock/i)).toBeTruthy();
+  });
+
+  // A value set from another client (or an older default) is not in the list;
+  // selectedIndex -1 would render a blank control that invites an overwrite.
+  it('keeps an off-list idle value visible instead of blanking the select', () => {
+    mockSchedule.set({
+      autoOffEnabled: true,
+      autoOffAt: '22:00',
+      autoOffIdleMinutes: 90,
+      autoRestoreEnabled: true,
+      autoRestoreAt: '05:00'
+    });
+    const { container } = render(SystemSettings);
+    const idle = container.querySelector('#settings-system-lcd-autooff-idle') as HTMLSelectElement;
+    expect(idle.value).toBe('90');
   });
 });

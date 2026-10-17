@@ -1,6 +1,7 @@
 import { writable, get } from 'svelte/store';
 import { isPlaying } from './player';
 import { deviceType } from './device';
+import { lcdActions, lcdMode } from './lcd';
 
 /**
  * Standby — the LCD's "virtual off".
@@ -24,6 +25,11 @@ import { deviceType } from './device';
  *              clock face at a low brightness. This module owns it.
  *   off      — `wlr-randr --off`, genuinely dark, touch dead until the output
  *              comes back. That is `lcdActions.turnOff()` in ./lcd.ts.
+ *
+ * The backend owns the mode. Entering or leaving standby here is reported to
+ * it, and a mode it decided on its own (the night schedule, another client,
+ * the iOS app) arrives back through `lcdMode` and is applied. Everything goes
+ * through that one store so the two can never drift apart.
  */
 
 export const STANDBY_DEFAULT_BRIGHTNESS = 55;
@@ -106,17 +112,28 @@ export function standbyLastActivityAt(): number {
   return lastActivityAt;
 }
 
+/** Only the kiosk paints anything; every other client just drives the mode. */
+function isKiosk(): boolean {
+  return get(deviceType) === 'lcd-panel';
+}
+
 export const standbyActions = {
-  /** Paint the clock face. Idempotent. */
+  /**
+   * Paint the clock face, and tell the backend. The emit is unconditional so
+   * that "Standby now" works from a phone, which has no overlay of its own to
+   * flip and would otherwise do nothing at all.
+   */
   enter(): void {
-    if (get(standbyActive)) return;
+    lcdActions.setMode('standby');
+    if (!isKiosk()) return;
     standbyActive.set(true);
   },
 
-  /** Return to the live UI and restart the idle countdown. Idempotent. */
+  /** Return to the live UI and restart the idle countdown. */
   exit(): void {
     markStandbyActivity();
-    if (!get(standbyActive)) return;
+    lcdActions.setMode('live');
+    if (!isKiosk()) return;
     standbyActive.set(false);
   },
 
@@ -139,6 +156,22 @@ export const STANDBY_TICK_MS = 10_000;
 
 const ACTIVITY_EVENTS = ['pointerdown', 'touchstart', 'keydown', 'wheel'] as const;
 
+/**
+ * Floor between activity reports to the backend. A touch stream fires dozens
+ * of events a second and the backend only needs to know the minute; the night
+ * schedule's resolution is a 30s tick.
+ */
+export const ACTIVITY_PING_MS = 60_000;
+
+let lastActivityPing = 0;
+
+function pingBackendActivity(): void {
+  const now = Date.now();
+  if (now - lastActivityPing < ACTIVITY_PING_MS) return;
+  lastActivityPing = now;
+  lcdActions.reportActivity();
+}
+
 let initialized = false;
 
 /**
@@ -154,10 +187,28 @@ export function initStandbyStore(): void {
 
   markStandbyActivity();
 
-  const onActivity = () => markStandbyActivity();
+  const onActivity = () => {
+    markStandbyActivity();
+    pingBackendActivity();
+  };
   for (const event of ACTIVITY_EVENTS) {
     window.addEventListener(event, onActivity, { passive: true, capture: true });
   }
+
+  // The backend is the authority on the mode: it decides the night schedule
+  // and it relays what other clients asked for. Applied directly rather than
+  // through enter()/exit() so acting on a push cannot echo back as a command.
+  const unsubscribeMode = lcdMode.subscribe((mode) => {
+    if (mode === 'standby') {
+      standbyActive.set(true);
+    } else if (mode === 'live') {
+      markStandbyActivity();
+      standbyActive.set(false);
+    }
+    // 'off' and 'unknown' leave the overlay as it is. The output is dark in
+    // the first case and undetermined in the second; in both, the next status
+    // push says which mode the panel actually came back to.
+  });
 
   const tick = setInterval(() => {
     // Playback keeps the countdown pinned at zero rather than suppressing the
@@ -177,6 +228,7 @@ export function initStandbyStore(): void {
 
   standbyTeardown = () => {
     clearInterval(tick);
+    unsubscribeMode();
     for (const event of ACTIVITY_EVENTS) {
       window.removeEventListener(event, onActivity, { capture: true });
     }
@@ -190,4 +242,5 @@ export function cleanupStandbyStore(): void {
   standbyTeardown?.();
   standbyTeardown = null;
   standbyActive.set(false);
+  lastActivityPing = 0;
 }

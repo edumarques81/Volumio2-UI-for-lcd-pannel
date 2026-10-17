@@ -11,6 +11,13 @@ const { mockIsPlaying, mockDeviceType } = await vi.hoisted(async () => {
   };
 });
 
+// The store now reports the mode to the backend through ./lcd, which is left
+// real so the two stores are exercised together; only the socket is faked.
+const { mockEmit } = vi.hoisted(() => ({ mockEmit: vi.fn() }));
+vi.mock('$lib/services/socket', () => ({
+  socketService: { emit: mockEmit, on: vi.fn(() => () => {}) }
+}));
+
 vi.mock('$lib/stores/player', () => ({ isPlaying: mockIsPlaying }));
 vi.mock('../player', () => ({ isPlaying: mockIsPlaying }));
 vi.mock('../device', () => ({ deviceType: mockDeviceType }));
@@ -41,8 +48,10 @@ import {
   standbyActions,
   markStandbyActivity,
   initStandbyStore,
-  cleanupStandbyStore
+  cleanupStandbyStore,
+  ACTIVITY_PING_MS
 } from '../standby';
+import { lcdMode } from '../lcd';
 
 describe('clampStandbyBrightness', () => {
   const cases: Array<[string, number, number]> = [
@@ -96,6 +105,9 @@ describe('standbyActions', () => {
   beforeEach(() => {
     localStorage.clear();
     standbyActive.set(false);
+    mockDeviceType.set('lcd-panel');
+    lcdMode.set('unknown');
+    mockEmit.mockClear();
   });
 
   it('enter and exit flip the overlay and are idempotent', () => {
@@ -106,6 +118,27 @@ describe('standbyActions', () => {
     standbyActions.exit();
     expect(get(standbyActive)).toBe(false);
     standbyActions.exit();
+    expect(get(standbyActive)).toBe(false);
+  });
+
+  it('enter tells the backend which mode to go to', () => {
+    standbyActions.enter();
+    expect(mockEmit).toHaveBeenCalledWith('lcdSetMode', { mode: 'standby' });
+  });
+
+  it('exit asks for the live mode back', () => {
+    standbyActions.enter();
+    mockEmit.mockClear();
+    standbyActions.exit();
+    expect(mockEmit).toHaveBeenCalledWith('lcdSetMode', { mode: 'live' });
+  });
+
+  // "Standby now" is in the settings screen, which is reachable from a phone.
+  // The phone has no overlay to paint, but the kiosk still has to obey.
+  it('drives the backend from a phone without blacking the phone out', () => {
+    mockDeviceType.set('mobile');
+    standbyActions.enter();
+    expect(mockEmit).toHaveBeenCalledWith('lcdSetMode', { mode: 'standby' });
     expect(get(standbyActive)).toBe(false);
   });
 
@@ -130,6 +163,8 @@ describe('initStandbyStore', () => {
     mockIsPlaying.set(false);
     standbyIdleMinutes.set(1);
     standbyActive.set(false);
+    lcdMode.set('unknown');
+    mockEmit.mockClear();
   });
 
   afterEach(() => {
@@ -180,6 +215,44 @@ describe('initStandbyStore', () => {
     markStandbyActivity();
     vi.advanceTimersByTime(STANDBY_TICK_MS * 30);
     expect(get(standbyActive)).toBe(false);
+  });
+
+  it('paints when the backend says standby, without echoing the command back', () => {
+    initStandbyStore();
+    mockEmit.mockClear();
+    lcdMode.set('standby');
+    expect(get(standbyActive)).toBe(true);
+    expect(mockEmit).not.toHaveBeenCalled();
+  });
+
+  it('clears when the backend says live', () => {
+    initStandbyStore();
+    lcdMode.set('standby');
+    mockEmit.mockClear();
+    lcdMode.set('live');
+    expect(get(standbyActive)).toBe(false);
+    expect(mockEmit).not.toHaveBeenCalled();
+  });
+
+  // The output is dark in 'off'; what the overlay is doing underneath is moot,
+  // and the status push that follows a restore says which mode it came back to.
+  it('leaves the overlay alone when the backend says off', () => {
+    initStandbyStore();
+    lcdMode.set('standby');
+    lcdMode.set('off');
+    expect(get(standbyActive)).toBe(true);
+  });
+
+  it('reports a touch to the backend, throttled', () => {
+    initStandbyStore();
+    mockEmit.mockClear();
+    window.dispatchEvent(new Event('pointerdown'));
+    window.dispatchEvent(new Event('pointerdown'));
+    expect(mockEmit.mock.calls.filter((c) => c[0] === 'lcdActivity').length).toBe(1);
+
+    vi.advanceTimersByTime(ACTIVITY_PING_MS + 1);
+    window.dispatchEvent(new Event('pointerdown'));
+    expect(mockEmit.mock.calls.filter((c) => c[0] === 'lcdActivity').length).toBe(2);
   });
 
   it('cleanup stops the watcher and clears the overlay', () => {

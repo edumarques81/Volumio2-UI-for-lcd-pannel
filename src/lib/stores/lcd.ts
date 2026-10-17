@@ -1,80 +1,80 @@
 import { writable, derived, get } from 'svelte/store';
 import { socketService } from '$lib/services/socket';
 
+/**
+ * The display's power state, as the backend models it.
+ *
+ * There are three destinations, not two. The panel has no backlight control
+ * (see ./standby.ts for the full list of levers that were tried and are
+ * closed), so "dark but awake" and "really off" are different things:
+ *
+ *   live    — the UI is on screen.
+ *   standby — the output is still driven and touch still works; the kiosk
+ *             paints the clock face. Owned by ./standby.ts.
+ *   off     — `wlr-randr --off`. Genuinely dark, and one-way from the panel's
+ *             side: it resets its own touch controller when the signal stops,
+ *             so only another client or a schedule can bring it back.
+ *
+ * `isOn` stays in the payload for older clients and is true for both live and
+ * standby — it answers "is the output lit", not "is the UI showing".
+ */
 export type LcdState = 'on' | 'off' | 'unknown';
+
+export type LcdMode = 'live' | 'standby' | 'off';
 
 export interface LCDStatus {
   isOn: boolean;
+  mode?: LcdMode;
 }
 
-// LCD state store
 export const lcdState = writable<LcdState>('unknown');
+
+/** The backend's mode. 'unknown' until the first `pushLcdStatus` arrives. */
+export const lcdMode = writable<LcdMode | 'unknown'>('unknown');
+
 export const lcdLoading = writable<boolean>(false);
 
-// Brightness constants
-export const STANDBY_BRIGHTNESS = 20;  // Dimmed standby mode (20%)
-export const DEFAULT_BRIGHTNESS = 100; // Full brightness
-
-// Brightness store (0-100, CSS overlay based since no hardware backlight)
-export const brightness = writable<number>(DEFAULT_BRIGHTNESS);
-
-// Working brightness - the brightness to restore to when waking from standby
-export const workingBrightness = writable<number>(DEFAULT_BRIGHTNESS);
-
-// Derived stores for quick boolean access
+/** True for live *and* standby: the output is lit either way. */
 export const isLcdOn = derived(lcdState, ($state) => $state === 'on');
-export const isStandby = derived(lcdState, ($state) => $state === 'off');
-export const isDimmed = derived(
-  [lcdState, brightness],
-  ([$state, $brightness]) => $state === 'on' && $brightness < 100
-);
-// Dimmed standby mode - screen is dimmed to standby level, touch to wake
-export const isDimmedStandby = derived(
-  brightness,
-  ($brightness) => $brightness <= STANDBY_BRIGHTNESS
-);
+
+function isLcdMode(value: unknown): value is LcdMode {
+  return value === 'live' || value === 'standby' || value === 'off';
+}
 
 /**
  * LCD control actions (Socket.IO based)
  */
 export const lcdActions = {
-  /**
-   * Request current LCD status from backend via Socket.IO
-   */
+  /** Request current LCD status from the backend. */
   getStatus(): void {
     socketService.emit('getLcdStatus');
   },
 
   /**
-   * Turn LCD off (standby mode)
+   * Move the display to a mode. Optimistic, then corrected by the
+   * `pushLcdStatus` the backend broadcasts to every client.
    */
+  setMode(mode: LcdMode): void {
+    lcdLoading.set(true);
+    lcdMode.set(mode);
+    lcdState.set(mode === 'off' ? 'off' : 'on');
+    // The payload is an object, not a bare string: a handler that cannot parse
+    // its argument returns silently, which looks exactly like a hung backend.
+    socketService.emit('lcdSetMode', { mode });
+  },
+
+  /** Cut the display signal. Touch dies with it until something turns it back on. */
   turnOff(): void {
-    console.log('📺 LCD standby');
-    lcdLoading.set(true);
-    lcdState.set('off'); // Optimistic update
-    socketService.emit('lcdStandby');
-    // Loading cleared when pushLcdStatus arrives
+    this.setMode('off');
   },
 
-  /**
-   * Turn LCD on (wake from standby)
-   */
+  /** Bring the live UI back. */
   turnOn(): void {
-    console.log('📺 LCD wake');
-    lcdLoading.set(true);
-    lcdState.set('on'); // Optimistic update
-    socketService.emit('lcdWake');
-    // Loading cleared when pushLcdStatus arrives
+    this.setMode('live');
   },
 
-  /**
-   * Toggle LCD hardware power state via backend socket events.
-   * Always uses turnOff()/turnOn() regardless of standby mode setting.
-   * (CSS dimmed standby is handled separately by StandbyOverlay for auto-dim on idle.)
-   */
   toggle(): void {
-    const currentState = get(lcdState);
-    if (currentState === 'off') {
+    if (get(lcdState) === 'off') {
       this.turnOn();
     } else {
       this.turnOff();
@@ -82,82 +82,33 @@ export const lcdActions = {
   },
 
   /**
-   * Set brightness level (0-100)
-   * Since there's no hardware backlight, this controls a CSS overlay
+   * Tell the backend someone touched the panel. The night schedule measures
+   * idleness from playback *and* this; without it a kiosk that is being used
+   * at 22:00 would still turn itself off.
    */
-  setBrightness(value: number): void {
-    const clamped = Math.max(0, Math.min(100, value));
-    console.log('📺 LCD brightness:', clamped);
-    brightness.set(clamped);
-  },
-
-  /**
-   * Dim the display to a specific brightness level
-   * Keeps the display on but reduces brightness via CSS overlay
-   */
-  dim(level: number = 30): void {
-    console.log('📺 LCD dim to:', level);
-    this.setBrightness(level);
-  },
-
-  /**
-   * Put display into standby mode (CSS full-black overlay - no backend call).
-   * Sets brightness to 0 so the screen appears completely off.
-   * Touch-to-wake still works because the display hardware stays connected.
-   * Use turnOff() for actual hardware power off (disables HDMI output).
-   */
-  standby(): void {
-    const currentBrightness = get(brightness);
-    if (currentBrightness > 0) {
-      workingBrightness.set(currentBrightness);
-    }
-
-    console.log('📺 LCD standby (full black)');
-    brightness.set(0);
-    lcdLoading.set(false);
-  },
-
-  /**
-   * Wake display from dimmed standby and restore working brightness (CSS overlay only)
-   * This is instant since it's just adjusting the CSS overlay.
-   */
-  wake(): void {
-    const targetBrightness = get(workingBrightness);
-    console.log(`📺 LCD wake (restoring to ${targetBrightness}%)`);
-    brightness.set(targetBrightness);
-    lcdLoading.set(false);
-  },
-
-  /**
-   * Reset brightness to full (100%)
-   */
-  resetBrightness(): void {
-    console.log('📺 LCD brightness reset');
-    brightness.set(100);
+  reportActivity(): void {
+    socketService.emit('lcdActivity');
   }
 };
 
 let initialized = false;
 
 /**
- * Initialize LCD state monitoring via Socket.IO
- * Replaces the old HTTP polling implementation
+ * Initialize LCD state monitoring via Socket.IO.
+ * The backend pushes the initial state on connect, so nothing is requested here.
  */
 export function initLcdStore() {
   if (initialized) return;
   initialized = true;
 
-  console.log('📺 Initializing LCD store (Socket.IO)...');
-
-  // Listen for LCD status updates via Socket.IO
-  // Backend pushes initial state on connection, no need for manual request
   socketService.on<LCDStatus>('pushLcdStatus', (status) => {
-    console.log('📺 LCD status update:', status);
-    lcdState.set(status.isOn ? 'on' : 'off');
+    const isOn = status?.isOn === true;
+    lcdState.set(isOn ? 'on' : 'off');
+    // Older backends send only `isOn`; derive a mode so nothing downstream has
+    // to special-case the missing field.
+    lcdMode.set(isLcdMode(status?.mode) ? status.mode : isOn ? 'live' : 'off');
     lcdLoading.set(false);
   });
-
-  console.log('✅ LCD store initialized (no polling)');
 }
 
 export function cleanupLcdStore() {
