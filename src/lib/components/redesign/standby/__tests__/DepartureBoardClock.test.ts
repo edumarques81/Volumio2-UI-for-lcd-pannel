@@ -71,6 +71,43 @@ describe('DepartureBoardClock', () => {
     }
   });
 
+  // The live clock rebuilds its `parts` object every 200ms so the seconds cell
+  // cannot lag the wall clock. That wakes every FlapUnit five times a second,
+  // including the ones whose character has not changed. A cell that reacted to
+  // the tick rather than to the character re-entered its flip on every one of
+  // them, cancelling the timer that would have settled it: it animated for
+  // ever, flickered, and never recovered. These two run the real board against
+  // a real (faked) clock, which is the only shape that reproduces it.
+  it('settles every cell after a tick, with no animation left running', async () => {
+    vi.setSystemTime(new Date(2026, 9, 18, 8, 8, 10, 0));
+    const { getByTestId, container } = render(DepartureBoardClock);
+
+    // Two full seconds -- two flips of the units cell, and a dozen bare ticks
+    // landing on the cells that did not change -- plus long enough for the
+    // last flip to finish.
+    await vi.advanceTimersByTimeAsync(2000);
+    await vi.advanceTimersByTimeAsync(400);
+
+    expect(getByTestId('standby-s2').getAttribute('data-value')).toBe('2');
+    for (const flap of container.querySelectorAll('.flap')) {
+      expect(flap.classList.contains('falling')).toBe(false);
+      expect(flap.classList.contains('landing')).toBe(false);
+    }
+  });
+
+  it('leaves an unchanged cell alone while a neighbour flips', async () => {
+    vi.setSystemTime(new Date(2026, 9, 18, 8, 8, 10, 0));
+    const { getByTestId } = render(DepartureBoardClock);
+    const minutes = getByTestId('standby-m2');
+
+    // Five seconds of ticks without the minute ever changing.
+    await vi.advanceTimersByTimeAsync(5000);
+
+    expect(minutes.getAttribute('data-value')).toBe('8');
+    expect(minutes.classList.contains('falling')).toBe(false);
+    expect(minutes.classList.contains('landing')).toBe(false);
+  });
+
   it('honours 12-hour mode', () => {
     const { getByTestId } = render(DepartureBoardClock, {
       props: { frozenAt: FROZEN, hour12: true }

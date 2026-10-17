@@ -53,17 +53,39 @@
   // $state because the cell publishes it as data-value; tests and the rail
   // read the settled character from there rather than from four spans.
   let settled = $state(first);
+
+  // The character the cell is *heading for*, which is not the same thing as
+  // the one it is showing: during a flip `settled` is still the old one.
+  //
+  // This is what the effect compares against, and it has to be, because the
+  // prop is re-evaluated far more often than it changes. The board rebuilds
+  // its `parts` object every 200ms so the seconds cell cannot lag the wall
+  // clock, and a fresh object wakes this component even when the character in
+  // it is identical. Comparing against `settled` meant every one of those
+  // ticks re-entered flipTo for a flip already in flight -- clearTimers()
+  // cancelled the reset that would have settled the cell, so `settled` never
+  // advanced, so the next tick did it again. The cell animated forever and
+  // visibly flickered, and it never recovered, because nothing in that loop
+  // could ever make the guard true again.
+  let pending = first;
+
   let timers: ReturnType<typeof setTimeout>[] = [];
 
   const FALL_MS = 150;
   const LAND_MS = 170;
   const RESET_MS = 330;
 
-  function snapTo(next: string): void {
+  /** Put all four halves on one character and drop the animation classes. */
+  function paint(next: string): void {
     topText = botText = leafTopText = leafBotText = next;
     falling = false;
     landing = false;
+  }
+
+  function snapTo(next: string): void {
+    paint(next);
     settled = next;
+    pending = next;
   }
 
   function clearTimers(): void {
@@ -77,7 +99,7 @@
     // Queueing would let the cell drift behind real time, which on a clock is
     // worse than a dropped frame of animation.
     clearTimers();
-    snapTo(settled);
+    paint(settled); // shut any in-flight animation; `settled` does not move
 
     topText = next;      // revealed as the top leaf falls away
     botText = settled;   // still the old half underneath
@@ -95,9 +117,15 @@
     );
   }
 
+  // $derived memoises, so an identical character arriving inside a new parent
+  // object does not wake the effect below at all. `pending` is the belt to
+  // that braces: it also covers a repeat that arrives by some other route.
+  const target = $derived(value);
+
   $effect(() => {
-    const next = value;
-    if (next === settled) return;
+    const next = target;
+    if (next === pending) return;
+    pending = next;
     if (reduceMotion) {
       snapTo(next);
       return;
@@ -159,26 +187,40 @@
     border-radius: 0 0 var(--flap-radius, 5px) var(--flap-radius, 5px);
   }
 
+  /* The leaves ride 1px in front of the halves, and the hinge 1px in front of
+     the leaves.
+
+     `perspective` on .flap makes this a 3D rendering context, and in one of
+     those the painting order of two *coplanar* surfaces is undefined — z-index
+     does not settle it. Both leaves end their swing flat against the half
+     behind them (leaf-top is flat at rest; leaf-bot lands flat), so without a
+     depth offset the cell z-fights between the old and the new character:
+     the flicker starts the first time a cell flips, because the transition is
+     what promotes the leaf to its own composited layer, and never stops.
+
+     1px against 1400px of perspective scales a leaf by 0.07% — under a tenth
+     of a pixel on the largest cell, so the leaf still registers with the half
+     it covers. */
   .leaf-top {
     transform-origin: 50% 100%;
-    transform: rotateX(0deg);
+    transform: translateZ(1px) rotateX(0deg);
     z-index: 3;
   }
 
   .leaf-bot {
     transform-origin: 50% 0%;
-    transform: rotateX(90deg);
+    transform: translateZ(1px) rotateX(90deg);
     z-index: 3;
   }
 
   /* Transitions live with the state classes on purpose — see the header note. */
   .flap.falling .leaf-top {
-    transform: rotateX(-90deg);
+    transform: translateZ(1px) rotateX(-90deg);
     transition: transform var(--fall) cubic-bezier(0.4, 0, 0.9, 0.5);
   }
 
   .flap.landing .leaf-bot {
-    transform: rotateX(0deg);
+    transform: translateZ(1px) rotateX(0deg);
     transition: transform var(--land) cubic-bezier(0.2, 0.6, 0.4, 1);
   }
 
@@ -215,6 +257,7 @@
     width: 100%;
     height: 2px;
     background: var(--flap-hinge, rgba(0, 0, 0, 0.92));
+    transform: translateZ(2px);
     z-index: 5;
   }
 
