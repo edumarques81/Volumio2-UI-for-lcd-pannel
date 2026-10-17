@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount, onDestroy } from 'svelte';
   import Toggle from '$lib/components/redesign/controls/Toggle.svelte';
   import ConfirmDialog from '$lib/components/redesign/settings/ConfirmDialog.svelte';
   import { systemInfo, networkStatus } from '$lib/stores/settings';
@@ -6,10 +7,32 @@
   import { isLcdOn, lcdActions, lcdLoading } from '$lib/stores/lcd';
   import { frontendVersion, backendVersion } from '$lib/stores/version';
   import { getVolumioHost } from '$lib/config';
+  import { socketService } from '$lib/services/socket';
+
+  /** Backend shape for system:action:error broadcasts. */
+  interface SystemActionError {
+    action?: string;
+    error?: string;
+  }
 
   // Local dialog state
   let rebootOpen = $state(false);
   let shutdownOpen = $state(false);
+
+  // A power command can fail after the confirm dialog closes: the backend
+  // defers the exec by 3s, and a non-loopback caller is refused outright.
+  // PowerModal has always surfaced that; this column did not, so a refused
+  // or failed Reboot looked identical to a working one that simply had not
+  // happened yet. Nothing on screen ever said otherwise.
+  let powerError = $state('');
+  let unsubPowerError: (() => void) | null = null;
+
+  onMount(() => {
+    unsubPowerError = socketService.on<SystemActionError>('system:action:error', (payload) => {
+      powerError = `Power command failed: ${payload?.error ?? 'unknown error'}`;
+    });
+  });
+  onDestroy(() => unsubPowerError?.());
 
   // Derived values
   const backendUrl = getVolumioHost();
@@ -23,6 +46,7 @@
   }
 
   function handleRebootConfirm(): void {
+    powerError = '';
     settingsActions.restart();
     rebootOpen = false;
   }
@@ -32,6 +56,7 @@
   }
 
   function handleShutdownConfirm(): void {
+    powerError = '';
     settingsActions.shutdown();
     shutdownOpen = false;
   }
@@ -122,6 +147,9 @@
         Shutdown Stellar
       </button>
     </div>
+    {#if powerError}
+      <p class="power-error" role="alert" data-testid="system-power-error">{powerError}</p>
+    {/if}
   </div>
 </section>
 
@@ -196,6 +224,12 @@
 
   .mono {
     font-family: monospace;
+  }
+
+  .power-error {
+    color: var(--color-error);
+    font-size: 14px;
+    margin: 12px 0 0;
   }
 
   .network-row {

@@ -89,6 +89,21 @@ vi.mock('$lib/config', () => ({
   getVolumioHost: () => 'http://192.168.86.25:3000',
 }));
 
+// Socket stub that lets a test fire `system:action:error` the way the backend
+// does when a power command is refused or its exec fails.
+const { mockSocketHandlers, mockSocketOn } = await vi.hoisted(async () => {
+  const mockSocketHandlers = new Map<string, (data: unknown) => void>();
+  const mockSocketOn = vi.fn((event: string, cb: (data: unknown) => void) => {
+    mockSocketHandlers.set(event, cb);
+    return () => mockSocketHandlers.delete(event);
+  });
+  return { mockSocketHandlers, mockSocketOn };
+});
+
+vi.mock('$lib/services/socket', () => ({
+  socketService: { on: mockSocketOn, emit: vi.fn() },
+}));
+
 // Stub Toggle — renders a button[id][aria-pressed] that fires onchange
 vi.mock('$lib/components/redesign/controls/Toggle.svelte', async () => {
   const { default: StubToggle } = await import('./stubs/StubToggle.svelte');
@@ -337,5 +352,67 @@ describe('SystemSettings', () => {
     await fireEvent.click(getByText('Cancel'));
     expect(mockShutdown).not.toHaveBeenCalled();
     expect(queryByRole('dialog')).toBeNull();
+  });
+});
+
+// A power command can fail AFTER the confirm dialog closes: the backend defers
+// the exec by 3s, and a non-loopback caller is refused outright. This column
+// used to render nothing in either case, so "Reboot" that could never work
+// looked exactly like one that had not happened yet.
+describe('SystemSettings power failure reporting', () => {
+  beforeEach(() => {
+    mockSystemInfo.set({ host: 'stellar', hardware: 'Raspberry Pi 5', builddate: '2026-01-15' });
+    mockNetworkStatus.set({ online: true });
+    mockLcdState.set('on');
+    mockSocketHandlers.clear();
+    vi.clearAllMocks();
+  });
+
+  function fireActionError(payload: unknown): void {
+    const handler = mockSocketHandlers.get('system:action:error');
+    expect(handler, 'component must subscribe to system:action:error').toBeTruthy();
+    handler!(payload);
+  }
+
+  it('subscribes to system:action:error on mount', () => {
+    render(SystemSettings);
+    expect(mockSocketOn).toHaveBeenCalledWith('system:action:error', expect.any(Function));
+  });
+
+  it('renders nothing until a failure arrives', () => {
+    const { queryByTestId } = render(SystemSettings);
+    expect(queryByTestId('system-power-error')).toBeNull();
+  });
+
+  it('surfaces the backend error text', async () => {
+    const { findByTestId } = render(SystemSettings);
+    fireActionError({ action: 'reboot', error: 'exit status 1' });
+    const el = await findByTestId('system-power-error');
+    expect(el.textContent).toContain('exit status 1');
+  });
+
+  it('surfaces an unauthorized refusal from a non-loopback client', async () => {
+    const { findByTestId } = render(SystemSettings);
+    fireActionError({ action: 'shutdown', error: 'unauthorized' });
+    const el = await findByTestId('system-power-error');
+    expect(el.textContent).toContain('unauthorized');
+  });
+
+  it('falls back to a generic label when the backend omits the error string', async () => {
+    const { findByTestId } = render(SystemSettings);
+    fireActionError({ action: 'reboot' });
+    const el = await findByTestId('system-power-error');
+    expect(el.textContent).toContain('unknown error');
+    // The action name is not an error message; it must not be shown as one.
+    expect(el.textContent).not.toContain('Power command failed: reboot');
+  });
+
+  it('clears a stale failure when a new reboot is confirmed', async () => {
+    const { getByText, findByTestId, queryByTestId } = render(SystemSettings);
+    fireActionError({ action: 'reboot', error: 'exit status 1' });
+    await findByTestId('system-power-error');
+    await fireEvent.click(getByText('Reboot Stellar'));
+    await fireEvent.click(getByText('Reboot'));
+    expect(queryByTestId('system-power-error')).toBeNull();
   });
 });
