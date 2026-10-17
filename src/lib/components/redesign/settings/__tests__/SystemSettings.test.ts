@@ -6,6 +6,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
 import { writable, readable, derived, get } from 'svelte/store';
+import {
+  standbyActive,
+  standbyBrightness,
+  standbyIdleMinutes,
+  standbyActions
+} from '$lib/stores/standby';
 
 // ---------------------------------------------------------------------------
 // Hoist mocks — must be vi.hoisted so they are available before vi.mock calls
@@ -414,5 +420,64 @@ describe('SystemSettings power failure reporting', () => {
     await fireEvent.click(getByText('Reboot Stellar'));
     await fireEvent.click(getByText('Reboot'));
     expect(queryByTestId('system-power-error')).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Standby controls
+//
+// Standby and "LCD on" are two different hardware states on this panel, so the
+// column offers both. These assert the settings surface drives the real store,
+// not that the overlay renders (StandbyOverlay.test.ts covers that).
+// ---------------------------------------------------------------------------
+
+describe('SystemSettings standby controls', () => {
+  beforeEach(() => {
+    standbyActive.set(false);
+    standbyActions.setBrightness(55);
+    standbyActions.setIdleMinutes(30);
+  });
+
+  it('"Standby now" puts the screen into standby', async () => {
+    const { getByTestId } = render(SystemSettings);
+    await fireEvent.click(getByTestId('system-standby-now'));
+    expect(get(standbyActive)).toBe(true);
+  });
+
+  it('the brightness slider shows and writes the stored value', async () => {
+    const { getByTestId, getByText } = render(SystemSettings);
+    const slider = getByTestId('system-standby-brightness') as HTMLInputElement;
+    expect(slider.value).toBe('55');
+    expect(getByText('55%')).toBeTruthy();
+
+    await fireEvent.input(slider, { target: { value: '20' } });
+    expect(get(standbyBrightness)).toBe(20);
+  });
+
+  it('the brightness slider floor keeps the clock legible rather than black', () => {
+    const { getByTestId } = render(SystemSettings);
+    const slider = getByTestId('system-standby-brightness') as HTMLInputElement;
+    expect(slider.min).toBe('8');
+    expect(slider.max).toBe('100');
+  });
+
+  it('the idle selector writes the chosen interval', async () => {
+    const { container } = render(SystemSettings);
+    const select = container.querySelector(
+      '#settings-system-standby-idle'
+    ) as HTMLSelectElement;
+    expect(select.value).toBe('30');
+
+    await fireEvent.change(select, { target: { value: '60' } });
+    expect(get(standbyIdleMinutes)).toBe(60);
+  });
+
+  it('offers "Never" so the idle rule can be switched off entirely', async () => {
+    const { container } = render(SystemSettings);
+    const select = container.querySelector(
+      '#settings-system-standby-idle'
+    ) as HTMLSelectElement;
+    await fireEvent.change(select, { target: { value: '0' } });
+    expect(get(standbyIdleMinutes)).toBe(0);
   });
 });

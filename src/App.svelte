@@ -18,6 +18,7 @@
   import { initIngestStore, cleanupIngestStore } from '$lib/stores/ingest';
   import { initAudioEngineStore, cleanupAudioEngineStore, audioEngineActions } from '$lib/stores/audioEngine';
   import { initDeviceStore, cleanupDeviceStore, deviceType } from '$lib/stores/device';
+  import { initStandbyStore, cleanupStandbyStore } from '$lib/stores/standby';
   import { currentView, layoutMode, navigationActions, setViewActionHandlers, clearViewActionHandlers, modalActions } from '$lib/stores/navigation';
   import { triggerLibraryRefresh, cancelLibraryRefresh } from '$lib/stores/libraryRefresh';
   import { startKioskHeartbeat } from '$lib/kioskHeartbeat';
@@ -30,6 +31,7 @@
   import Toast from '$lib/components/Toast.svelte';
   import PlayerLayout from '$lib/components/redesign/PlayerLayout.svelte';
   import PowerModal from '$lib/components/redesign/PowerModal.svelte';
+  import StandbyOverlay from '$lib/components/redesign/StandbyOverlay.svelte';
 
   // Track when app was last visible for connection health check
   let lastVisibleTime = Date.now();
@@ -73,6 +75,10 @@
     initSpectrumStore();
     initAirplayStore();
     initIngestStore();
+
+    // Idle -> standby watcher. Gated to the LCD kiosk inside the store, and
+    // registered after initDeviceStore() so that gate can see the device type.
+    initStandbyStore();
 
     // Wire NavColumn's Refresh and Power actions (spec decisions 64-66, 67-71).
     // triggerLibraryRefresh owns the reentrancy guard + listener-leak defense.
@@ -315,6 +321,7 @@
       cleanupDeviceStore();
       cleanupBiosStore();
       cleanupIngestStore();
+      cleanupStandbyStore();
 
       // Reset NavColumn action handlers and tear down any in-flight
       // library:cache:updated listener so HMR remounts don't leak stale
@@ -344,6 +351,9 @@
 
   <!-- Global modals -->
   <PowerModal />
+
+  <!-- Standby clock face. Sits above every modal and swallows its wake tap. -->
+  <StandbyOverlay />
   <StatusDrawer />
   <Toast />
 </main>

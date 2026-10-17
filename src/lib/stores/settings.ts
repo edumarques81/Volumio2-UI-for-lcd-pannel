@@ -95,27 +95,6 @@ export const networkStatus = derived(
 // Audio outputs
 export const audioOutputs = writable<AudioOutput[]>([]);
 
-/**
- * LCD Standby Mode
- * - 'css': Dimmed standby (20% brightness via CSS overlay) - instant, touch-to-wake works
- * - 'hardware': Hardware off (wlr-randr) - actually turns off display, slower wake
- */
-export type LcdStandbyMode = 'css' | 'hardware';
-
-const LCD_STANDBY_MODE_KEY = 'stellar-volumio-lcd-standby-mode';
-
-function loadLcdStandbyMode(): LcdStandbyMode {
-  if (typeof localStorage !== 'undefined') {
-    const stored = localStorage.getItem(LCD_STANDBY_MODE_KEY);
-    if (stored === 'css' || stored === 'hardware') {
-      return stored;
-    }
-  }
-  return 'css'; // Default to CSS dimmed standby for reliable touch-to-wake
-}
-
-export const lcdStandbyMode = writable<LcdStandbyMode>(loadLcdStandbyMode());
-
 // Settings categories
 export const settingsCategories: SettingsCategory[] = [
   {
@@ -283,18 +262,6 @@ export const settingsActions = {
   rescanLibrary() {
     console.log('[Settings] Rescanning library');
     socketService.emit('rescanDb');
-  },
-
-  /**
-   * Set LCD standby mode
-   * @param mode 'css' for dimmed standby (recommended), 'hardware' for wlr-randr off
-   */
-  setLcdStandbyMode(mode: LcdStandbyMode) {
-    console.log('[Settings] Setting LCD standby mode:', mode);
-    lcdStandbyMode.set(mode);
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(LCD_STANDBY_MODE_KEY, mode);
-    }
   }
 };
 

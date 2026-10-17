@@ -41,6 +41,7 @@ vi.mock('$lib/stores/spectrum', async (importOriginal) => {
 });
 
 import VuMeterView from '../VuMeterView.svelte';
+import { standbyActive } from '$lib/stores/standby';
 import {
   rmsToMeterDb,
   meterDbToAngle,
@@ -313,5 +314,66 @@ describe('VuMeterView ballistics', () => {
 
     expect(quieter).toBeLessThan(loud);
     expect(quieter).toBeGreaterThan(ANGLE_MIN_DEG);
+  });
+});
+
+describe('VuMeterView standby suspension', () => {
+  // The global shim's cancelAnimationFrame is a bare spy; here the cancel has
+  // to actually take effect, because what is being asserted is that no further
+  // frame is scheduled.
+  beforeEach(() => {
+    vi.stubGlobal('cancelAnimationFrame', () => {
+      rafCallbacks = [];
+    });
+    standbyActive.set(false);
+  });
+
+  afterEach(() => standbyActive.set(false));
+
+  it('stops scheduling frames while the standby face is up', async () => {
+    render(VuMeterView);
+    flushRAF(16);
+    await Promise.resolve();
+    expect(rafCallbacks.length).toBeGreaterThan(0);
+
+    standbyActive.set(true);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(rafCallbacks).toHaveLength(0);
+  });
+
+  it('the needles stop moving once suspended', async () => {
+    const { container } = render(VuMeterView);
+    rmsL.set(0.5);
+    await Promise.resolve();
+    for (let i = 0; i < 4; i++) flushRAF(16);
+    await Promise.resolve();
+    const beforeStandby = needleAngle(container, 'l');
+
+    standbyActive.set(true);
+    await Promise.resolve();
+    rmsL.set(1);
+    for (let i = 0; i < 20; i++) flushRAF(16);
+    await Promise.resolve();
+    expect(needleAngle(container, 'l')).toBe(beforeStandby);
+  });
+
+  it('resumes on wake', async () => {
+    const { container } = render(VuMeterView);
+    standbyActive.set(true);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(rafCallbacks).toHaveLength(0);
+
+    standbyActive.set(false);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(rafCallbacks.length).toBeGreaterThan(0);
+
+    rmsL.set(0.5);
+    await Promise.resolve();
+    for (let i = 0; i < 6; i++) flushRAF(16);
+    await Promise.resolve();
+    expect(needleAngle(container, 'l')).toBeGreaterThan(ANGLE_MIN_DEG);
   });
 });

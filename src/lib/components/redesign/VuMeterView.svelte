@@ -10,6 +10,7 @@
     ANGLE_MIN_DEG,
     OVERSHOOT_DB,
   } from '$lib/stores/spectrum';
+  import { standbyActive } from '$lib/stores/standby';
 
   /**
    * A pair of reconstructed analog VU meters, LEFT and RIGHT.
@@ -111,13 +112,29 @@
 
   onMount(() => {
     reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (!reducedMotion) {
-      raf = requestAnimationFrame(tick);
-    }
   });
 
   onDestroy(() => {
     if (raf) cancelAnimationFrame(raf);
+  });
+
+  // The loop's lifecycle lives here rather than in onMount so standby can
+  // stop it. The panel has no backlight to cut, so a standby screen that kept
+  // integrating needle physics behind a black veil would be burning CPU on
+  // something nobody can see — and on this Pi the backend and the kiosk share
+  // the cores with MPD. Suspending is the actual saving standby makes.
+  $effect(() => {
+    if ($standbyActive || reducedMotion) {
+      if (raf) {
+        cancelAnimationFrame(raf);
+        raf = 0;
+      }
+      return;
+    }
+    if (!raf) {
+      lastT = 0;
+      raf = requestAnimationFrame(tick);
+    }
   });
 
   // In reduced-motion mode the RAF loop is skipped; the needles step directly
