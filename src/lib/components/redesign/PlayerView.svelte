@@ -2,6 +2,7 @@
   import { currentTrack, isPlaying, seek, duration, playerState, playerActions, lastPlayedAlbum, transitioning } from '$lib/stores/player';
   import { queue } from '$lib/stores/queue';
   import { airplayState, airplayActive, airplayActions } from '$lib/stores/airplay';
+  import { castState, castActive, castActions } from '$lib/stores/cast';
 
   import AlbumArtPanel from './AlbumArtPanel.svelte';
   import MetadataBlock from './MetadataBlock.svelte';
@@ -9,6 +10,8 @@
   import FormatStrip from './FormatStrip.svelte';
   import TransportColumn from './TransportColumn.svelte';
   import AirplaySourceBadge from './AirplaySourceBadge.svelte';
+  import CastSourceBadge from './CastSourceBadge.svelte';
+  import OutputButton from './OutputButton.svelte';
   import { parseBitDepth, parseSampleRate, normalizeCodec } from './playerStateParsers';
 
   // AirPlay mode wins over MPD playback when a session is active.
@@ -27,7 +30,12 @@
   // on first boot. Tapping play hydrates the queue with the saved
   // track URI; we never autoplay.
   $: isResumed = !hasLiveTrack && !!$lastPlayedAlbum;
-  $: hasTrack = $airplayActive || hasLiveTrack || isResumed;
+  // Cast mode: a session exists the moment the user picks a device, which is
+  // before anything is loaded onto it. Only a session with a track is worth
+  // taking the view over for; a connected-but-idle device just shows in the
+  // output button.
+  $: castHasTrack = $castActive && !!$castState.title;
+  $: hasTrack = $airplayActive || castHasTrack || hasLiveTrack || isResumed;
   $: atQueueEnd = $queue.length > 0 && ($playerState?.position ?? 0) === $queue.length - 1;
   // PlayerState.repeat is a boolean (Volumio shape). Map onto NavColumn enum.
   $: repeat = (
@@ -38,19 +46,28 @@
 
   // Effective fields:
   //   1. AirPlay session active → use AirPlay state (overrides everything).
-  //   2. Live MPD track → use the queue's current track.
-  //   3. Resume idle state → fall back to the last-played album row.
+  //   2. Cast session with a track → use the cast state.
+  //   3. Live MPD track → use the queue's current track.
+  //   4. Resume idle state → fall back to the last-played album row.
+  //
+  // AirPlay stays ahead of Cast: an AirPlay session means someone redirected
+  // audio INTO this Pi and is listening to it right now, which is the more
+  // urgent thing to show. The two are independent and may overlap.
   $: displayTitle =
     $airplayActive ? $airplayState.title :
+    castHasTrack ? $castState.title :
     hasLiveTrack ? track.title : ($lastPlayedAlbum?.album ?? '');
   $: displayArtist =
     $airplayActive ? $airplayState.artist :
+    castHasTrack ? $castState.artist :
     hasLiveTrack ? track.artist : ($lastPlayedAlbum?.artist ?? '');
   $: displayAlbum =
     $airplayActive ? $airplayState.album :
+    castHasTrack ? $castState.album :
     hasLiveTrack ? track.album : ($lastPlayedAlbum?.album ?? '');
   $: displayAlbumArt =
     $airplayActive ? $airplayState.coverDataURL :
+    castHasTrack ? $castState.albumart :
     hasLiveTrack ? track.albumart : ($lastPlayedAlbum?.albumArt ?? '');
 
   // FormatStrip needs numeric sampleRate (Hz) + bitDepth + codec.
@@ -58,20 +75,35 @@
   // which parseBitDepth/parseSampleRate already accept. The codec field
   // is unknown for AirPlay (the iPhone sends decoded PCM over the link)
   // — we leave it null so FormatStrip shows just the rate+depth cells.
+  //
+  // Cast reports no format at all: the device fetches the file itself and the
+  // Cast media status carries no rate or depth. Rather than echo the local
+  // library's tags as if they described what the Hub is doing, all three go
+  // null and FormatStrip renders nothing — the CAST badge is what the user
+  // needs there anyway.
   $: bitDepth =
     $airplayActive ? ($airplayState.bitDepth || null) :
+    castHasTrack ? null :
     parseBitDepth(hasLiveTrack ? $playerState?.bitdepth : $lastPlayedAlbum?.bitDepth);
   $: sampleRateHz =
     $airplayActive ? ($airplayState.sampleRate || null) :
+    castHasTrack ? null :
     parseSampleRate(hasLiveTrack ? $playerState?.samplerate : $lastPlayedAlbum?.sampleRate);
   $: codec =
-    $airplayActive ? null :
+    $airplayActive || castHasTrack ? null :
     normalizeCodec(hasLiveTrack ? $playerState?.trackType : $lastPlayedAlbum?.trackType);
 
   // Progress: AirPlay overrides MPD's seek/duration with its own (already
   // in seconds, not ms — different from PlayerState.seek which is ms).
-  $: displaySeek = $airplayActive ? $airplayState.seekSeconds : (isResumed ? 0 : $seek);
-  $: displayDuration = $airplayActive ? $airplayState.durationSeconds : (isResumed ? 0 : $duration);
+  // Cast's own seek is in ms (it mirrors pushState); the bar wants seconds.
+  $: displaySeek =
+    $airplayActive ? $airplayState.seekSeconds :
+    castHasTrack ? $castState.seek / 1000 :
+    (isResumed ? 0 : $seek);
+  $: displayDuration =
+    $airplayActive ? $airplayState.durationSeconds :
+    castHasTrack ? $castState.duration :
+    (isResumed ? 0 : $duration);
 
   // Transport behaviour differs between MPD and AirPlay:
   //   - MPD: button state derived from $isPlaying / queue position.
@@ -85,9 +117,20 @@
   // is "playing"); tapping toggles via DACP either way.
   $: airplayCanControl = $airplayActive && $airplayState.canControl;
 
+  // Cast's transport is the device's own, so the button state comes from the
+  // device's reported player state rather than from anything we remember
+  // sending. queueIndex/queueLength are the backend's filtered queue — the
+  // one the device actually got, with unplayable tracks already dropped.
+  $: castIsPlaying = $castState.status === 'play';
+  $: castAtQueueEnd = $castState.queueLength > 0 && $castState.queueIndex >= $castState.queueLength - 1;
+
   function togglePlay() {
     if ($airplayActive) {
       airplayActions.toggle();
+      return;
+    }
+    if (castHasTrack) {
+      castActions.toggle();
       return;
     }
     if ($isPlaying) {
@@ -108,12 +151,20 @@
       airplayActions.prev();
       return;
     }
+    if (castHasTrack) {
+      castActions.prev();
+      return;
+    }
     playerActions.prev();
   }
 
   function onNext() {
     if ($airplayActive) {
       airplayActions.next();
+      return;
+    }
+    if (castHasTrack) {
+      castActions.next();
       return;
     }
     playerActions.next();
@@ -124,6 +175,11 @@
     // ProgressBar drags in AirPlay mode are a no-op for now. We pass a
     // handler anyway so the bar stays interactive when MPD is active.
     if ($airplayActive) return;
+    // Cast does have a real seek primitive, unlike AirPlay/DACP.
+    if (castHasTrack) {
+      castActions.seekTo(s);
+      return;
+    }
     playerActions.seekTo(s);
   }
 </script>
@@ -134,6 +190,7 @@
   data-testid="player-view"
   data-resumed={isResumed ? 'true' : 'false'}
   data-airplay={$airplayActive ? 'true' : 'false'}
+  data-cast={castHasTrack ? 'true' : 'false'}
 >
   <div class="art-zone">
     <AlbumArtPanel src={displayAlbumArt || ''} alt={displayTitle || ''} />
@@ -158,25 +215,35 @@
         />
       {/if}
 
-      <div class="format-row">
+    {/if}
+
+    <!-- The format row stays mounted whether or not a track is live: the
+         output button belongs to the device, not to the track, and an idle
+         screen is exactly when the user goes looking for it. -->
+    <div class="format-row">
+      {#if hasTrack}
         <FormatStrip
           bitDepth={bitDepth}
           sampleRate={sampleRateHz}
           codec={codec}
         />
-        {#if $airplayActive}
-          <AirplaySourceBadge sender={$airplayState.sender} />
-        {/if}
-      </div>
-    {/if}
+      {/if}
+      {#if $airplayActive}
+        <AirplaySourceBadge sender={$airplayState.sender} />
+      {/if}
+      {#if castHasTrack}
+        <CastSourceBadge device={$castState.deviceName} />
+      {/if}
+      <OutputButton />
+    </div>
   </div>
 
   <TransportColumn
-    isPlaying={$airplayActive ? $airplayState.isPlaying : $isPlaying}
-    atQueueEnd={$airplayActive ? false : atQueueEnd}
+    isPlaying={$airplayActive ? $airplayState.isPlaying : (castHasTrack ? castIsPlaying : $isPlaying)}
+    atQueueEnd={$airplayActive ? false : (castHasTrack ? castAtQueueEnd : atQueueEnd)}
     repeat={repeat}
     hasTrack={$airplayActive ? airplayCanControl : hasTrack}
-    loading={$airplayActive ? false : $transitioning}
+    loading={$airplayActive || castHasTrack ? false : $transitioning}
     onTogglePlay={togglePlay}
     onPrev={onPrev}
     onNext={onNext}
@@ -215,12 +282,16 @@
     padding: 0 24px;
     overflow: hidden;
   }
-  /* Format strip + AirPlay badge sit side by side on the same row so the
-     LCD layout doesn't reflow when an AirPlay session starts. */
+  /* Format strip, source badge and output button sit side by side on the
+     same row so the LCD layout doesn't reflow when a session starts. The
+     output button is pushed to the trailing edge. */
   .format-row {
     display: flex;
     align-items: center;
     gap: 16px;
     flex-wrap: wrap;
+  }
+  .format-row :global(.output-button) {
+    margin-left: auto;
   }
 </style>

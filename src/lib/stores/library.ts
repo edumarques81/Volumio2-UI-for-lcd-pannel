@@ -49,6 +49,8 @@ export interface Album {
   year?: number;
   addedAt?: string;
   quality?: string;     // e.g. "192kHz/24bit FLAC"
+  sampleRate?: number;  // Hz, e.g. 44100, 96000, 352800; absent when unknown
+  bitDepth?: number;    // e.g. 16, 24; absent when unknown
   trackType?: string;   // e.g. "flac", "dsf"
   genre?: string;       // e.g. "Ambient / Post-Rock" — backfilled from MPD's genre tag
   badge?: string;       // Phase 3 (BROWSE-01/02/03): disambiguation badge for a

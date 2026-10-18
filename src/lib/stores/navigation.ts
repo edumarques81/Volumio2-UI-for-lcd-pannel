@@ -169,9 +169,18 @@ export const viewActions = {
  */
 export const powerModalOpen = writable<boolean>(false);
 
+/**
+ * Output-picker visibility — driven by PlayerView's output button. The picker
+ * is where the user chooses between the local DAC and a Cast device, so it is
+ * reachable whether or not anything is playing.
+ */
+export const outputPickerOpen = writable<boolean>(false);
+
 export const modalActions = {
   openPower:  () => powerModalOpen.set(true),
   closePower: () => powerModalOpen.set(false),
+  openOutput:  () => outputPickerOpen.set(true),
+  closeOutput: () => outputPickerOpen.set(false),
 };
 
 /**

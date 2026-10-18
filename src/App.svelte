@@ -16,6 +16,7 @@
   import { initBiosStore, cleanupBiosStore } from '$lib/stores/bios';
   import { initSpectrumStore } from '$lib/stores/spectrum';
   import { initAirplayStore } from '$lib/stores/airplay';
+  import { initCastStore } from '$lib/stores/cast';
   import { initIngestStore, cleanupIngestStore } from '$lib/stores/ingest';
   import { initAudioEngineStore, cleanupAudioEngineStore, audioEngineActions } from '$lib/stores/audioEngine';
   import { initDeviceStore, cleanupDeviceStore, deviceType } from '$lib/stores/device';
@@ -32,6 +33,7 @@
   import Toast from '$lib/components/Toast.svelte';
   import PlayerLayout from '$lib/components/redesign/PlayerLayout.svelte';
   import PowerModal from '$lib/components/redesign/PowerModal.svelte';
+  import OutputPicker from '$lib/components/redesign/OutputPicker.svelte';
   import StandbyOverlay from '$lib/components/redesign/StandbyOverlay.svelte';
 
   // Track when app was last visible for connection health check
@@ -76,6 +78,7 @@
     initBiosStore();
     initSpectrumStore();
     initAirplayStore();
+    initCastStore();
     initIngestStore();
 
     // Idle -> standby watcher. Gated to the LCD kiosk inside the store, and
@@ -354,6 +357,7 @@
 
   <!-- Global modals -->
   <PowerModal />
+  <OutputPicker />
 
   <!-- Standby clock face. Sits above every modal and swallows its wake tap. -->
   <StandbyOverlay />

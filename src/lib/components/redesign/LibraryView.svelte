@@ -9,7 +9,10 @@
     currentLibraryIndex,
     libraryActions,
   } from '$lib/stores/library';
+  import type { Album } from '$lib/stores/library';
   import { bioActions } from '$lib/stores/bios';
+  import { castActive, castActions } from '$lib/stores/cast';
+  import { toastActions } from '$lib/stores/toast';
   import { viewActions } from '$lib/stores/navigation';
   import AlbumPage from './AlbumPage.svelte';
   import AlbumTrackList from './AlbumTrackList.svelte';
@@ -99,11 +102,53 @@
   // albums still has playable songs — play them all via the loose-track
   // fallback rather than leaving the user at a dead end.
   function playAllLooseTracks() {
+    // Casting takes an album URI; a loose-track set has no album row for the
+    // backend to expand, so there is no cast path for it yet. Play it locally
+    // and say so, rather than letting sound come out of the DAC unannounced
+    // while the user believes the Hub is the active output.
+    if ($castActive) {
+      toastActions.info('Playing on the Stellar DAC', "Loose tracks can't be cast yet");
+    }
     libraryActions.playLooseTracks($artistLooseTracks);
+  }
+
+  // Cast the album instead of queueing it locally. The backend refuses
+  // individual tracks the device cannot decode (DSD, and anything above
+  // 192 kHz) and returns them with a reason, so a partly-castable album
+  // still plays and the user is told what was left out.
+  async function castCurrent(album: Album) {
+    const response = await castActions.playAlbum({
+      album: album.title,
+      albumArtist: album.artist,
+      uri: album.uri,
+      sampleRate: album.sampleRate,
+    });
+    const skipped = response.skipped ?? [];
+    if (!response.ok) {
+      toastActions.error(
+        'Could not cast this album',
+        skipped[0]?.reason || response.error || 'unknown error',
+      );
+      return;
+    }
+    if (skipped.length > 0) {
+      toastActions.warning(
+        `Skipped ${skipped.length} track${skipped.length === 1 ? '' : 's'}`,
+        skipped[0].reason,
+      );
+    }
+    viewActions.goToPlayer();
   }
 
   function playCurrent() {
     if (!currentAlbum) return;
+    // The output picker decides where Play Album goes. A live cast session
+    // means the user already redirected output, so queueing this onto MPD
+    // would play it on the wrong device.
+    if ($castActive) {
+      void castCurrent(currentAlbum);
+      return;
+    }
     // Use replaceAndPlay { type: 'folder' } so Volumio's MPD service expands
     // the folder URI and plays from track 1 server-side. The earlier
     // replaceQueueAndPlay path emitted addToQueue with an array of URIs, but
