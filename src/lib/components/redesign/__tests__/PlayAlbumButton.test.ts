@@ -67,3 +67,28 @@ describe('PlayAlbumButton', () => {
     });
   });
 });
+
+describe('PlayAlbumButton — blocked state', () => {
+  it('is enabled with no reason', () => {
+    const { container } = render(PlayAlbumButton, { props: { onPlay: () => {} } });
+    const button = container.querySelector('[data-testid="play-album-button"]') as HTMLButtonElement;
+    expect(button.disabled).toBe(false);
+    expect(button.getAttribute('aria-label')).toBe('Play Album');
+    expect(container.querySelector('[data-testid="play-album-blocked-reason"]')).toBeNull();
+  });
+
+  it('disables itself and shows the reason when one is given', async () => {
+    const onPlay = vi.fn();
+    const { container } = render(PlayAlbumButton, {
+      props: { onPlay, blockedReason: 'Hub has no DSD decoder.' },
+    });
+    const button = container.querySelector('[data-testid="play-album-button"]') as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect(button.getAttribute('aria-label')).toBe('Play Album unavailable: Hub has no DSD decoder.');
+    expect(container.querySelector('[data-testid="play-album-blocked-reason"]')!.textContent)
+      .toBe('Hub has no DSD decoder.');
+
+    await fireEvent.click(button);
+    expect(onPlay).not.toHaveBeenCalled();
+  });
+});

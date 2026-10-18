@@ -8,6 +8,8 @@
   import { parseBitDepth, parseSampleRate, normalizeCodec } from './playerStateParsers';
   import { libraryAlbumTotalDuration, type Album } from '$lib/stores/library';
   import { formatTime } from '$lib/stores/player';
+  import { castActive, castState } from '$lib/stores/cast';
+  import { castBlockMessage } from '$lib/utils/castPolicy';
 
   export let album: Album;
   export let tracks: { uri: string; title: string; duration: number }[] = [];
@@ -15,6 +17,11 @@
   // cover when no handler is wired becomes a deliberate no-op rather than a
   // runtime TypeError.
   export let onPlayAlbum: (() => void) | undefined = undefined;
+
+  // While a Cast session is live, say up front when this release is one the
+  // device cannot take — 17.5% of this library is DSD. With the DAC selected
+  // there is nothing to warn about, so the marker only exists in cast mode.
+  $: castBlocked = $castActive ? castBlockMessage(album, $castState.deviceName) : null;
 
   // Album.quality is a pre-formatted string like "192kHz/24bit FLAC".
   // Parse it once per album for the format-strip props. The parsers are
@@ -61,7 +68,7 @@
 
     {#if onPlayAlbum}
       <div class="play-row">
-        <PlayAlbumButton onPlay={onPlayAlbum} size="prominent" />
+        <PlayAlbumButton onPlay={onPlayAlbum} size="prominent" blockedReason={castBlocked} />
       </div>
     {/if}
 

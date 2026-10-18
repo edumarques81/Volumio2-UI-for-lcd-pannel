@@ -12,7 +12,7 @@ const mocks = await vi.hoisted(async () => {
   const albums = [
     {
       id: '1', uri: 'USB/Karajan', title: 'Beethoven: Symphonies', artist: 'Herbert von Karajan',
-      albumArt: '/a', trackCount: 9, source: 'local', sampleRate: 352800,
+      albumArt: '/a', trackCount: 9, source: 'local', sampleRate: 96000, trackType: 'flac',
     },
   ];
   const castState = writable({
@@ -75,6 +75,7 @@ vi.mock('$lib/stores/player', () => ({
   formatTime: (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`,
 }));
 vi.mock('$lib/stores/cast', () => ({
+  castState: mocks.castState,
   castActive: mocks.castActive,
   castActions: mocks.castActions,
 }));
@@ -126,7 +127,7 @@ describe('LibraryView — Play Album output routing', () => {
       album: 'Beethoven: Symphonies',
       albumArtist: 'Herbert von Karajan',
       uri: 'USB/Karajan',
-      sampleRate: 352800,
+      sampleRate: 96000,
     });
     expect(mocks.viewActions.goToPlayer).toHaveBeenCalled();
   });
