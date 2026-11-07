@@ -28,8 +28,16 @@
 
   let cancelButton: HTMLButtonElement | undefined = $state();
 
+  // Route `open` through $derived before reading it in the $effect below.
+  // A prop read *directly* inside an $effect does not memoise: the effect
+  // re-runs whenever the parent rebuilds the object it passes props from,
+  // even when `open` itself never changed, re-firing the focus steal on an
+  // already-open dialog. $derived memoises on the value, so the effect only
+  // wakes when `open` actually flips.
+  const isOpen = $derived(open);
+
   $effect(() => {
-    if (open) {
+    if (isOpen) {
       tick().then(() => {
         cancelButton?.focus();
       });
