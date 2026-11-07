@@ -39,7 +39,6 @@
   // Track when app was last visible for connection health check
   let lastVisibleTime = Date.now();
   let mobileReconnectCleanup: (() => void) | null = null;
-  let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
   let clientsReloadStop: (() => void) | null = null;
   let kioskHeartbeatStop: (() => void) | null = null;
 
@@ -108,7 +107,9 @@
     // 1. visibilitychange - standard API, but not always reliable on mobile
     // 2. pageshow - fired when page returns from bfcache (iOS)
     // 3. focus - window focus event as fallback
-    // 4. heartbeat - periodic check to detect dead connections proactively
+    //
+    // All three are EVENT-DRIVEN. There is deliberately no periodic timer
+    // here -- see the note where startHeartbeat used to be, below.
     // ====================================================================
 
     const checkAndReconnect = (source: string) => {
@@ -162,34 +163,25 @@
       }
     };
 
-    // 4. Heartbeat - detect dead connections proactively
-    // Check every 30 seconds if connection is healthy
-    const startHeartbeat = () => {
-      if (heartbeatInterval) clearInterval(heartbeatInterval);
-
-      heartbeatInterval = setInterval(() => {
-        // Only check if page is visible
-        if (document.hidden) return;
-
-        const healthy = socketService.isConnectionHealthy(30000);
-        if (!healthy) {
-          console.log('[Heartbeat] Connection appears dead, forcing reconnect');
-          socketService.forceReconnect();
-        }
-      }, 30000);
-    };
-
-    // Register all event listeners
+    // NO periodic heartbeat. There used to be a 30s setInterval here that
+    // called isConnectionHealthy(30000) and forceReconnect()ed on a false.
+    // That check infers liveness from "data received recently", and
+    // lastDataReceivedTime is bumped only inside SocketService.on() -- so
+    // engine.io's own ping/pong never touches it. A backend behaving
+    // correctly emits nothing during steady state (BroadcastDebouncer plus
+    // state diffing suppress no-op frames, and pushState.seek is predictive),
+    // so a healthy but quiet socket read as dead and got torn down on a
+    // timer on the idle kiosk. engine.io already runs its own ping/pong
+    // liveness check and surfaces a real drop as `disconnect`, which the
+    // event-driven handlers above already cover. Do not reintroduce a timer.
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('pageshow', handlePageShow);
     window.addEventListener('focus', handleWindowFocus);
-    startHeartbeat();
 
     mobileReconnectCleanup = () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('pageshow', handlePageShow);
       window.removeEventListener('focus', handleWindowFocus);
-      if (heartbeatInterval) clearInterval(heartbeatInterval);
     };
 
     // Expose test functions for debugging (can be called from browser console)
